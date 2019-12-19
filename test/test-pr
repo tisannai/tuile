@@ -1,0 +1,88 @@
+#!/usr/bin/guile -s
+!#
+
+(use-modules (srfi srfi-64))
+
+(add-to-load-path "..")
+(use-modules (tuile pr))
+
+
+(test-begin "pr")
+
+(test-equal "trivial string" #t
+            (string=?
+             (ss "foo")
+             "foo"))
+
+(test-equal "list of strings" #t
+            (string=?
+             (ss (list "foo" "bar"))
+             "foobar"))
+
+(test-equal "list of values" #t
+            (string=?
+             (ss (list 12 " " 13 (+ 1 2)))
+             "12 133"))
+
+(test-equal "deep and mixed list of strings" #t
+            (string=?
+             (ss (list '((((("foo"))))) '("bar") " " '(("hii"))) "haa")
+             "foobar hiihaa"))
+
+(test-equal "left justify with char" #t
+            (string=?
+             (:lj 5 #\- "foo")
+             "foo--"))
+
+(test-equal "left justify with string" #t
+            (string=?
+             (:lj 5 "-" "foo")
+             "foo--"))
+
+(test-equal "right justify with char" #t
+            (string=?
+             (:rj 5 #\- "foo")
+             "--foo"))
+
+(test-equal "right justify with string" #t
+            (string=?
+             (:rj 5 "-" "foo")
+             "--foo"))
+
+(test-equal "left justify with space" #t
+            (string=?
+             (:ls 8 '(("foo") "bar"))
+             "foobar  "))
+
+(test-equal "right justify with space" #t
+            (string=?
+             (:rs 8 '(("foo") "bar"))
+             "  foobar"))
+
+(test-equal "join with char" #t
+            (string=?
+             (:jn #\- '(("foo") "bar"))
+             "foo-bar"))
+
+(test-equal "join with string" #t
+            (string=?
+             (:jn "-" '(("foo") "bar"))
+             "foo-bar"))
+
+(test-equal "join with space" #t
+            (string=?
+             (:sp '(("foo") "bar"))
+             "foo bar"))
+
+(test-equal "make string including a newline" #t
+            (string=?
+             (ss (:ms 10 #\-) (list (list (list :nl))))
+             "----------\n"))
+
+(test-equal "combination of functions" #t
+            (string=?
+             (ss "foo " (list (list (:ls 5 "bar"))) (:rs 5 "dii") (:sp "duu"))
+             "foo bar    diiduu"))
+
+
+(test-end)

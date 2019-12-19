@@ -1,0 +1,20 @@
+#!/usr/bin/guile -s
+!#
+
+(use-modules (ubu))
+
+(define usr-install-path (car (string-split (getenv "GUILE_LOAD_PATH") #\:)))
+
+(action-default
+ (sh "cp -r tuile" usr-install-path))
+
+
+(action test-pr
+        (with-log
+         'output
+         (sh "cd test; test-pr")))
+
+(action clean
+        (sh "rm -f test/pr.log"))
+
+(ubu-run-cli)
