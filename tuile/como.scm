@@ -10,11 +10,11 @@
 ;;
 ;;     (como-command "como_trial" "Tero Isannainen" "2017"
 ;;        '(
-;;            [opt-single     file     -f    "File name."]
-;;            [single         dir      -d    "Dir name."]
-;;            [multi          seg      -s    "Segment name."]
-;;            [switch         path     -p    "Full path display."]
-;;            [default        -        -     "Rest of args."]
+;;            [opt-single     file     "-f"    "File name."]
+;;            [single         dir      "-d"    "Dir name."]
+;;            [multi          seg      "-s"    "Segment name."]
+;;            [switch         path     "-p"    "Full path display."]
+;;            [default        -         -      "Rest of args."]
 ;;            ))
 ;;
 ;; Option query examples:
@@ -268,7 +268,9 @@
                              (lambda (i)
                                (let ((type  (list-ref i 0))
                                      (lopt  (symbol->string (list-ref i 1)))
-                                     (sopt  (symbol->string (list-ref i 2)))
+                                     (sopt  (if (symbol? (list-ref i 2))
+                                                (symbol->string (list-ref i 2))
+                                                (list-ref i 2)))
                                      (desc  (list-ref i 3)))
                                  (let ((optcmd (list type lopt sopt desc)))
                                    (call optcmd))))

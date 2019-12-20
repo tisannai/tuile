@@ -2,7 +2,7 @@
   #:export
   (pr
    prp
-   pdg
+   prd
    ss
    :lj
    :rj
@@ -91,7 +91,7 @@
 
 
 ;; Printer for debugging. Alias to pr.
-(define pdg pr)
+(define prd pr)
 
 
 ;; Left justify with padding.
