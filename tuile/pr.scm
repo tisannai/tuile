@@ -3,6 +3,7 @@
   (pr
    prp
    prd
+   prdl
    ss
    :lj
    :rj
@@ -94,6 +95,14 @@
 (define prd pr)
 
 
+;; Printer for debugging a list.
+(define (prdl lst)
+  (for-each
+   (lambda (item)
+     (pr item))
+   lst))
+
+
 ;; Left justify with padding.
 ;;
 ;; left-just <width> <pad-str-or-ch> <strings>
@@ -120,7 +129,7 @@
     
 ;; Left-justify with space.
 (define (:ls width . rest)
-  (:lj width #\  (car rest)))
+  (:lj width #\  rest))
 
     
 ;; right-justify with space.
