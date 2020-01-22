@@ -1,8 +1,13 @@
 (define-module (tuile utils)
   #:use-module (srfi srfi-9)
   #:use-module (oop goops)
+  #:use-module (ice-9 ftw)
   #:export
-  (aif
+  (
+   command-line-arguments
+   dir-list
+   string->procedure
+   aif
    for
    define-im-record
    this-met
@@ -17,6 +22,20 @@
 
 ;; ------------------------------------------------------------
 ;; External functions:
+
+;; Return command line arguments, excluding the executable.
+(define (command-line-arguments)
+  (cdr (command-line)))
+
+
+;; List given directory entries without the dot files.
+(define (dir-list dir)
+  (list-tail (scandir dir) 2))
+
+
+;; Convert string to procedure.
+(define (string->procedure str)
+  (eval (read (open-input-string str)) (interaction-environment)))
 
 
 ;; Anaphoric macro.
