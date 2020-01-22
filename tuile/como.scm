@@ -36,6 +36,7 @@
             opt-values
             opt-value
             help
+            switch
             single
             opt-single
             multi
