@@ -5,9 +5,9 @@
 
 (define usr-install-path (car (string-split (getenv "GUILE_LOAD_PATH") #\:)))
 
-(action-default
+(ubu-default "install")
+(action install
  (sh "cp -r tuile" usr-install-path))
-
 
 (action test-pr
         (with-log

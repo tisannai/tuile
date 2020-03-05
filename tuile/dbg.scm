@@ -9,8 +9,10 @@
   #:use-module (system repl debug)
   #:use-module (system vm vm)
   #:use-module (system vm trap-state)
+  #:use-module (system repl repl)
   #:export
   (dbg-proc
+   dbg-break
    ))
 
 
@@ -45,11 +47,26 @@
        ((@ (system repl repl) start-repl) #:debug debug)))))
 
 
-;; Set a breakpoint at proc. Normal Guile REPL debugging commands can
-;; be used when prompt appears.
+;; Set a breakpoint at proc.
+;;
+;; Normal Guile REPL debugging commands can be used when prompt
+;; appears.
 ;;
 ;; NOTE: You must do ",next" before you are in the proc and can see locals.
+;;
 (define (dbg-proc proc)
   (set-vm-trace-level! 1)
   (install-trap-handler! debug-trap-handler)
   (add-trap-at-procedure-call! proc))
+
+
+;; Set a breakpoint at callpoint.
+;;
+;; Normal Guile REPL debugging commands can be used when prompt
+;; appears.
+;;
+;; NOTE: You must do ",next" before you are in the proc and can see locals.
+;;
+(define (dbg-break)
+  (let ((stack (narrow-stack->vector (make-stack #t))))
+    (start-repl #:debug (make-debug stack 0 "Entered debugger" #f))))

@@ -1,7 +1,11 @@
 (define-module (tuile utils)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-43)
   #:use-module (oop goops)
   #:use-module (ice-9 ftw)
+  #:use-module (ice-9 rdelim)
+  #:use-module (ice-9 regex)
   #:export
   (
    command-line-arguments
@@ -13,6 +17,13 @@
    this-met
    this-ref
    this-set!
+   re-match?
+   re-match
+   re-matches
+   vector-range
+   vector-reverse
+   read-lines
+   file->lines
    ))
 
 
@@ -148,6 +159,92 @@
            (->syn datum->syntax))
       (with-syntax ((this (->syn x 'this)))
         #`(slot-set! this (quote #,(->syn x (cadr stx))) #,@(->syn x (cddr stx)))))))
+
+
+;; Split string with regexp.
+;;
+;; Examples:
+;;     guile> (re-split "[-x]+" "foo--x--bar---what--")
+;;     ("foo" "bar" "what" "")
+;;     guile> (re-split "[-x]+" "foo--x--bar---what--"  'trim)
+;;     ("foo" "bar" "what")
+;;     guile> (re-split "[-x]+" "foo--x--bar---what"  'keep)
+;;     ("foo" "--x--" "bar" "---" "what")
+;;
+(define (re-split re str . options)
+  (let ((keep #f) (trim #f))
+    (when (member 'keep options)
+      (set! options (delete 'keep options))
+      (set! keep #t))
+    (when (member 'trim options)
+      (set! options (delete 'trim options))
+      (set! trim #t))
+    (let* ((matches (apply list-matches re str options))
+           (indices
+            (append '(0)
+                    (fold-right
+                     (lambda (m acc)
+                       (cons (match:start m)
+                             (cons (match:end m) acc))) '()
+                             matches)
+                    (list (string-length str))))
+           (substrings
+            (pair-fold-right
+             (lambda (lst accum)
+               (if (or (even? (length lst))
+                       (and keep (> (length lst) 1)))
+                   (cons (apply substring str (take lst 2)) accum)
+                   accum))
+             '()
+             indices)))
+      (if trim
+          (reverse! (drop-while
+                     string-null?
+                     (reverse! (drop-while string-null? substrings))))
+          substrings))))
+
+
+;; Return true if regexp matches str.
+(define (re-match? re str)
+  (regexp-match? (regexp-exec (make-regexp re) str)))
+
+;; Return regexp match str or false.
+(define (re-match re str)
+  (match:substring (string-match re str)))
+
+;; Return regexp match string list or empty list.
+(define (re-matches re str)
+  (map match:substring (list-matches re str)))
+
+
+;; Get vector elements by range: [a,b).
+;;
+;; a is inclusive and b is exclusive.
+;;
+(define (vector-range vec a b)
+  (let ((new-vec (make-vector (- b a))))
+    (vector-move-left! vec a b new-vec 0)
+    new-vec))
+
+;; Immutable vector reverse.
+(define (vector-reverse vec)
+  (vector-reverse-copy vec))
+
+
+;; Read all lines for port to list.
+(define (read-lines port)
+  (list->vector
+   (let loop ((line (read-line port)))
+     (if (eof-object? line)
+         '()
+         (cons line (loop (read-line port)))))))
+
+;; Get all lines from file.
+(define (file->lines filename)
+  (with-input-from-file filename
+    (lambda ()
+      (read-lines (current-input-port)))))
+
 
 ;; Usage:
 ;;
