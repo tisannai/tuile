@@ -240,10 +240,13 @@
          (cons line (loop (read-line port)))))))
 
 ;; Get all lines from file.
-(define (file->lines filename)
-  (with-input-from-file filename
-    (lambda ()
-      (read-lines (current-input-port)))))
+(define* (file->lines filename #:key (binary #f))
+  (let* ((p (open-input-file filename #:binary binary))
+         (ret (with-input-from-port p
+                (lambda ()
+                  (read-lines p)))))
+    (close-port p)
+    ret))
 
 
 ;; Usage:
