@@ -20,8 +20,12 @@
    re-match?
    re-match
    re-matches
+   re-sub
+   re-gsub
    vector-range
    vector-reverse
+   hash-has-key?
+   hash-keys
    read-lines
    file->lines
    ))
@@ -216,6 +220,18 @@
 (define (re-matches re str)
   (map match:substring (list-matches re str)))
 
+;; Substitute regexp in string with replacement once.
+(define (re-sub re str rep)
+  (aif (string-match re str)
+       (regexp-substitute #f it 'pre rep 'post)
+       str))
+
+;; Substitute regexp in string with replacement globally.
+(define (re-gsub re str rep)
+  (aif (string-match re str)
+       (regexp-substitute/global #f re str 'pre rep 'post)
+       str))
+
 
 ;; Get vector elements by range: [a,b).
 ;;
@@ -229,6 +245,15 @@
 ;; Immutable vector reverse.
 (define (vector-reverse vec)
   (vector-reverse-copy vec))
+
+
+;; Hash table has key?
+(define (hash-has-key? hsh key)
+  (hash-get-handle hsh key))
+
+;; Return list of hash table keys.
+(define (hash-keys hsh)
+  (hash-map->list (lambda (k v) k) hsh))
 
 
 ;; Read all lines for port to list.
