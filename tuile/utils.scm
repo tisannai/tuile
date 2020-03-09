@@ -22,6 +22,7 @@
    re-matches
    re-sub
    re-gsub
+   extname
    vector-range
    vector-reverse
    hash-has-key?
@@ -231,6 +232,10 @@
   (aif (string-match re str)
        (regexp-substitute/global #f re str 'pre rep 'post)
        str))
+
+;; Return filename suffix (without the dot).
+(define (extname filename)
+  (car (last-pair (string-split filename #\.))))
 
 
 ;; Get vector elements by range: [a,b).
