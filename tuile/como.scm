@@ -265,17 +265,16 @@
              (list
               (list 'opts
                     (append (list (help "--help" "-h" "Help for usage."))
-                            (map
-                             (lambda (i)
-                               (let ((type  (list-ref i 0))
-                                     (lopt  (symbol->string (list-ref i 1)))
-                                     (sopt  (if (symbol? (list-ref i 2))
-                                                (symbol->string (list-ref i 2))
-                                                (list-ref i 2)))
-                                     (desc  (list-ref i 3)))
-                                 (let ((optcmd (list type lopt sopt desc)))
-                                   (call optcmd))))
-                             spec)))))
+                            (map (lambda (i)
+                                   (let ((type  (list-ref i 0))
+                                         (lopt  (symbol->string (list-ref i 1)))
+                                         (sopt  (if (symbol? (list-ref i 2))
+                                                    (symbol->string (list-ref i 2))
+                                                    (list-ref i 2)))
+                                         (desc  (list-ref i 3)))
+                                     (let ((optcmd (list type lopt sopt desc)))
+                                       (call optcmd))))
+                                 spec)))))
     como))
 
 

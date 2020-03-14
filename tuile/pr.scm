@@ -41,12 +41,11 @@
 ;;
 ;; to-string . args
 (define (to-string . args)
-  (map
-   (lambda (obj)
-     (if (string? obj)
-         obj
-         (object->string obj)))
-   args))
+  (map (lambda (obj)
+         (if (string? obj)
+             obj
+             (object->string obj)))
+       args))
 
 
 ;; Macro to flatten args and convert all arguments to strings.
@@ -97,10 +96,9 @@
 
 ;; Printer for debugging a list.
 (define (prdl lst)
-  (for-each
-   (lambda (item)
-     (pr item))
-   lst))
+  (for-each (lambda (item)
+              (pr item))
+            lst))
 
 
 ;; Left justify with padding.
