@@ -14,6 +14,7 @@
    aif
    for
    define-im-record
+   define-mu-record
    this-met
    this-ref
    this-set!
@@ -25,6 +26,8 @@
    extname
    vector-range
    vector-reverse
+   vector-insert
+   vector-delete
    hash-has-key?
    hash-keys
    read-lines
@@ -87,6 +90,8 @@
           l1 l2)))))
 
 
+;; Create immutable record.
+;;
 ;; Expand this:
 ;;   (define-im-record foo bar hii)
 ;;
@@ -112,8 +117,39 @@
                  (datum->syntax x (string->symbol (string-append (symbol->string (cadr stx)) "-" (symbol->string i))))))
               (cddr stx))))))
 
-;; TODO: define-mu-record, with all fields mutable (i.e. provide a set!).
-
+;; Create mutable record.
+;;
+;; Expand this:
+;;   (define-mu-record foo bar hii)
+;;
+;; To this:
+;;   (define-record-type foo
+;;     (make-foo bar)
+;;     foo?
+;;     (bar   foo-bar set-foo-bar!)
+;;     (hii   foo-hii set-foo-hii!)
+;;     )
+;;
+(define-syntax define-mu-record
+  (lambda (x)
+    (let ((stx (syntax->datum x)))
+      #`(define-record-type #,(datum->syntax x (cadr stx))
+          (#,(datum->syntax x (string->symbol (string-append "make-" (symbol->string (cadr stx)))))
+           #,@(map (lambda (i) (datum->syntax x i)) (cddr stx)))
+          #,(datum->syntax x (string->symbol (string-append (symbol->string (cadr stx)) "?")))
+          #,@(map
+              (lambda (i)
+                (list
+                 (datum->syntax x i)
+                 (datum->syntax x (string->symbol (string-append (symbol->string (cadr stx))
+                                                                 "-"
+                                                                 (symbol->string i))))
+                 (datum->syntax x (string->symbol (string-append "set-"
+                                                                 (symbol->string (cadr stx))
+                                                                 "-"
+                                                                 (symbol->string i)
+                                                                 "!")))))
+              (cddr stx))))))
 
 ;; Define method in a compact form.
 ;;
@@ -251,6 +287,22 @@
 (define (vector-reverse vec)
   (vector-reverse-copy vec))
 
+(define (args-to-vector args)
+  (cond
+   ((vector? args) args)
+   ((list? args) (list->vector args))
+   (else (vector args))))
+
+;; Insert items to vector position and return a new vector.
+(define (vector-insert vec pos items)
+  (vector-append (vector-range vec 0 pos)
+                 (args-to-vector items)
+                 (vector-range vec pos (vector-length vec))))
+
+;; Delete count number of items from vector at pos.
+(define (vector-delete vec pos count)
+  (vector-append (vector-range vec 0 pos)
+                 (vector-range vec (+ pos count) (vector-length vec))))
 
 ;; Hash table has key?
 (define (hash-has-key? hsh key)
@@ -271,12 +323,10 @@
 
 ;; Get all lines from file.
 (define* (file->lines filename #:key (binary #f))
-  (let* ((p (open-input-file filename #:binary binary))
-         (ret (with-input-from-port p
-                (lambda ()
-                  (read-lines p)))))
-    (close-port p)
-    ret))
+  (call-with-input-file filename
+    (lambda (port)
+      (read-lines port))
+    #:binary binary))
 
 
 ;; Usage:
