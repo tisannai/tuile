@@ -251,7 +251,9 @@
 
 ;; Return regexp match str or false.
 (define (re-match re str)
-  (match:substring (string-match re str)))
+  (aif (string-match re str)
+       (match:substring it)
+       #f))
 
 ;; Return regexp match string list or empty list.
 (define (re-matches re str)
