@@ -50,6 +50,7 @@
             como-given?
             como-values
             como-value
+            como-apply
             como-if-given
             ))
 
@@ -192,15 +193,15 @@
 ;; Check if option is mandatory.
 (define (required-opt? opt)
   (case (opt-type opt)
-    ((help) #f)
-    ((switch) #f)
-    ((single) #t)
+    ((help)       #f)
+    ((switch)     #f)
+    ((single)     #t)
     ((opt-single) #f)
-    ((multi) #t)
-    ((opt-multi) #f)
-    ((any) #t)
-    ((opt-any) #f)
-    ((default) #f)
+    ((multi)      #t)
+    ((opt-multi)  #f)
+    ((any)        #t)
+    ((opt-any)    #f)
+    ((default)    #f)
     ))
 
 
@@ -209,6 +210,21 @@
   (case (opt-type opt)
     ((help) #f)
     (else #t)))
+
+
+;; Check if option has multiple values.
+(define (multi-value-opt? opt)
+  (case (opt-type opt)
+    ((help)       #f)
+    ((switch)     #f)
+    ((single)     #f)
+    ((opt-single) #f)
+    ((multi)      #t)
+    ((opt-multi)  #t)
+    ((any)        #t)
+    ((opt-any)    #t)
+    ((default)    #t)
+    ))
 
 
 ;;
@@ -469,24 +485,34 @@
   (usage como))
 
 ;; Get option by name (tag).
-(define (como-opt opt)
-  (get-opt como opt))
+(define (como-opt opt-name)
+  (get-opt como opt-name))
 
 ;; Check if option was given.
-(define (como-given? opt)
-  (opt-given? (get-opt como opt)))
+(define (como-given? opt-name)
+  (opt-given? (get-opt como opt-name)))
 
 ;; Return all option values.
-(define (como-values opt)
-  (opt-values (get-opt como opt)))
+(define (como-values opt-name)
+  (opt-values (get-opt como opt-name)))
 
 ;; Return single (first) option value.
-(define (como-value opt)
-  (opt-value (get-opt como opt)))
+(define (como-value opt-name)
+  (opt-value (get-opt como opt-name)))
+
+;; Return option value if given, otherwise return the given default
+;; value.
+(define (como-apply opt-name def-val)
+  (let ((opt (get-opt como opt-name)))
+    (if (opt-given? opt)
+        (if (multi-value-opt? opt)
+            (opt-values opt)
+            (opt-value opt))
+        def-val)))
 
 ;;
 ;; Execute "prog" if opt was given. "prog" takes the option as
-;; arguement.
+;; argument.
 ;;
 ;; Example:
 ;;    (como-if-given "file"
