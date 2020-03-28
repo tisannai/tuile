@@ -1,6 +1,8 @@
 #!/usr/bin/guile -s
 !#
 
+;;--no-auto-compile -s
+
 (use-modules (ubu))
 
 (define usr-install-path (car (string-split (getenv "GUILE_LOAD_PATH") #\:)))
@@ -10,9 +12,16 @@
  (sh "cp -r tuile" usr-install-path))
 
 (action test-pr
-        (with-log
-         'output
+        (with-output
          (sh "cd test; test-pr")))
+
+(action test-como
+        (with-output
+         (sh "cd test; test-como")))
+
+(action test-all
+        (test-pr)
+        (test-como))
 
 (action clean
         (sh "rm -f test/pr.log"))
