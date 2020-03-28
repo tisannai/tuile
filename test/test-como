@@ -1,0 +1,48 @@
+#!/usr/bin/guile \
+-s
+!#
+
+(add-to-load-path "..")
+
+(use-modules (srfi srfi-64))
+(use-modules (tuile como))
+(use-modules (tuile pr))
+
+
+(como-command-line (lambda ()
+                     (list "test-como" "-f" "test-file")))
+
+
+(como-command "test-como" "Tero Isannainen" "2020"
+              '(
+                [opt-single     file     "-f"    "File name."]
+                [switch         path     "-p"    "Full path display."]
+                [default        -         -      "Rest of args."]
+                ))
+
+(test-begin "como")
+
+(test-equal "given-switch" #f
+            (como-given? "path"))
+
+(test-equal "given-single" #t
+            (como-given? "file"))
+
+(test-equal "value" #t
+            (string=? "test-file" (como-value "file")))
+
+(test-equal "usage" #t
+            (string=? "
+  test-como [-f <file>] -p *default*
+
+  -f           File name.
+  -p           Full path display.
+  *default*    Rest of args.
+
+
+  Copyright (c) 2020 by Tero Isannainen
+
+"
+                      (with-output-to-string (lambda () (como-usage)))))
+
+(test-end)
