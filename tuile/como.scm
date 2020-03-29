@@ -1,18 +1,18 @@
 ;; -*-scheme-*-
 
 ;; como.scm: Command Line Options library for Scheme (Guile).
-
-;; Parse spec and handle cli arguments (from argv).
+;;
+;; See: tuile/README.md for option details.
 ;;
 ;; Spec example:
 ;;
 ;;     (use-modules (tuile como))
 ;;
-;;     (como-command "como_trial" "Tero Isannainen" "2017"
+;;     (como-command "como_trial" "Tero Isannainen" "2020"
 ;;        '(
 ;;            [opt-single     file     "-f"    "File name."]
 ;;            [single         dir      "-d"    "Dir name."]
-;;            [multi          seg      "-s"    "Segment name."]
+;;            [repeat         seg      "-s"    "Segment name(s)."]
 ;;            [switch         path     "-p"    "Full path display."]
 ;;            [default        -         -      "Rest of args."]
 ;;            ))
@@ -133,6 +133,8 @@
     ((switch)     #f)
     ((single)     #t)
     ((opt-single) #f)
+    ((repeat)     #t)
+    ((opt-repeat) #f)
     ((multi)      #t)
     ((opt-multi)  #f)
     ((any)        #t)
@@ -155,6 +157,8 @@
     ((switch)     #f)
     ((single)     #f)
     ((opt-single) #f)
+    ((repeat)     #t)
+    ((opt-repeat) #t)
     ((multi)      #t)
     ((opt-multi)  #t)
     ((any)        #t)
@@ -211,6 +215,8 @@
         (cons 'switch        (list opt-cli-switch        opt-info-switch))
         (cons 'single        (list opt-cli-single        opt-info-single))
         (cons 'opt-single    (list opt-cli-opt-single    opt-info-opt-single))
+        (cons 'repeat        (list opt-cli-repeat        opt-info-repeat))
+        (cons 'opt-repeat    (list opt-cli-opt-repeat    opt-info-opt-repeat))
         (cons 'multi         (list opt-cli-multi         opt-info-multi))
         (cons 'opt-multi     (list opt-cli-opt-multi     opt-info-opt-multi))
         (cons 'any           (list opt-cli-any           opt-info-any))
@@ -334,6 +340,8 @@
                  ((switch)     (parse-next (parse-switch! opt rest)))
                  ((single)     (parse-next (parse-single! opt rest)))
                  ((opt-single) (parse-next (parse-single! opt rest)))
+                 ((repeat)     (parse-next (parse-single! opt rest)))
+                 ((opt-repeat) (parse-next (parse-single! opt rest)))
                  ((multi)      (parse-next (parse-multi!  opt rest)))
                  ((opt-multi)  (parse-next (parse-multi!  opt rest)))
                  ((any)        (parse-next (parse-any!    opt rest)))
@@ -374,6 +382,18 @@
 (define (opt-cli-opt-single opt)
   (string-append "[" (opt-sopt opt) " <" (opt-name opt) ">" "]"))
 (define (opt-info-opt-single opt)
+  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
+
+
+(define (opt-cli-repeat opt)
+  (string-append (opt-sopt opt) " <" (opt-name opt) ">#"))
+(define (opt-info-repeat opt)
+  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
+
+
+(define (opt-cli-opt-repeat opt)
+  (string-append "[" (opt-sopt opt) " <" (opt-name opt) ">#" "]"))
+(define (opt-info-opt-repeat opt)
   (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
 
 
