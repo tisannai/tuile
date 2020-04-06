@@ -18,6 +18,7 @@
    this-met
    this-ref
    this-set!
+   re-split
    re-match?
    re-match
    re-matches
