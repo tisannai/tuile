@@ -33,6 +33,7 @@
    hash-keys
    read-lines
    file->lines
+   lines->file
    ))
 
 
@@ -329,12 +330,24 @@
          '()
          (cons line (loop (read-clean-line port)))))))
 
+
 ;; Get all lines from file.
 (define* (file->lines filename #:key (binary #f))
   (call-with-input-file filename
     (lambda (port)
       (read-lines port))
     #:binary binary))
+
+
+;; Write lines to file.
+(define* (lines->file filename lines #:key (binary #f))
+  (call-with-output-file filename
+    (lambda (port)
+      (for-each (lambda (line)
+                  (display line port)
+                  (newline port))
+                lines)
+      #:binary)))
 
 
 ;; Usage:
