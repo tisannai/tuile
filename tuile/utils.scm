@@ -318,11 +318,16 @@
 
 ;; Read all lines for port to list.
 (define (read-lines port)
+  (define (read-clean-line port)
+    (let ((line (read-line port)))
+      (if (eof-object? line)
+          line
+          (string-trim-right line #\return))))
   (list->vector
-   (let loop ((line (read-line port)))
+   (let loop ((line (read-clean-line port)))
      (if (eof-object? line)
          '()
-         (cons line (loop (read-line port)))))))
+         (cons line (loop (read-clean-line port)))))))
 
 ;; Get all lines from file.
 (define* (file->lines filename #:key (binary #f))
