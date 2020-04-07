@@ -33,8 +33,10 @@
   #:use-module ((ice-9 format)  #:select (format))
   #:use-module ((ice-9 control) #:select (call/ec))
   #:use-module ((srfi srfi-9)   #:select (define-record-type))
-  #:use-module ((srfi srfi-1)   #:select (find))
+  #:use-module ((srfi srfi-1)   #:select (find first second third last))
+  #:use-module ((tuile utils)   #:select (re-match? re-split))
   #:export (
+            ;; Como classic:
             como-command
             como-usage
             como-given?
@@ -42,6 +44,10 @@
             como-value
             como-apply
             como-command-line
+
+            ;; Como actions:
+            como-actions
+            como-var
             ))
 
 
@@ -520,3 +526,122 @@
             (opt-value opt)
             (car (opt-value opt)))
         def-val)))
+
+
+;; ------------------------------------------------------------
+;; Como actions API:
+
+(define como-vars (make-hash-table))
+
+(define (como-var name)
+  (hash-ref como-vars name))
+
+
+;;
+;; "como-actions" is a direct action command line interface.
+;;
+;; Example:
+;;
+;;     shell> como-actions create file=foobar.txt
+;;       OR
+;;     shell> como-actions create file foobar.txt
+;;
+;; with definitions:
+;;
+;;     ...
+;;     (define (create)
+;;       (pr (ss "touch " (como-var "file"))))
+;;     ...
+;;     (como-actions "como-actions" "Tero Isannainen" "2020"
+;;                   '(
+;;                     [action    create    "Create file."]
+;;                     [action    delete    "Delete file."]
+;;                     [option    file      "File name."       "foobar.txt"]
+;;                     [option    dir       "Directory."       "."]
+;;                     ))
+;;
+(define (como-actions program author year action-list)
+
+  ;; Initialize variables to specified value or #f.
+  (define (como-vars-init defs)
+    (for-each (lambda (def)
+                (when (equal? 'option (car def))
+                  (hash-set! como-vars
+                             (symbol->string (second def))
+                             (if (> (length def) 3)
+                                 (last def) ; Has default, use it.
+                                 #f))))
+              defs))
+
+  ;; Set como-var a value.
+  (define (como-var-set! name val)
+    (hash-set! como-vars name val))
+
+  ;; Check if cli item is of action type.
+  (define (is-action? entry)
+    (find (lambda (i)
+            (and (eq? 'action
+                      (car i))
+                 (eq? entry
+                      (cadr i))))
+          action-list))
+
+  ;; Display all usage info.
+  (define (usage)
+    (display (string-append "\n  " program " <actions-and-options>\n\n"
+                            (string-join (map (lambda (def)
+                                                (format #f "  ~12,a ~a" (second def) (third def)))
+                                              (filter (lambda (i) (eq? 'action (car i))) action-list))
+                                         "\n")
+                            "\n\n"
+                            (string-join
+                             (map (lambda (def)
+                                    (format #f "  ~12,a ~a\n~a= \"~a\""
+                                            (second def)
+                                            (third def)
+                                            (make-string 17 #\ )
+                                            (como-var (symbol->string (second def)))))
+                                  (filter (lambda (i) (eq? 'option (car i))) action-list))
+                             "\n")
+                            (format #f
+                                    "\n\n  Copyright (c) ~a by ~a\n\n"
+                                    year
+                                    author))))
+
+  (set! como-usage usage)
+
+  (como-vars-init action-list)
+
+  (let ((actions '()))
+    (let parse-next ((rest (cdr (cli-content))))
+      (when (pair? rest)
+        (cond
+
+         ;; Help
+         ((string=? "help" (car rest))
+          (usage))
+
+         ;; Action
+         ((is-action? (string->symbol (car rest)))
+          (set! actions (append actions (list (car rest))))
+          (parse-next (cdr rest)))
+
+         ;; Option
+         (else
+
+          (if (re-match? "=" (car rest))
+
+              (let ((parts (re-split "=" (car rest))))
+                (como-var-set! (first parts) (second parts))
+                (parse-next (cdr rest)))
+
+              (if (pair? (cdr rest))
+                  (let ((var (first rest))
+                        (val (second rest)))
+                    (como-var-set! var val)
+                    (parse-next (cddr rest)))
+                  (parse-error (string-append "Variable \"" (car rest) "\" is missing value"))))))))
+
+    (for-each (lambda (action)
+                (eval (list (string->symbol action)) (interaction-environment)))
+              actions)))
