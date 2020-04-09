@@ -32,8 +32,9 @@
 (define-module (tuile como)
   #:use-module ((ice-9 format)  #:select (format))
   #:use-module ((ice-9 control) #:select (call/ec))
-  #:use-module ((srfi srfi-9)   #:select (define-record-type))
   #:use-module ((srfi srfi-1)   #:select (find first second third last))
+  #:use-module ((srfi srfi-9)   #:select (define-record-type))
+  #:use-module ((srfi srfi-11)  #:select (let-values))
   #:use-module ((tuile utils)   #:select (re-match? re-split))
   #:export (
             ;; Como classic:
@@ -558,6 +559,7 @@
 ;;                     [action    delete    "Delete file."]
 ;;                     [option    file      "File name."       "foobar.txt"]
 ;;                     [option    dir       "Directory."       "."]
+;;                     [default   dir       "Directory."       "."]
 ;;                     ))
 ;;
 (define (como-actions program author year action-list)
@@ -571,48 +573,71 @@
                              (if (> (length def) 3)
                                  (last def) ; Has default, use it.
                                  #f))))
-              defs))
+              defs)
+    (when default
+      (hash-set! como-vars "default" '())))
 
   ;; Set como-var a value.
   (define (como-var-set! name val)
     (hash-set! como-vars name val))
 
-  ;; Check if cli item is of action type.
-  (define (is-action? entry)
+  ;; Check if cli item is of queried type.
+  (define (type-is? type entry)
     (find (lambda (i)
-            (and (eq? 'action
-                      (car i))
-                 (eq? entry
-                      (cadr i))))
+            (and (eq? type (car i))
+                 (eq? entry (cadr i))))
           action-list))
 
   ;; Display all usage info.
   (define (usage)
-    (display (string-append "\n  " program " <actions-and-options>\n\n"
-                            (string-join (map (lambda (def)
-                                                (format #f "  ~12,a ~a" (second def) (third def)))
-                                              (filter (lambda (i) (eq? 'action (car i))) action-list))
-                                         "\n")
-                            "\n\n"
-                            (string-join
-                             (map (lambda (def)
-                                    (format #f "  ~12,a ~a\n~a= \"~a\""
-                                            (second def)
-                                            (third def)
-                                            (make-string 17 #\ )
-                                            (como-var (symbol->string (second def)))))
-                                  (filter (lambda (i) (eq? 'option (car i))) action-list))
-                             "\n")
-                            (format #f
-                                    "\n\n  Copyright (c) ~a by ~a\n\n"
-                                    year
-                                    author))))
+    (let ((action-lines (map (lambda (def)
+                               (format #f "  ~12,a ~a" (second def) (third def)))
+                             actions))
+          (option-lines (append (map (lambda (def)
+                                       (format #f "  ~12,a ~a\n~a= \"~a\""
+                                               (second def)
+                                               (third def)
+                                               (make-string 17 #\ )
+                                               (como-var (symbol->string (second def)))))
+                                     options)
+                                (if default
+                                    (list (format #f "  ~12,a ~a" "*default*" (third default)))
+                                    '()))))
+      (display (string-append "\n  " program " <actions-and-options>\n\n"
+                              (if (pair? action-lines)
+                                  (string-append (string-join action-lines "\n") "\n\n")
+                                  "")
+                              (if (pair? option-lines)
+                                  (string-append (string-join option-lines "\n") "\n\n")
+                                  "")
+                              (format #f
+                                      "\n  Copyright (c) ~a by ~a\n\n"
+                                      year
+                                      author)))))
+
+  (define actions '())
+  (define options '())
+  (define default #f)
+
+  ;; Parse cli types.
+  (for-each (lambda (i)
+              (case (car i)
+                ((action)  (set! actions (append actions (list i))))
+                ((option)  (set! options (append options (list i))))
+                ((default) (set! default i))
+                (else
+                 (parse-error (string-append "Unknown argument type: \"" (symbol->string (car i)) "\"")))))
+            action-list)
 
   (set! como-usage usage)
 
+  ;; Check that at least one action exists.
+  (when (= (length actions) 0)
+    (parse-error "No actions defined"))
+
   (como-vars-init action-list)
 
-  (let ((actions '()))
+  (let ((used-actions '()))
     (let parse-next ((rest (cdr (cli-content))))
       (when (pair? rest)
         (cond
@@ -622,12 +647,13 @@
           (usage))
 
          ;; Action
-         ((is-action? (string->symbol (car rest)))
-          (set! actions (append actions (list (car rest))))
+         ((type-is? 'action (string->symbol (car rest)))
+          (set! used-actions (append used-actions (list (car rest))))
           (parse-next (cdr rest)))
 
          ;; Option
-         (else
+         ((or (type-is? 'option (string->symbol (car rest)))
+              (re-match? "=" (car rest)))
 
           (if (re-match? "=" (car rest))
 
@@ -640,8 +666,19 @@
                         (val (second rest)))
                     (como-var-set! var val)
                     (parse-next (cddr rest)))
-                  (parse-error (string-append "Variable \"" (car rest) "\" is missing value"))))))))
+                  (parse-error (string-append "Variable \"" (car rest) "\" is missing value")))))
+
+         ;; Default
+         (else
+          (if default
+              (begin
+                (como-var-set! "default" (append (como-var "default") (list (car rest))))
+                (parse-next (cdr rest)))
+              (parse-error "No default argument defined"))))))
+
+    (when (= (length used-actions) 0)
+      (parse-error "No actions given"))
 
     (for-each (lambda (action)
                 (eval (list (string->symbol action)) (interaction-environment)))
-              actions)))
+              used-actions)))

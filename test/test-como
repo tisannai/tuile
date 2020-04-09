@@ -45,4 +45,27 @@
 "
                       (with-output-to-string (lambda () (como-usage)))))
 
+
+(como-command-line (lambda ()
+                     (list "test-actions" "create" "file" "test-file")))
+
+(define create-val #f)
+
+(define (create)
+  (set! create-val (ss "touch " (como-var "file"))))
+
+(define (delete)
+  (ss "rm -f " (como-var "file")))
+
+
+(como-actions "como-actions" "Tero Isannainen" "2020"
+              '(
+                [action    create    "Create file."]
+                [action    delete    "Delete file."]
+                [option    file      "File name."       "foobar.txt"]
+                [option    dir       "Directory."       "."]
+                ))
+
+(test-equal "touch test-file" create-val)
+
 (test-end)
