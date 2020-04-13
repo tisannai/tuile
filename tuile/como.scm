@@ -567,12 +567,10 @@
   ;; Initialize variables to specified value or #f.
   (define (como-vars-init defs)
     (for-each (lambda (def)
-                (when (equal? 'option (car def))
-                  (hash-set! como-vars
-                             (symbol->string (second def))
-                             (if (> (length def) 3)
-                                 (last def) ; Has default, use it.
-                                 #f))))
+                (hash-set! como-vars (symbol->string (second def))
+                           (if (> (length def) 3)
+                               (last def) ; Has default, use it.
+                               #f)))
               defs)
     (when default
       (hash-set! como-vars "default" '())))
@@ -615,6 +613,9 @@
                                       year
                                       author)))))
 
+  ;; Set external "como-usage" since "parse-error" depends on it.
+  (set! como-usage usage)
+
   (define actions '())
   (define options '())
   (define default #f)
@@ -626,17 +627,16 @@
                 ((option)  (set! options (append options (list i))))
                 ((default) (set! default i))
                 (else
-                 (parse-error (string-append "Unknown argument type: \"" (symbol->string (car i)) "\"")))))
+                 (parse-error (string-append "Unknown argument type in \"como-actions\": \"" (symbol->string (car i)) "\"")))))
             action-list)
-
-  (set! como-usage usage)
 
   ;; Check that at least one action exists.
   (when (= (length actions) 0)
     (parse-error "No actions defined"))
 
-  (como-vars-init action-list)
+  (como-vars-init options)
 
+  ;; Collect user actions.
   (let ((used-actions '()))
     (let parse-next ((rest (cdr (cli-content))))
       (when (pair? rest)
@@ -644,7 +644,8 @@
 
          ;; Help
          ((string=? "help" (car rest))
-          (usage))
+          (usage)
+          (exit 1))
 
          ;; Action
          ((type-is? 'action (string->symbol (car rest)))
