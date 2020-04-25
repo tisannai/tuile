@@ -3,7 +3,6 @@
 *tuile* is a collection of utilities for Guile.
 
 
-
 # pr
 
 `pr` provides simple printing with support for padding fields. The
@@ -64,3 +63,10 @@ based on Log Groups.
 `utils` includes miscellaneous support functions which are missing
 from Guile. Provides, for example, a significantly easier regexp usage
 than standard Guile.
+
+
+# fn
+
+`fn` provides file name and path queries. `fn` extracts information
+from file name string and the results can be used to create new file
+paths.
