@@ -1,0 +1,226 @@
+#!/usr/bin/guile -s
+!#
+
+(use-modules (srfi srfi-64))
+(use-modules (tuile pr))
+
+(add-to-load-path "..")
+(use-modules (tuile fn))
+(use-modules (srfi srfi-9))
+
+
+(define-record-type tc
+  (make-tc func prefixes bodies reference)
+  tc?
+  (func      tc-func)
+  (prefixes  tc-prefixes)
+  (bodies    tc-bodies)
+  (reference tc-reference)
+  )
+
+
+(define tc-list
+  (list
+
+   (make-tc fs-filename
+            (list "/" "./" "../" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            "dii.txt")
+
+   (make-tc fs-basename
+            (list "/" "./" "../" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            "dii")
+
+   (make-tc fs-extname
+            (list "/" "./" "../" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt"
+                  "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            "txt")
+
+   (make-tc fs-fullext
+            (list "/" "./" "../" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            "txt")
+
+   (make-tc fs-fullext
+            (list "/" "./" "../" "")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            "extra.txt")
+
+   (make-tc fs-absdir
+            (list "/")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "/" "/foo" "/foo/bar"))
+
+   (make-tc fs-absdir
+            (list "./" "../" "")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            #f)
+
+   (make-tc fs-reldir
+            (list "./" "")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "" "foo" "foo/bar"))
+
+   (make-tc fs-reldir
+            (list "../")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list ".." "../foo" "../foo/bar"))
+
+   (make-tc fs-reldir
+            (list "/")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            #f)
+
+   (make-tc fs-reldir-dotted
+            (list "./" "")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "." "./foo" "./foo/bar"))
+
+   (make-tc fs-reldir-dotted
+            (list "../")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list ".." "../foo" "../foo/bar"))
+
+   (make-tc fs-reldir-dotted
+            (list "/")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            #f)
+
+   (make-tc fs-dir
+            (list "./" "")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (map (lambda (i) (string-append (getcwd) "/" i))
+                 (list "" "foo" "foo/bar")))
+
+   (make-tc fs-dir
+            (list "../")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list (string-append (getcwd) "/..")
+                  (string-append (getcwd) "/../" "foo")
+                  (string-append (getcwd) "/../" "foo/bar")))
+
+   (make-tc fs-dir
+            (list "/")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "/" "/foo" "/foo/bar"))
+
+   (make-tc fs-abspath
+            (list "/")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            (list "/dii.txt" "/foo/dii.txt" "/foo/bar/dii.txt"))
+
+   (make-tc fs-abspath
+            (list "./" "../" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            #f)
+
+   (make-tc fs-relpath
+            (list "./" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt"))
+
+   (make-tc fs-relpath
+            (list "../")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            (list "../dii.txt" "../foo/dii.txt" "../foo/bar/dii.txt"))
+
+   (make-tc fs-relpath
+            (list "/")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            #f)
+
+   (make-tc fs-relpath-dotted
+            (list "./" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            (list "./dii.txt" "./foo/dii.txt" "./foo/bar/dii.txt"))
+
+   (make-tc fs-relpath-dotted
+            (list "../")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            (list "../dii.txt" "../foo/dii.txt" "../foo/bar/dii.txt"))
+
+   (make-tc fs-relpath-dotted
+            (list "/")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            #f)
+
+   (make-tc fs-path
+            (list "./" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            (map (lambda (i) (string-append (getcwd) "/" i))
+                 (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")))
+
+   (make-tc fs-path
+            (list "../")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            (map (lambda (i) (string-append (getcwd) "/../" i))
+                 (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")))
+
+   (make-tc fs-path
+            (list "/")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            (list "/dii.txt" "/foo/dii.txt" "/foo/bar/dii.txt"))
+
+   (make-tc (lambda (fs) (fn-is-abs? (fs->fn fs))) ; fn-is-abs?
+            (list "/")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            #t)
+
+   (make-tc (lambda (fs) (fn-is-abs? (fs->fn fs))) ; fn-is-abs?
+            (list "./" "../" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            #f)
+
+   (make-tc (lambda (fs) (fn-is-rel? (fs->fn fs))) ; fn-is-rel?
+            (list "/")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            #f)
+
+   (make-tc (lambda (fs) (fn-is-rel? (fs->fn fs))) ; fn-is-rel?
+            (list "./" "../" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            #t)
+
+   (make-tc (lambda (fs) (string-join (fn->list (fs->fn fs)) "/")) ; fn->list
+            (list "/" "./" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt"))
+
+   (make-tc (lambda (fs) (string-join (fn->list (fs->fn fs)) "/")) ; fn->list
+            (list  "../")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            (list "../dii.txt" "../foo/dii.txt" "../foo/bar/dii.txt"))
+
+   ))
+
+
+;; Render reference to matching dimensions with bodies.
+(define (expand-reference reference bodies)
+  (if (list? reference)
+      reference
+      (make-list (length bodies) reference)))
+
+
+(test-begin "fn")
+
+;; Test all functions using tc-list.
+(for-each (lambda (tc)
+            (for-each (lambda (pre)
+                        (for-each (lambda (body ref)
+                                    (test-equal #t
+                                      (let ((res ((tc-func tc) (string-append pre
+                                                                              body))))
+                                        ;; (pr "res: " res)
+                                        ;; (pr "ref: " ref)
+                                        (if (string? ref)
+                                            (string=? ref res)
+                                            (eq? ref res)))))
+                                  (tc-bodies tc)
+                                  (expand-reference (tc-reference tc)
+                                                    (tc-bodies tc))))
+                      (tc-prefixes tc)))
+          tc-list)
+
+(test-end)
