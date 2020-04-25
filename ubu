@@ -19,11 +19,16 @@
         (with-output
          (sh "cd test; test-como")))
 
+(action test-fn
+        (with-output
+         (sh "cd test; test-fn")))
+
 (action test-all
         (test-pr)
-        (test-como))
+        (test-como)
+        (test-fn))
 
 (action clean
-        (sh "rm -f test/pr.log"))
+        (sh "rm -f test/*.log"))
 
 (ubu-run-cli)
