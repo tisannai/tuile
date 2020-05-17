@@ -110,28 +110,6 @@
 ;; ------------------------------------------------------------
 ;; Option status:
 
-;; Find option.
-(define (get-opt-from-opts opts name)
-  (cond
-
-   ((null? opts)
-    #f)
-
-   ((string=? (opt-name (car opts)) name)
-    (car opts))
-
-   (else
-    (get-opt-from-opts (cdr opts) name))))
-
-
-;; Return option by name.
-;;
-;; Default option name is '().
-(define (get-opt como name)
-  (if (null? name)
-      (find-opt-with como 'default opt-type)
-      (get-opt-from-opts (spec-opts como) name)))
-
 
 ;; Check if option is mandatory.
 (define (required-opt? opt)
@@ -201,6 +179,12 @@
     #f)))
 
 
+;; Get (find) option by name or null for default option.
+(define (get-opt como name)
+  (if (null? name)
+      (find-opt-with como 'default opt-type)
+      (find-opt-with como name opt-name)))
+
 
 ;; Check that all required options have been given, exit if required
 ;; option is missing.
@@ -210,52 +194,6 @@
                          (not (opt-given? opt)))
                 (parse-error (format #f "Missing required options: \"~a\"" (opt-name opt)))))
             (spec-opts como)))
-
-
-
-;; ------------------------------------------------------------
-;; Option spec creation.
-
-;; Info table for all option types.
-(define opt-make-table
-  (list (cons 'help          (list opt-cli-help          opt-info-help))
-        (cons 'switch        (list opt-cli-switch        opt-info-switch))
-        (cons 'single        (list opt-cli-single        opt-info-single))
-        (cons 'opt-single    (list opt-cli-opt-single    opt-info-opt-single))
-        (cons 'repeat        (list opt-cli-repeat        opt-info-repeat))
-        (cons 'opt-repeat    (list opt-cli-opt-repeat    opt-info-opt-repeat))
-        (cons 'multi         (list opt-cli-multi         opt-info-multi))
-        (cons 'opt-multi     (list opt-cli-opt-multi     opt-info-opt-multi))
-        (cons 'any           (list opt-cli-any           opt-info-any))
-        (cons 'opt-any       (list opt-cli-opt-any       opt-info-opt-any))
-        (cons 'default       (list opt-cli-default       opt-info-default))
-        ))
-
-
-;; Create options.
-(define (make-opt-with-table type lopt sopt desc)
-  (make-opt lopt type sopt desc
-            #f
-            '()
-            (cadr  (assq type opt-make-table))
-            (caddr (assq type opt-make-table))))
-
-
-;; Build program cli spec.
-(define (create-como name author year opts-def)
-  (let ((-> make-opt-with-table))
-    (make-spec name
-               author
-               year
-               (cons (-> 'help "help" "-h" "Help for usage.")
-                     (map (lambda (line)
-                            (-> (list-ref line 0)
-                                (symbol->string (list-ref line 1))
-                                (if (symbol? (list-ref line 2))
-                                    (symbol->string (list-ref line 2))
-                                    (list-ref line 2))
-                                (list-ref line 3)))
-                            opts-def)))))
 
 
 
@@ -325,7 +263,7 @@
 
 
 ;; Parse given command line. Update all option descriptors with given
-;; flag and values.
+;; status and values.
 ;;
 ;; Process:
 ;; * Find option by cli.
@@ -338,7 +276,7 @@
 (define (parse-cli! como cli)
   (call/ec
    (lambda (ec)
-     (let parse-next ((rest (cdr cli))) ; Skip first.
+     (let parse-next ((rest (cdr cli))) ; Skip first, i.e. exe.
        (when (pair? rest)
          (let ((opt (find-opt-with-cli como (car rest))))
            (if opt
@@ -370,62 +308,49 @@
 
 ;; "cli" and "info" formatters for all option types.
 
+;; Common formatter for most of the options.
+(define (opt-info-common opt)
+  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
+
+
 (define (opt-cli-help opt) #f)
 (define (opt-info-help opt) #f)
 
 
 (define (opt-cli-switch opt)
   (opt-sopt opt))
-(define (opt-info-switch opt)
-  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
 
 
 (define (opt-cli-single opt)
   (string-append (opt-sopt opt) " <" (opt-name opt) ">"))
-(define (opt-info-single opt)
-  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
 
 
 (define (opt-cli-opt-single opt)
   (string-append "[" (opt-sopt opt) " <" (opt-name opt) ">" "]"))
-(define (opt-info-opt-single opt)
-  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
 
 
 (define (opt-cli-repeat opt)
   (string-append (opt-sopt opt) " <" (opt-name opt) ">#"))
-(define (opt-info-repeat opt)
-  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
 
 
 (define (opt-cli-opt-repeat opt)
   (string-append "[" (opt-sopt opt) " <" (opt-name opt) ">#" "]"))
-(define (opt-info-opt-repeat opt)
-  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
 
 
 (define (opt-cli-multi opt)
   (string-append (opt-sopt opt) " <" (opt-name opt) ">+"))
-(define (opt-info-multi opt)
-  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
 
 
 (define (opt-cli-opt-multi opt)
   (string-append "[" (opt-sopt opt) " <" (opt-name opt) ">+" "]"))
-(define (opt-info-opt-multi opt)
-  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
 
 
 (define (opt-cli-any opt)
   (string-append (opt-sopt opt) " <" (opt-name opt) ">*"))
-(define (opt-info-any opt)
-  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
 
 
 (define (opt-cli-opt-any opt)
   (string-append "[" (opt-sopt opt) " <" (opt-name opt) ">*" "]"))
-(define (opt-info-opt-any opt)
-  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
 
 
 (define (opt-cli-default opt)
@@ -465,6 +390,52 @@
                                   "\n\n  Copyright (c) ~a by ~a\n\n"
                                   (spec-year como)
                                   (spec-author como)))))
+
+
+;; ------------------------------------------------------------
+;; Option spec creation.
+
+
+;; Info table for all option types.
+(define opt-make-table
+  (list (cons 'help          (list opt-cli-help          opt-info-help))
+        (cons 'switch        (list opt-cli-switch        opt-info-common))
+        (cons 'single        (list opt-cli-single        opt-info-common))
+        (cons 'opt-single    (list opt-cli-opt-single    opt-info-common))
+        (cons 'repeat        (list opt-cli-repeat        opt-info-common))
+        (cons 'opt-repeat    (list opt-cli-opt-repeat    opt-info-common))
+        (cons 'multi         (list opt-cli-multi         opt-info-common))
+        (cons 'opt-multi     (list opt-cli-opt-multi     opt-info-common))
+        (cons 'any           (list opt-cli-any           opt-info-common))
+        (cons 'opt-any       (list opt-cli-opt-any       opt-info-common))
+        (cons 'default       (list opt-cli-default       opt-info-default))
+        ))
+
+
+;; Create options.
+(define (make-opt-with-table type lopt sopt desc)
+  (make-opt lopt type sopt desc
+            #f
+            '()
+            (cadr  (assq type opt-make-table))
+            (caddr (assq type opt-make-table))))
+
+
+;; Build program cli spec.
+(define (create-como name author year opts-def)
+  (let ((-> make-opt-with-table))
+    (make-spec name
+               author
+               year
+               (cons (-> 'help "help" "-h" "Help for usage.")
+                     (map (lambda (line)
+                            (-> (list-ref line 0)
+                                (symbol->string (list-ref line 1))
+                                (if (symbol? (list-ref line 2))
+                                    (symbol->string (list-ref line 2))
+                                    (list-ref line 2))
+                                (list-ref line 3)))
+                            opts-def)))))
 
 
 
