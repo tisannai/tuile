@@ -208,15 +208,12 @@
   (let loop ((rest cli)
              (cnt 0))
     (if (or (null? rest)
-            (= cnt take))
+            (= cnt take)
+            (equal? #\- (car (string->list (car rest)))))
         (cons cnt rest)
-        (if (equal? #\- (car (string->list (car rest))))
-            (cons cnt rest)
-            (begin
-              (add-opt-value! opt
-                              (car rest))
-              (loop (cdr rest)
-                    (1+ cnt)))))))
+        (begin
+          (add-opt-value! opt (car rest))
+          (loop (cdr rest) (1+ cnt))))))
 
 
 ;; Parse switch.
@@ -228,8 +225,7 @@
 ;; Parse single.
 (define (parse-single! opt cli)
   (set-opt-given! opt #t)
-  (set! cli (cdr cli))
-  (let ((res (parse-values! opt cli 1)))
+  (let ((res (parse-values! opt (cdr cli) 1)))
     (if (= 1 (car res))
         (cdr res)
         (parse-error (format #f "Wrong number of values for: \"~a\"" (opt-name opt))))))
@@ -238,8 +234,7 @@
 ;; Parse multi.
 (define (parse-multi! opt cli)
   (set-opt-given! opt #t)
-  (set! cli (cdr cli))
-  (let ((res (parse-values! opt cli -1)))
+  (let ((res (parse-values! opt (cdr cli) -1)))
     (if (> (car res) 0)
         (cdr res)
         (parse-error (format #f "Wrong number of values for: \"~a\"" (opt-name opt))))))
@@ -248,8 +243,7 @@
 ;; Parse any.
 (define (parse-any! opt cli)
   (set-opt-given! opt #t)
-  (set! cli (cdr cli))
-  (let ((res (parse-values! opt cli -1)))
+  (let ((res (parse-values! opt (cdr cli) -1)))
     (cdr res)))
 
 
@@ -354,7 +348,7 @@
 
 
 (define (opt-cli-default opt)
-  (string-append "*default*"))
+  "*default*")
 (define (opt-info-default opt)
   (format #f "~12,a ~a" "*default*" (opt-desc opt)))
 
@@ -395,34 +389,32 @@
 ;; ------------------------------------------------------------
 ;; Option spec creation.
 
-
-;; Info table for all option types.
-(define opt-make-table
-  (list (cons 'help          (list opt-cli-help          opt-info-help))
-        (cons 'switch        (list opt-cli-switch        opt-info-common))
-        (cons 'single        (list opt-cli-single        opt-info-common))
-        (cons 'opt-single    (list opt-cli-opt-single    opt-info-common))
-        (cons 'repeat        (list opt-cli-repeat        opt-info-common))
-        (cons 'opt-repeat    (list opt-cli-opt-repeat    opt-info-common))
-        (cons 'multi         (list opt-cli-multi         opt-info-common))
-        (cons 'opt-multi     (list opt-cli-opt-multi     opt-info-common))
-        (cons 'any           (list opt-cli-any           opt-info-common))
-        (cons 'opt-any       (list opt-cli-opt-any       opt-info-common))
-        (cons 'default       (list opt-cli-default       opt-info-default))
-        ))
-
-
-;; Create options.
-(define (make-opt-with-table type lopt sopt desc)
-  (make-opt lopt type sopt desc
-            #f
-            '()
-            (cadr  (assq type opt-make-table))
-            (caddr (assq type opt-make-table))))
-
-
 ;; Build program cli spec.
 (define (create-como name author year opts-def)
+
+  ;; Info table for all option types.
+  (define opt-make-table
+    (list (cons 'help          (list opt-cli-help          opt-info-help))
+          (cons 'switch        (list opt-cli-switch        opt-info-common))
+          (cons 'single        (list opt-cli-single        opt-info-common))
+          (cons 'opt-single    (list opt-cli-opt-single    opt-info-common))
+          (cons 'repeat        (list opt-cli-repeat        opt-info-common))
+          (cons 'opt-repeat    (list opt-cli-opt-repeat    opt-info-common))
+          (cons 'multi         (list opt-cli-multi         opt-info-common))
+          (cons 'opt-multi     (list opt-cli-opt-multi     opt-info-common))
+          (cons 'any           (list opt-cli-any           opt-info-common))
+          (cons 'opt-any       (list opt-cli-opt-any       opt-info-common))
+          (cons 'default       (list opt-cli-default       opt-info-default))
+          ))
+
+  ;; Create options.
+  (define (make-opt-with-table type lopt sopt desc)
+    (make-opt lopt type sopt desc
+              #f
+              '()
+              (cadr  (assq type opt-make-table))
+              (caddr (assq type opt-make-table))))
+
   (let ((-> make-opt-with-table))
     (make-spec name
                author
@@ -435,7 +427,7 @@
                                     (symbol->string (list-ref line 2))
                                     (list-ref line 2))
                                 (list-ref line 3)))
-                            opts-def)))))
+                          opts-def)))))
 
 
 
