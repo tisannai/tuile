@@ -32,6 +32,8 @@
    hash-has-key?
    hash-keys
    read-lines
+   with-each-line-from-port
+   with-each-line-from-file
    file->lines
    lines->file
    ))
@@ -329,6 +331,21 @@
      (if (eof-object? line)
          '()
          (cons line (loop (read-clean-line port)))))))
+
+
+;; Call "proc" with each line from port.
+(define (with-each-line-from-port port proc)
+  (let ((line (read-line port)))
+    (when (not (eof-object? line))
+      (proc line)
+      (with-each-line-from-port port proc))))
+
+
+;; Call "proc" with each line from input file.
+(define (with-each-line-from-file file proc)
+  (call-with-input-file file
+    (lambda (port)
+      (with-each-line-from-port port proc))))
 
 
 ;; Get all lines from file.
