@@ -66,11 +66,10 @@
 (define (flatten-1 lst)
   (let loop ((lst lst))
     (if (pair? lst)
-        (if (pair? (car lst))
-            (append (car lst)
-                    (loop (cdr lst)))
-            (cons (car lst)
-                  (loop (cdr lst))))
+        ;; Select proper proc with if.
+        ((if (pair? (car lst)) append cons)
+         (car lst)
+         (loop (cdr lst)))
         '())))
 
 
