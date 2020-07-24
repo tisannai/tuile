@@ -8,6 +8,8 @@
   #:use-module (ice-9 regex)
   #:export
   (
+   flatten
+   flatten-1
    command-line-arguments
    dir-list
    string->procedure
@@ -45,6 +47,32 @@
 
 ;; ------------------------------------------------------------
 ;; External functions:
+
+
+;; Flatten list as deep as list goes.
+(define (flatten lst)
+  (let loop ((lst lst)
+             (res '()))
+    (cond
+     ((null? lst) res)
+     ((pair? lst) (loop (car lst)
+                        (loop (cdr lst)
+                              res)))
+     (else
+      (cons lst res)))))
+
+
+;; Flatten list one level.
+(define (flatten-1 lst)
+  (let loop ((lst lst))
+    (if (pair? lst)
+        (if (pair? (car lst))
+            (append (car lst)
+                    (loop (cdr lst)))
+            (cons (car lst)
+                  (loop (cdr lst))))
+        '())))
+
 
 ;; Return command line arguments, excluding the executable.
 (define (command-line-arguments)
