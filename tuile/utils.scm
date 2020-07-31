@@ -31,6 +31,7 @@
    vector-reverse
    vector-insert
    vector-delete
+   assoc-has-key?
    hash-has-key?
    hash-keys
    read-lines
@@ -336,6 +337,11 @@
 (define (vector-delete vec pos count)
   (vector-append (vector-range vec 0 pos)
                  (vector-range vec (+ pos count) (vector-length vec))))
+
+;; Assoc list has key?
+(define (assoc-has-key? assoc key)
+  (find (lambda (i) (equal? key i))
+        (map car assoc)))
 
 ;; Hash table has key?
 (define (hash-has-key? hsh key)
