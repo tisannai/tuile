@@ -70,3 +70,19 @@ than standard Guile.
 `fn` provides file name and path queries. `fn` extracts information
 from file name string and the results can be used to create new file
 paths.
+
+
+# massoc
+
+`massoc` is short for Mutable Assoc, i.e. Association List. `massoc`
+changes the assoc inplace, and does not create new copies of the data
+structure. If original data is needed, the data should be copied first
+with `massoc-copy`. `massoc` functions can be applied to any alist
+except to a completely empty one. `massoc` creates a suitabler empty
+list with `make-massoc`.
+
+
+# json-util
+
+`json-util` provides basic utilities for working with JSON files,
+e.g. to load and save JSON files.
