@@ -10,11 +10,14 @@
   #:use-module (system vm vm)
   #:use-module (system vm trap-state)
   #:use-module (system repl repl)
+  #:use-module (ice-9 readline)
   #:export
   (dbg-proc
    dbg-break
    ))
 
+;; Make Readline active.
+(activate-readline)
 
 ;; Debug handler starts a REPL.
 ;;
