@@ -1,8 +1,6 @@
 #!/usr/bin/guile -s
 !#
 
-;;--no-auto-compile -s
-
 (use-modules (ubu))
 
 (define usr-install-path (car (string-split (getenv "GUILE_LOAD_PATH") #\:)))
