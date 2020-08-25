@@ -46,6 +46,7 @@
    capture-shell-command
    memf
    with-exception-terminate
+   make-string-list
    ))
 
 
@@ -482,6 +483,14 @@
   (with-exception-handler handler
                   proc
                   #:unwind? #t))
+
+
+(define-syntax make-string-list
+  (lambda (x)
+    (let* ((stx (syntax->datum x))
+           (-> datum->syntax))
+      #`(map symbol->string (quote #,(-> x (cdr stx)))))))
+
 
 ;; Usage:
 ;;
