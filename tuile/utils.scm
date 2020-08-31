@@ -41,10 +41,13 @@
    hash-has-key?
    hash-keys
    read-lines
+   read-lines-to-list
    with-each-line-from-port
    with-each-line-from-file
    file->lines
    lines->file
+   file->line-list
+   line-list->file
    capture-shell-command
    memf
    with-exception-terminate
@@ -434,7 +437,7 @@
   (hash-map->list (lambda (k v) k) hsh))
 
 
-;; Read all lines for port to list.
+;; Read all lines without newline from port to vector.
 (define (read-lines port)
   (define (read-clean-line port)
     (let ((line (read-line port)))
@@ -446,6 +449,14 @@
      (if (eof-object? line)
          '()
          (cons line (loop (read-clean-line port)))))))
+
+
+;; Read all lines from port to list.
+(define (read-lines-to-list port)
+  (let loop ((line (read-line port)))
+    (if (eof-object? line)
+        '()
+        (cons line (loop (read-line port))))))
 
 
 ;; Call "proc" with each line from port.
@@ -463,7 +474,7 @@
       (with-each-line-from-port port proc))))
 
 
-;; Get all lines from file.
+;; Get all lines from file trimmed to a vector.
 (define* (file->lines filename #:key (binary #f))
   (call-with-input-file filename
     (lambda (port)
@@ -471,7 +482,7 @@
     #:binary binary))
 
 
-;; Write lines to file.
+;; Write lines (without newlines) to file.
 (define* (lines->file filename lines #:key (binary #f))
   (call-with-output-file filename
     (lambda (port)
@@ -480,6 +491,24 @@
                   (newline port))
                 lines)
       #:binary)))
+
+
+;; Get all lines from file to list.
+(define* (file->line-list filename #:key (binary #f))
+  (call-with-input-file filename
+    (lambda (port)
+      (read-lines-to-list port))
+    #:binary binary))
+
+
+;; Write lines (without newlines) to file.
+(define* (line-list->file filename lines #:key (binary #f))
+  (call-with-output-file filename
+    (lambda (port)
+      (for-each (lambda (line)
+                  (display line port)
+                  lines)
+                #:binary))))
 
 
 ;; Execute shell command and return responses as list.
