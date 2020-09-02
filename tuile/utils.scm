@@ -508,7 +508,7 @@
       (with-each-line-from-port port proc))))
 
 
-;; Get all lines from file trimmed to a vector.
+;; Get all lines from file trimmed (remove newlines) to a vector.
 (define* (file->lines filename #:key (binary #f))
   (call-with-input-file filename
     (lambda (port)
@@ -516,18 +516,18 @@
     #:binary binary))
 
 
-;; Write lines (without newlines) to file.
+;; Write lines (without newlines) from vector to file adding newlines.
 (define* (lines->file filename lines #:key (binary #f))
   (call-with-output-file filename
     (lambda (port)
-      (for-each (lambda (line)
-                  (display line port)
-                  (newline port))
-                lines)
+      (vector-for-each (lambda (i line)
+                         (display line port)
+                         (newline port))
+                       lines)
       #:binary)))
 
 
-;; Get all lines from file to list.
+;; Get all lines from file to list (including newlines).
 (define* (file->line-list filename #:key (binary #f))
   (call-with-input-file filename
     (lambda (port)
@@ -535,7 +535,7 @@
     #:binary binary))
 
 
-;; Write lines (without newlines) to file.
+;; Write lines (including newlines) to file (without adding newlines).
 (define* (line-list->file filename lines #:key (binary #f))
   (call-with-output-file filename
     (lambda (port)
