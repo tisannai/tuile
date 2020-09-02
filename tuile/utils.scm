@@ -41,14 +41,13 @@
    assoc-repeat!
    hash-has-key?
    hash-keys
-   read-lines
-   read-lines-to-list
+   read-lines-from-port
    with-each-line-from-port
    with-each-line-from-file
    file->lines
    lines->file
-   file->line-list
-   line-list->file
+   ;;   file->line-list
+   ;;   line-list->file
    capture-shell-command
    memf
    with-exception-terminate
@@ -471,26 +470,52 @@
   (hash-map->list (lambda (k v) k) hsh))
 
 
-;; Read all lines without newline from port to vector.
-(define (read-lines port)
-  (define (read-clean-line port)
-    (let ((line (read-line port)))
-      (if (eof-object? line)
-          line
-          (string-trim-right line #\return))))
-  (list->vector
-   (let loop ((line (read-clean-line port)))
-     (if (eof-object? line)
-         '()
-         (cons line (loop (read-clean-line port)))))))
+;; Read all lines from port to list (or vector).
+;;
+;; Key Args:
+;;     with-newline    Leave newline to line end.
+;;     as-vector       Return lines as vector (not list).
+;;
+(define* (read-lines-from-port port
+                               #:key
+                               (with-newline #f)
+                               (as-vector #f))
+  (define (->vector lst)
+    (if as-vector
+        (list->vector lst)
+        lst))
 
+  (let ((line-filter (if with-newline
+                         (lambda (line)
+                           (string-append (car line) "\n"))
+                         (lambda (line)
+                           (car line)))))
 
-;; Read all lines from port to list.
-(define (read-lines-to-list port)
-  (let loop ((line (read-line port)))
-    (if (eof-object? line)
-        '()
-        (cons line (loop (read-line port))))))
+    (->vector (let loop ((line (read-line port 'split)))
+                (if (eof-object? (car line))
+                    '()
+                    (cons (line-filter line) (loop (read-line port 'split))))))))
+
+;;;; Read all lines without newline from port to vector.
+;;(define (read-lines port)
+;;  (define (read-clean-line port)
+;;    (let ((line (read-line port)))
+;;      (if (eof-object? line)
+;;          line
+;;          (string-trim-right line #\return))))
+;;  (list->vector
+;;   (let loop ((line (read-clean-line port)))
+;;     (if (eof-object? line)
+;;         '()
+;;         (cons line (loop (read-clean-line port)))))))
+;;
+;;
+;;;; Read all lines from port to list.
+;;(define (read-lines-to-list port)
+;;  (let loop ((line (read-line port)))
+;;    (if (eof-object? line)
+;;        '()
+;;        (cons line (loop (read-line port))))))
 
 
 ;; Call "proc" with each line from port.
@@ -508,41 +533,73 @@
       (with-each-line-from-port port proc))))
 
 
-;; Get all lines from file trimmed (remove newlines) to a vector.
-(define* (file->lines filename #:key (binary #f))
+;; Get all lines from file to list (or vector).
+;;
+;; Key Args:
+;;     with-newline    Leave newline to line end.
+;;     as-vector       Return lines as vector (not list).
+;;     binary          Access file in binary mode.
+;;
+(define* (file->lines filename
+                      #:key
+                      (with-newline #f)
+                      (as-vector #f)
+                      (binary #f))
   (call-with-input-file filename
     (lambda (port)
-      (read-lines port))
+      (read-lines-from-port port
+                            #:with-newline with-newline
+                            #:as-vector as-vector))
     #:binary binary))
 
 
-;; Write lines (without newlines) from vector to file adding newlines.
-(define* (lines->file filename lines #:key (binary #f))
+;; Write lines of list (or vector) to file adding newlines (or not).
+;;
+;; Key Args:
+;;     with-newline    Line has newline, output line as is.
+;;     binary          Access file in binary mode.
+;;
+(define* (lines->file filename lines
+                      #:key
+                      (with-newline #f)
+                      (binary #f))
   (call-with-output-file filename
     (lambda (port)
-      (vector-for-each (lambda (i line)
-                         (display line port)
-                         (newline port))
-                       lines)
-      #:binary)))
-
-
-;; Get all lines from file to list (including newlines).
-(define* (file->line-list filename #:key (binary #f))
-  (call-with-input-file filename
-    (lambda (port)
-      (read-lines-to-list port))
+      (let ((line-out (if with-newline
+                          (lambda (line)
+                            line)
+                          (lambda (line)
+                            (string-append line "\n")))))
+        (cond
+         ((vector? lines)
+          (vector-for-each (lambda (i line)
+                             (display line port)
+                             (newline port))
+                           lines))
+         (else
+          (for-each (lambda (line)
+                      (display line port)
+                      (newline port))
+                    lines)))))
     #:binary binary))
 
 
-;; Write lines (including newlines) to file (without adding newlines).
-(define* (line-list->file filename lines #:key (binary #f))
-  (call-with-output-file filename
-    (lambda (port)
-      (for-each (lambda (line)
-                  (display line port)
-                  lines)
-                #:binary))))
+;;;; Get all lines from file to list (including newlines).
+;;(define* (file->line-list filename #:key (binary #f))
+;;  (call-with-input-file filename
+;;    (lambda (port)
+;;      (read-lines-to-list port))
+;;    #:binary binary))
+;;
+;;
+;;;; Write lines (including newlines) to file (without adding newlines).
+;;(define* (line-list->file filename lines #:key (binary #f))
+;;  (call-with-output-file filename
+;;    (lambda (port)
+;;      (for-each (lambda (line)
+;;                  (display line port)
+;;                  lines)
+;;                #:binary))))
 
 
 ;; Execute shell command and return responses as list.
