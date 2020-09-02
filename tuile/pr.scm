@@ -2,6 +2,8 @@
   #:export
   (pr
    prp
+   pro
+   prpo
    prd
    prdl
    ss
@@ -88,6 +90,17 @@
 ;; Print from args.
 (define (prp . args)
   (display (apply ss args)))
+
+
+;; Line print from args to port.
+(define (pro port . args)
+  (display (apply ss args) port)
+  (newline port))
+
+
+;; Print from args.
+(define (prpo port . args)
+  (display (apply ss args) port))
 
 
 ;; Printer for debugging. Alias to pr.
