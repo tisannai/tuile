@@ -9,6 +9,7 @@
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 popen)
   #:use-module ((srfi srfi-9 gnu) #:select (define-immutable-record-type))
+  #:use-module ((srfi srfi-19) #:prefix srfi:)
   #:export
   (
    flatten
@@ -49,6 +50,8 @@
    ;;   file->line-list
    ;;   line-list->file
    capture-shell-command
+   timestamp
+   datestamp
    memf
    with-exception-terminate
    make-string-list
@@ -621,6 +624,28 @@
       (close-port (cdr err-pipe))
       (set! stderr (get-string-all (car err-pipe))))
     (list (status:exit-val status) stdout stderr)))
+
+
+;; Current time w/o time segment.
+;;
+;;     Format (without time): <yymmdd>
+;;     Format (with    time): <yymmdd_HHMM>
+;;
+(define* (timestamp #:key (use-time #f))
+  (if use-time
+      (srfi:date->string (srfi:current-date)
+                         "~y~m~d_~H~M")
+      (srfi:date->string (srfi:current-date)
+                         "~y~m~d")))
+
+
+;; Current date.
+;;
+;;     Format: <yyyy-mm-dd>
+;;
+(define (datestamp)
+  (srfi:date->string (srfi:current-date)
+                     "~Y-~m-~d"))
 
 
 ;; Find all items matched with one argument proc "fn" from "lst".
