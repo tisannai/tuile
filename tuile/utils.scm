@@ -10,38 +10,52 @@
   #:use-module (ice-9 popen)
   #:use-module ((srfi srfi-9 gnu) #:select (define-immutable-record-type))
   #:use-module ((srfi srfi-19) #:prefix srfi:)
+  #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:export
   (
    flatten
    flatten-1
+
    command-line-arguments
+
    dir-list
    dir-glob
+
    string->procedure
+
    aif
    for
+
    define-im-record
    define-fp-record
    define-mu-record
-   this-met
+
+   define-this-class
+   define-this-method
    this-ref
    this-set!
+
    re-split
    re-match?
    re-match
    re-matches
    re-sub
    re-gsub
+
    extname
+
    vector-range
    vector-reverse
    vector-insert
    vector-delete
+
    assoc-has-key?
    assoc-update!
    assoc-repeat!
+
    hash-has-key?
    hash-keys
+
    read-lines-from-port
    with-each-line-from-port
    with-each-line-from-file
@@ -49,9 +63,12 @@
    lines->file
    ;;   file->line-list
    ;;   line-list->file
+
    capture-shell-command
+
    timestamp
    datestamp
+
    memf
    with-exception-terminate
    make-string-list
@@ -281,17 +298,55 @@
                                                                  "!")))))
               (cddr stx))))))
 
+
+;; Define class with members.
+;;
+;; Members have initial values and keyword initializers.
+;;
+;;     (define-this-class <my-class> (<string>)
+;;       mem1
+;;       (mem2 2))
+;;
+;; Becomes:
+;;
+;;      (define-class <my-class> (<string>)
+;;        (mem1 #:init-keyword #:mem1 #:init-form #f)
+;;        (mem2 #:init-keyword #:mem2 #:init-form 2))
+;;
+(define-syntax define-this-class
+  (lambda (x)
+    (let* ((stx     (syntax->datum x))
+           (klass   (cadr stx))
+           (bases   (caddr stx))
+           (memdefs (cdddr stx))
+           (->syn   datum->syntax))
+      #`(define-class #,(->syn x klass) #,(->syn x bases)
+          #,@(map (lambda (memdef)
+                    (->syn x (let ((mem-name (if (pair? memdef)
+                                                 (car memdef)
+                                                 memdef))
+                                   (val (if (pair? memdef)
+                                            (cadr memdef)
+                                            #f)))
+                               (list mem-name
+                                     #:init-form
+                                     val
+                                     #:init-keyword
+                                     (string->keyword (symbol->string mem-name))))))
+                  memdefs)))))
+
+
 ;; Define method in a compact form.
 ;;
-;;     (def-met my-class (my-method a1 a2)
+;;     (define-this-method <my-class> (my-method a1 a2)
 ;;       body ...)
 ;;
 ;; Becomes:
 ;;
-;;      (define-method (my-class-my-method (this <my-class>) a1 a2)
+;;      (define-method (my-method (this <my-class>) a1 a2)
 ;;        body ...)
 ;;
-(define-syntax this-met
+(define-syntax define-this-method
   (lambda (x)
     (let* ((stx (syntax->datum x))
            (klass (cadr stx))
@@ -299,13 +354,13 @@
            (args (cdaddr stx))
            (body (cdddr stx))
            (->syn datum->syntax))
-      #`(define-method (#,(->syn x (symbol-append klass '- metod))
-                        (#,(->syn x 'this) #,(->syn x (symbol-append '< klass '>)))
+      #`(define-method (#,(->syn x metod)
+                        (#,(->syn x 'this) #,(->syn x klass))
                         #,@(->syn x args))
           #,@(->syn x body)))))
 
 
-;; Reference object variable.
+;; Reference object member.
 ;;
 ;; (this-ref :name)
 ;;   ->
@@ -317,7 +372,7 @@
       #`(slot-ref #,(->syn x 'this) (quote #,(->syn x (cadr stx)))))))
 
 
-;; Set object variable.
+;; Set object member.
 ;;
 ;; (this-set! :name value)
 ;;   ->
