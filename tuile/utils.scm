@@ -338,25 +338,49 @@
 
 ;; Define method in a compact form.
 ;;
-;;     (define-this-method <my-class> (my-method a1 a2)
+;;     (define-this-method <my-class> (my-method a1 a2 . rest)
 ;;       body ...)
 ;;
 ;; Becomes:
 ;;
-;;      (define-method (my-method (this <my-class>) a1 a2)
+;;      (define-method (my-method (this <my-class>) a1 a2 . rest)
 ;;        body ...)
 ;;
 (define-syntax define-this-method
   (lambda (x)
-    (let* ((stx (syntax->datum x))
+    (let* ((stx   (syntax->datum x))
            (klass (cadr stx))
            (metod (caaddr stx))
-           (args (cdaddr stx))
-           (body (cdddr stx))
+           (args  (cdaddr stx))
+           (body  (cdddr stx))
            (->syn datum->syntax))
-      #`(define-method (#,(->syn x metod)
-                        (#,(->syn x 'this) #,(->syn x klass))
-                        #,@(->syn x args))
+      #`(define-method #,(if (pair? args)
+                             ;; Has multiple arguments.
+                             (if (cdr (last-pair args))
+                                 ;; Has ". rest".
+                                 (append (list (->syn x metod)
+                                               (list (->syn x 'this)
+                                                     (->syn x klass)))
+                                         (map (lambda (i)
+                                                (->syn x i))
+                                              (drop-right args 1))
+                                         (->syn x (last-pair args)))
+                                 ;; Fixed list of args.
+                                 (append (list (->syn x metod)
+                                               (list (->syn x 'this)
+                                                     (->syn x klass)))
+                                         (->syn x args)))
+                             ;; No arguments (or only ". rest").
+                             (if (null? args)
+                                 ;; No arguments.
+                                 (list (->syn x metod)
+                                       (list (->syn x 'this)
+                                             (->syn x klass)))
+                                 ;; Only ". rest".
+                                 (append (list (->syn x metod))
+                                         (cons (list (->syn x 'this)
+                                                     (->syn x klass))
+                                               (->syn x args)))))
           #,@(->syn x body)))))
 
 
