@@ -21,10 +21,15 @@
         (with-output
          (sh "cd test; test-fn")))
 
+(action test-graph
+        (with-output
+         (sh "cd test; test-graph")))
+
 (action test-all
         (test-pr)
         (test-como)
-        (test-fn))
+        (test-fn)
+        (test-graph))
 
 (action clean
         (sh "rm -f test/*.log"))

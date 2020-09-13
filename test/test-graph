@@ -1,0 +1,151 @@
+#!/usr/bin/guile \
+-s
+!#
+
+(add-to-load-path "..")
+
+(use-modules (tuile graph))
+
+(use-modules (oop goops))
+(use-modules (oop goops describe))
+
+(use-modules (srfi srfi-64))
+(use-modules (tuile como))
+(use-modules (tuile pr))
+(use-modules (tuile utils))
+
+(use-modules (srfi srfi-111))
+
+
+(define empty '())
+(define test-result empty)
+
+(define (collect-node node env)
+  (set-box! env (append (unbox env) (list node)))
+  'continue)
+
+(define (get-ids nodes)
+  (map (lambda (node)
+         (node-name node))
+       nodes))
+
+(define (run-test fn)
+  (set! test-result (box empty))
+  (fn)
+  (get-ids (unbox test-result)))
+
+
+(test-begin "test-graph-basic")
+
+(define g (make <graph> #:name "test-graph"))
+
+;;
+;;
+;;             .-task2----.
+;;     task1--<            >--task4
+;;             '-task3----'
+;;
+;;
+
+(graph-add-node-with-data g
+                          'task1 10
+                          'task2 8
+                          'task3 5
+                          'task4 10)
+
+(graph-connect-nodes g 
+                     'task1 'task2
+                     'task1 'task3
+                     'task2 'task4
+                     'task3 'task4)
+
+(test-equal "dfs-with-env"
+  '(task1 task2 task4 task3)
+  (run-test (lambda ()
+              (dfs-with-env (graph-ref g 'task1)
+                            collect-node
+                            test-result))))
+
+(test-equal "bfs-with-env"
+  '(task1 task2 task3 task4)
+  (run-test (lambda ()
+              (bfs-with-env (graph-ref g 'task1)
+                            collect-node
+                            test-result))))
+
+(test-end)
+
+
+(test-begin "test-graph-complex")
+
+(define g (make <graph> #:name "test-graph"))
+
+;;
+;;               2      3
+;;             .----T2----.        3
+;;     T1-----<  2      2  >----T4-------T7
+;;             '----T3----'         .'
+;;                '-----T5--T6-----'
+;;                    6    4   7
+;;
+
+(graph-add-node-with-data g
+                          't1 12
+                          't2 8
+                          't3 5
+                          't4 10
+                          't5 10
+                          't6 10
+                          't7 10)
+
+(graph-connect-nodes-with-data g
+                               't1 't2 2
+                               't1 't3 2
+                               't2 't4 3
+                               't3 't4 2
+                               't4 't7 3
+                               't1 't5 6
+                               't5 't6 4
+                               't6 't7 7)
+
+(test-equal "dfs-with-env"
+  '(t1 t2 t4 t7 t3 t5 t6)
+  (run-test (lambda ()
+              (dfs-with-env (graph-ref g 't1)
+                            collect-node
+                            test-result))))
+
+(test-equal "bfs-with-env"
+  '(t1 t2 t3 t5 t4 t6 t7)
+  (run-test (lambda ()
+              (bfs-with-env (graph-ref g 't1)
+                            collect-node
+                            test-result))))
+
+;; Run twice to ensure no garbage state is disturbing the next
+;; round of toposort.
+(repeat 2
+        (lambda ()
+          (test-equal
+              "topological-sort"
+            '(t1 t5 t6 t3 t2 t4 t7)
+            (get-ids (topological-sort (graph-first-node g))))))
+
+(test-equal "dfs-with-env"
+  '(t1 t2 t4 t7 t3 t5 t6)
+  (run-test (lambda ()
+              (dfs-with-env (graph-ref g 't1)
+                            collect-node
+                            test-result))))
+
+(test-equal "shortest-path-between-nodes"
+  7
+  (shortest-path-between-nodes (graph-ref g 't1)
+                               (graph-ref g 't7)))
+
+(test-equal "longest-path-between-nodes"
+  17
+  (longest-path-between-nodes (graph-ref g 't1)
+                              (graph-ref g 't7)))
+
+(test-end)
