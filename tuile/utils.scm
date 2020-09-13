@@ -26,7 +26,7 @@
 
    aif
    for
-   repeat
+   repeat-times
 
    define-im-record
    define-fp-record
@@ -203,11 +203,16 @@
 
 (define -> fn-pipe)
 
-(define (repeat cnt fn)
-  (let repeat-loop ((i 0))
-    (when (< i cnt)
-      (fn)
-      (repeat-loop (1+ i)))))
+(define-syntax repeat-times
+  (lambda (x)
+    (syntax-case x ()
+      ((_ cnt body ...)
+       (with-syntax ((i (datum->syntax x 'i)))
+         #'(let repeat-loop ((i 0))
+             (when (< i cnt)
+               (begin
+                 body ...
+                 (repeat-loop (1+ i))))))))))
 
 
 ;; Create immutable record.

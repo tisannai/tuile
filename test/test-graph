@@ -124,12 +124,11 @@
 
 ;; Run twice to ensure no garbage state is disturbing the next
 ;; round of toposort.
-(repeat 2
-        (lambda ()
-          (test-equal
-              "topological-sort"
-            '(t1 t5 t6 t3 t2 t4 t7)
-            (get-ids (topological-sort (graph-first-node g))))))
+(repeat-times 2
+              (test-equal
+                  "topological-sort"
+                '(t1 t5 t6 t3 t2 t4 t7)
+                (get-ids (topological-sort (graph-first-node g)))))
 
 (test-equal "dfs-with-env"
   '(t1 t2 t4 t7 t3 t5 t6)
