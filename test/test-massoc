@@ -1,0 +1,120 @@
+#!/usr/bin/guile -s
+!#
+
+(use-modules (srfi srfi-64))
+(use-modules (tuile pr))
+
+(add-to-load-path "..")
+(use-modules (tuile massoc))
+
+
+(test-begin "massoc")
+
+
+(define ma (make-massoc))
+
+(test-assert "make massoc"
+  (equal? '(())
+          ma))
+
+(test-assert "copy empty massoc"
+  (massoc-empty? (massoc-copy ma)))
+
+(test-assert "has key for empty massoc"
+  (equal? #f
+          (massoc-has-key? ma 'foo)))
+
+(test-assert "keys of empty massoc"
+  (equal? '()
+          (massoc-keys ma)))
+
+(test-assert "values of empty massoc"
+  (equal? '()
+          (massoc-values ma)))
+
+(test-assert "reference empty massoc"
+  (equal? #f
+          (massoc-ref ma 'any)))
+
+
+;; Add one key-value pair to massoc.
+(massoc-add! ma 'foo 'bar)
+
+(test-assert "has key for one-item massoc"
+  (equal? '(foo . bar)
+          (massoc-has-key? ma 'foo)))
+
+(test-assert "keys of one-item massoc"
+  (equal? '(foo)
+          (massoc-keys ma)))
+
+(test-assert "values of one-item massoc"
+  (equal? '(bar)
+          (massoc-values ma)))
+
+(test-assert "reference one-item massoc with matching key"
+  (equal? 'bar
+          (massoc-ref ma 'foo)))
+
+(test-assert "reference one-item massoc with non-matching key"
+  (equal? #f
+          (massoc-ref ma 'bar)))
+
+(test-assert "assign value to existing key"
+  (equal? 'dii
+          (massoc-ref (massoc-val! ma 'foo 'dii)
+                      'foo)))
+
+(test-assert "set value to existing key"
+  (equal? 'bar
+          (massoc-ref (massoc-set! ma 'foo 'bar)
+                      'foo)))
+
+(test-assert "set value to non-existing key"
+  (equal? 'haa
+          (massoc-ref (massoc-set! ma 'jii 'haa)
+                      'jii)))
+
+(test-assert "update value of existing key"
+  (equal? 'dii
+          (massoc-ref (massoc-update! ma 'foo (lambda (val)
+                                                'dii))
+                      'foo)))
+
+(define ma2 (massoc-copy ma))
+
+(test-assert "update value of non-existing key"
+  (equal? ma2
+          (massoc-update! ma 1 (lambda (val)
+                                 (+ val 1)))))
+
+(test-assert "delete non-first entry"
+  (equal? '((jii . haa))
+          (massoc-del! ma 'foo)))
+
+(test-assert "delete first entry"
+  (equal? '(())
+          (massoc-del! ma 'jii)))
+
+(test-assert "repeated additions"
+  (equal? 'bar
+          (massoc-ref (massoc-repeat! ma
+                                      massoc-add!
+                                      '((foo . bar)
+                                        (dii . duu)))
+                      'foo)))
+
+(test-assert "repeated removals"
+  (equal? (make-massoc)
+          (massoc-repeat! ma
+                          (lambda (ma k v)
+                            (massoc-del! ma k))
+                          '((foo . bar)
+                            (dii . duu)))))
+
+(test-assert "copy empty massoc"
+  (equal? (make-massoc)
+          (massoc-copy ma)))
+
+
+(test-end)

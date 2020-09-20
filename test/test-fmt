@@ -1,0 +1,68 @@
+#!/usr/bin/guile -s
+!#
+
+(use-modules (srfi srfi-64))
+(use-modules (tuile pr))
+
+(add-to-load-path "..")
+(use-modules (tuile fmt))
+
+
+(test-begin "fmt")
+
+(test-equal "trivial string" #t
+            (string=?
+             (fmt "foo")
+             "foo"))
+
+(test-equal "multiple string args" #t
+            (string=?
+             (fmt "foo" "bar")
+             "foobar"))
+
+(test-equal "list of strings" #t
+            (string=?
+             (fmt '("foo" "bar"))
+             "foobar"))
+
+(test-equal "left-align with space" #t
+            (string=?
+             (fmt '(lal 5 "foo"))
+             "foo  "))
+
+(test-equal "right-align with dash" #t
+            (string=?
+             (fmt '(ral (5 "-") "foo"))
+             "--foo"))
+
+(test-equal "binary format" #t
+            (string=?
+             (fmt '(bin 123))
+             "1111011"))
+
+(test-equal "binary format with dash" #t
+            (string=?
+             (fmt "0b" '(bin (10 "-") 123))
+             "0b---1111011"))
+
+(test-equal "many left-aligns, multiple args" #t
+            (string=?
+             (fmt '(lal 5 "foo" "bar" "dii"))
+             "foo  bar  dii  "))
+
+(test-equal "many left-aligns, list arg" #t
+            (string=?
+             (fmt '(lal 5 ("foo" "bar" "dii")))
+             "foo  bar  dii  "))
+
+(test-equal "many left-aligns with shorthand" #t
+            (string=?
+             (fmt 'lal 5 "foo" "bar" "dii")
+             "foo  bar  dii  "))
+
+(test-equal "many left-aligns with many shorthands" #t
+            (string=?
+             (fmt 'lal 5 "foo" "bar" "dii" 'lal 5 "foo" "bar" "dii")
+             "foo  bar  dii  foo  bar  dii  "))
+
+(test-end)

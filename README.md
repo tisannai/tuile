@@ -86,3 +86,10 @@ list with `make-massoc`.
 
 `json-util` provides basic utilities for working with JSON files,
 e.g. to load and save JSON files.
+
+
+# fmt
+
+`fmt` provides a text formatting function, which is based on
+concatenating parts. Each part can be formatted with `fmt` related
+directives.

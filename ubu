@@ -21,6 +21,14 @@
         (with-output
          (sh "cd test; test-fn")))
 
+(action test-massoc
+        (with-output
+         (sh "cd test; test-massoc")))
+
+(action test-fmt
+        (with-output
+         (sh "cd test; test-fmt")))
+
 (action test-graph
         (with-output
          (sh "cd test; test-graph")))
@@ -29,6 +37,8 @@
         (test-pr)
         (test-como)
         (test-fn)
+        (test-massoc)
+        (test-fmt)
         (test-graph))
 
 (action clean
