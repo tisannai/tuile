@@ -15,6 +15,7 @@
   #:export
   (
    flatten
+   flatten-0
    flatten-1
 
    command-line-arguments
@@ -90,9 +91,9 @@
 ;; External functions:
 
 
-;; Flatten list as deep as list goes.
-(define (flatten lst)
-  (let loop ((lst lst)
+;; Flatten (and join) argument list as deep as list goes.
+(define (flatten . rest)
+  (let loop ((lst rest)
              (res '()))
     (cond
      ((null? lst) res)
@@ -103,15 +104,32 @@
       (cons lst res)))))
 
 
-;; Flatten list one level.
-(define (flatten-1 lst)
-  (let loop ((lst lst))
+;; Flatten (and join) argument list without collapsing.
+(define (flatten-0 . rest)
+  (let loop ((lst rest))
     (if (pair? lst)
         ;; Select proper proc with if.
         ((if (pair? (car lst)) append cons)
          (car lst)
          (loop (cdr lst)))
         '())))
+
+
+;; Flatten (and join) argument list by one level.
+(define (flatten-1 . rest)
+  (let loop ((lst rest)
+             (res '()))
+    (if (pair? lst)
+        (cond
+         ((pair? (car lst))
+          ;; List item.
+          (loop (cdr lst)
+                (append res (apply flatten-0 (car lst)))))
+         (else
+          ;; Non-list item
+          (loop (cdr lst)
+                (append res (list (car lst))))))
+        res)))
 
 
 ;; Return command line arguments, excluding the executable.
