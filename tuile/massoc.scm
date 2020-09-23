@@ -108,7 +108,7 @@
   ma)
 
 
-;; Evaluate "proc" (of two args) for massoc for each pair in set-list.
+;; Evaluate "proc" (of three args) for massoc for each pair in set-list.
 (define (massoc-repeat! ma proc set-list)
   (if (pair? set-list)
       (massoc-repeat! (proc ma

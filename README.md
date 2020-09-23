@@ -78,7 +78,7 @@ paths.
 changes the assoc inplace, and does not create new copies of the data
 structure. If original data is needed, the data should be copied first
 with `massoc-copy`. `massoc` functions can be applied to any alist
-except to a completely empty one. `massoc` creates a suitabler empty
+except to a completely empty one. `massoc` creates a suitable empty
 list with `make-massoc`.
 
 
