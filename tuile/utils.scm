@@ -26,6 +26,8 @@
 
    aif
    for
+   map-except-last
+   map-except-first
    repeat-times
 
    define-im-record
@@ -175,6 +177,8 @@
               (if it then else))))))))
 
 
+;; Execute for each in list.
+;;
 ;; (for ((i lst))
 ;;   (display i)
 ;;   (newline))
@@ -191,6 +195,40 @@
           (lambda (i1 i2)
             body ...)
           l1 l2)))))
+
+
+;; Map all list entries except last.
+(define (map-except-last fn lst)
+  (reverse (let process ((tail lst)
+                         (res '()))
+             (cond
+              ((null? tail)
+               res)
+              ((pair? (cdr tail))
+               (process (cdr tail)
+                        (cons (fn (car tail))
+                              res)))
+              (else
+               (process (cdr tail)
+                        (cons (car tail)
+                              res)))))))
+
+
+;; Map all list entries except last.
+(define (map-except-first fn lst)
+  (reverse (let process ((tail lst)
+                         (res '()))
+             (cond
+              ((null? tail)
+               res)
+              ((null? res)
+               (process (cdr tail)
+                        (cons (car tail)
+                              res)))
+              (else
+               (process (cdr tail)
+                        (cons (fn (car tail))
+                              res)))))))
 
 
 (define (fn-pipe arg . chain)
