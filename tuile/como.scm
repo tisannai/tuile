@@ -32,7 +32,7 @@
 (define-module (tuile como)
   #:use-module ((ice-9 format)  #:select (format))
   #:use-module ((ice-9 control) #:select (call/ec))
-  #:use-module ((srfi srfi-1)   #:select (find first second third last))
+  #:use-module ((srfi srfi-1)   #:select (find first second third last fold))
   #:use-module ((srfi srfi-9)   #:select (define-record-type))
   #:use-module ((srfi srfi-11)  #:select (let-values))
   #:use-module ((tuile utils)   #:select (re-match? re-split))
@@ -525,7 +525,17 @@
 ;;                     [default   dir       "Directory."       "."]
 ;;                     ))
 ;;
-(define (como-actions program author year action-list)
+;; Options (as keyword arguments):
+;;
+;;     revert      Action (as string) to revert to if none is defined
+;;                 (default: #f).
+;;
+;;     label-gap   Gap between action/option label and description in
+;;                 help (default: 2).
+;;
+(define* (como-actions program author year action-list #:key
+                       (revert #f)
+                       (label-gap 2))
 
   ;; Initialize variables to specified value or #f.
   (define (como-vars-init defs)
@@ -549,21 +559,46 @@
                  (eq? entry (cadr i))))
           action-list))
 
+  (define actions '())
+  (define options '())
+  (define default #f)
+
   ;; Display all usage info.
   (define (usage)
-    (let ((action-lines (map (lambda (def)
-                               (format #f "  ~12,a ~a" (second def) (third def)))
-                             actions))
-          (option-lines (append (map (lambda (def)
-                                       (format #f "  ~12,a ~a\n~a= \"~a\""
-                                               (second def)
-                                               (third def)
-                                               (make-string 17 #\ )
-                                               (como-var (symbol->string (second def)))))
-                                     options)
-                                (if default
-                                    (list (format #f "  ~12,a ~a" "*default*" (third default)))
-                                    '()))))
+    (let* ((longest-label (fold (lambda (i len)
+                                  (let ((sym-len (string-length (symbol->string (car i)))))
+                                    (if (> sym-len len)
+                                        sym-len
+                                        len)))
+                                0
+                                (append (list (list '*default*))
+                                        actions
+                                        options)))
+           (formatters (map (lambda (spec)
+                              (cons (car spec) (format #f (cdr spec) (+ longest-label
+                                                                        label-gap))))
+                            (list (cons 'revert-action "  * ~~~a,a~~a")
+                                  (cons 'normal-action "    ~~~a,a~~a")
+                                  (cons 'option        "    ~~~a,a~~a\n~~a= \"~~a\"")
+                                  (cons 'default       "    ~~~a,a~~a"))))
+           (action-lines (map (lambda (def)
+                                (let ((formatter (if (and revert
+                                                          (equal? (symbol->string (second def))
+                                                                  revert))
+                                                     (assoc-ref formatters 'revert-action)
+                                                     (assoc-ref formatters 'normal-action))))
+                                  (format #f formatter (second def) (third def))))
+                              actions))
+           (option-lines (append (map (lambda (def)
+                                        (format #f (assoc-ref formatters 'option)
+                                                (second def)
+                                                (third def)
+                                                (make-string (+ 6 label-gap longest-label) #\ )
+                                                (como-var (symbol->string (second def)))))
+                                      options)
+                                 (if default
+                                     (list (format #f (assoc-ref formatters 'default) "*default*" (third default)))
+                                     '()))))
       (display (string-append "\n  " program " <actions-and-options>\n\n"
                               (if (pair? action-lines)
                                   (string-append (string-join action-lines "\n") "\n\n")
@@ -578,10 +613,6 @@
 
   ;; Set external "como-usage" since "parse-error" depends on it.
   (set! como-usage usage)
-
-  (define actions '())
-  (define options '())
-  (define default #f)
 
   ;; Parse cli types.
   (for-each (lambda (i)
@@ -641,7 +672,9 @@
               (parse-error "No default argument defined"))))))
 
     (when (= (length used-actions) 0)
-      (parse-error "No actions given"))
+      (if revert
+          (set! used-actions (list revert))
+          (parse-error "No actions given")))
 
     (for-each (lambda (action)
                 (eval (list (string->symbol action)) (interaction-environment)))
