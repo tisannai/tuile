@@ -1,6 +1,5 @@
 (define-module (tuile lookup)
   #:use-module ((srfi srfi-9) #:select (define-record-type))
-  #:use-module ((tuile utils) #:select (hash-has-key?))
   #:export
   (
    make-lookup
@@ -11,6 +10,9 @@
    lookup-each
    lookup-keys
    ))
+
+
+(define hash-has-key? hash-get-handle)
 
 ;; ------------------------------------------------------------
 ;; Lookup for ordered lookups.
