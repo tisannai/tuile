@@ -527,7 +527,7 @@
 ;;
 ;; Options (as keyword arguments):
 ;;
-;;     revert      Action (as string) to revert to if none is defined
+;;     revert      Action (as symbol) to revert to if none is defined
 ;;                 (default: #f).
 ;;
 ;;     label-gap   Gap between action/option label and description in
@@ -583,7 +583,7 @@
                                   (cons 'default       "    ~~~a,a~~a"))))
            (action-lines (map (lambda (def)
                                 (let ((formatter (if (and revert
-                                                          (equal? (symbol->string (second def))
+                                                          (equal? (second def)
                                                                   revert))
                                                      (assoc-ref formatters 'revert-action)
                                                      (assoc-ref formatters 'normal-action))))
@@ -643,7 +643,7 @@
 
          ;; Action
          ((type-is? 'action (string->symbol (car rest)))
-          (set! used-actions (append used-actions (list (car rest))))
+          (set! used-actions (append used-actions (list (string->symbol (car rest)))))
           (parse-next (cdr rest)))
 
          ;; Option
@@ -677,5 +677,5 @@
           (parse-error "No actions given")))
 
     (for-each (lambda (action)
-                (eval (list (string->symbol action)) (interaction-environment)))
+                (eval (list  action) (interaction-environment)))
               used-actions)))

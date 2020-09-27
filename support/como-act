@@ -25,4 +25,4 @@
                 [option    dir       "Directory."       "."]
                 [default   -         "Rest of the arguments."]
                 )
-              #:revert "create")
+              #:revert 'create)
