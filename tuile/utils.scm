@@ -1,6 +1,7 @@
 (define-module (tuile utils)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-43)
   #:use-module (oop goops)
   #:use-module (ice-9 ftw)
@@ -69,7 +70,9 @@
    ;;   file->line-list
    ;;   line-list->file
 
+   capture-shell-command-values
    capture-shell-command
+   capture-shell-command-stdout
 
    timestamp
    datestamp
@@ -756,11 +759,11 @@
 ;;                #:binary))))
 
 
-;; Execute shell command and return responses as list.
+;; Execute shell command and return responses as values.
 ;;
 ;; Responses: status-code stdout stderr
 ;;
-(define (capture-shell-command cmd)
+(define (capture-shell-command-values cmd)
   (let* ((stdout #f)
          (stderr #f)
          (status #f))
@@ -774,7 +777,26 @@
           (command cmd)))
       (close-port (cdr err-pipe))
       (set! stderr (get-string-all (car err-pipe))))
-    (list (status:exit-val status) stdout stderr)))
+    (values (status:exit-val status) stdout stderr)))
+
+
+;; Execute shell command and return responses as list.
+;;
+;; Responses: status-code stdout stderr
+;;
+(define (capture-shell-command cmd)
+  (let-values (((status stdout stderr) (capture-shell-command-values cmd)))
+    (list status stdout stderr)))
+
+
+;; Execute shell command and return only the stdout, or false if
+;; failure.
+;;
+(define (capture-shell-command-stdout cmd)
+  (let-values (((status stdout stderr) (capture-shell-command-values cmd)))
+    (if (equal? status 0)
+        stdout
+        #f)))
 
 
 ;; Current time w/o time segment.
