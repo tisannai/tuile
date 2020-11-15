@@ -26,7 +26,7 @@
 ;; dir: resolved directory of file, i.e. for absolute file path the
 ;;      dir itself and for relative file path the extended dir.
 ;;
-;; *path: dir with filename included.
+;; path: dir with filename included.
 
 (define-module (tuile fn)
   #:export (
@@ -42,6 +42,8 @@
             fs-relpath
             fs-relpath-dotted
             fs-path
+            fs-mkdir-p
+            fs-mkpath-p
 
             fn-is-abs?
             fn-is-rel?
@@ -146,6 +148,34 @@
     (if (fn-is-abs? fn)
         (fn->fs fn)
         (string-append (getcwd) "/" (fn->fs fn)))))
+
+
+;; Make directory and all parents, if needed.
+(define (fs-mkdir-p fs)
+  (letrec ((is-dir? (lambda (path)
+                      (and (file-exists? path)
+                           (file-is-directory? path))))
+           (create-if-missing (lambda (path)
+                                     (when (not (is-dir? path))
+                                       (mkdir path))))
+           (mkdir-p (lambda (path segments)
+                      (if (null? segments)
+                          (create-if-missing path)
+                          (begin
+                            (create-if-missing path)
+                            (mkdir-p (string-append path "/" (car segments))
+                                     (cdr segments))))))
+           (segments (string-split (if (and (> (string-length fs) 1)
+                                            (string=? "./" (substring fs 0 2)))
+                                       (substring fs 2)
+                                       fs)
+                                   #\/)))
+    (mkdir-p (car segments) (cdr segments))))
+
+
+;; Make directory and all parents, if needed.
+(define (fs-mkpath-p fs)
+  (fs-mkdir-p (fs-dir fs)))
 
 
 ;; ------------------------------------------------------------
