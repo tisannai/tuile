@@ -3,14 +3,20 @@
 (define-module (tuile log)
   #:use-module (tuile pr)
   #:export
-  (prl
+  (
+   prl
    prl-enable
    prl-disable
    prl-prefix
+
+   prm
+   prm-enable
+   prm-disable
    ))
 
 
-(define prl-enabled-logs '())
+(eval-when (expand load eval)
+  (define prl-enabled-logs '()))
 
 
 (define (prl-enable . rest)
@@ -71,3 +77,36 @@
 ;;
 (define (prl-prefix fn)
   (set! prl-prefix-fn fn))
+
+
+;; Log to group, as macro.
+;;
+;; "prm" outputs nothing if group is not enabled.
+;;
+(define-syntax prm
+  (lambda (x)
+    (syntax-case x ()
+      ((_ grp body ...)
+       ;; Test group enable before syntax output.
+       ;;
+       ;; NOTE: The group is a quoted symbol which is a list at
+       ;; expansion time. Hence, we need "cadr" to extract the actual
+       ;; group symbol at macro expansion time.
+       (when (assoc-ref prl-enabled-logs (cadr (syntax->datum (syntax grp))))
+           #'(apply prl (list grp body ...)))))))
+
+;; Macro version of "prl-enable".
+(define-syntax prm-enable
+  (lambda (x)
+    (syntax-case x ()
+      ((_ body ...)
+       #'(eval-when (expand load eval)
+           (prl-enable body ...))))))
+
+;; Macro version of "prl-disable".
+(define-syntax prm-disable
+  (lambda (x)
+    (syntax-case x ()
+      ((_ body ...)
+       #'(eval-when (expand load eval)
+           (prl-disable body ...))))))
