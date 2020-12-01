@@ -65,6 +65,7 @@
    read-lines-from-port
    with-each-line-from-port
    with-each-line-from-file
+   with-output-to-filename
    file->lines
    lines->file
    ;;   file->line-list
@@ -689,6 +690,18 @@
     (lambda (port)
       (with-each-line-from-port port proc))))
 
+
+;; Execute one arg proc with port. If filename is "<stdout>", then
+;; port is stdout, otherwise a fileport is opened and finally closed
+;; after proc has been executed.
+(define (with-output-to-filename filename proc)
+  (let ((port (if (string=? "<stdout>" filename)
+                  (current-output-port)
+                  (open-output-port filename))))
+    (proc port)
+    (when (not (equal? port
+                       (current-output-port)))
+      (close-output-port port))))
 
 ;; Get all lines from file to list (or vector).
 ;;
