@@ -1,9 +1,10 @@
-#!/usr/bin/guile -s
+#!/usr/bin/sh
+exec ti-guile-script "$0" "$@"
 !#
 
 (use-modules (ubu))
-
 (define usr-install-path (car (string-split (getenv "GUILE_LOAD_PATH") #\:)))
+
 
 (ubu-default "install")
 (action install

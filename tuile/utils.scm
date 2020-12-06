@@ -65,6 +65,8 @@
    read-lines-from-port
    with-each-line-from-port
    with-each-line-from-file
+   open-output-port-with-filename
+   close-output-port-with-filename
    with-output-to-filename
    file->lines
    lines->file
@@ -561,6 +563,20 @@
   (car (last-pair (string-split filename #\.))))
 
 
+;; Append item to list.
+;;
+;;     (append-item! lst 21)
+(define (append-item! lst item)
+  (append! lst (list item)))
+
+;; Prepend item to list.
+;;
+;;     (prepend-item! lst 21)
+(define (prepend-item! lst item)
+  (set-cdr! lst (list-copy lst))
+  (set-car! lst item))
+
+
 ;; Get vector elements by range: [a,b).
 ;;
 ;; a is inclusive and b is exclusive.
@@ -691,17 +707,27 @@
       (with-each-line-from-port port proc))))
 
 
+;; Open output port for filename. Open a real file port, unless
+;; filename is "<stdout>".
+(define (open-output-port-with-filename filename)
+  (if (string=? "<stdout>" filename)
+      (current-output-port)
+      (open-output-port filename)))
+
+;; Close output port. Close the port, unless port is
+;; "(current-output-port)" i.e. opened filename was "<stdout>".
+(define (close-output-port-with-filename port)
+  (when (not (equal? port
+                     (current-output-port)))
+    (close-output-port port)))
+
 ;; Execute one arg proc with port. If filename is "<stdout>", then
 ;; port is stdout, otherwise a fileport is opened and finally closed
 ;; after proc has been executed.
 (define (with-output-to-filename filename proc)
-  (let ((port (if (string=? "<stdout>" filename)
-                  (current-output-port)
-                  (open-output-port filename))))
+  (let ((port (open-output-port-with-filename filename)))
     (proc port)
-    (when (not (equal? port
-                       (current-output-port)))
-      (close-output-port port))))
+    (close-output-port-with-filename port)))
 
 ;; Get all lines from file to list (or vector).
 ;;
@@ -886,6 +912,10 @@
     #:unwind? #t))
 
 
+;; Create list of string from symbols, i.e. non-quoted text.
+;;
+;;     (make-string-list foo bar dii)
+;;
 (define-syntax make-string-list
   (lambda (x)
     (let* ((stx (syntax->datum x))
