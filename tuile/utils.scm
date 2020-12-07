@@ -712,7 +712,7 @@
 (define (open-output-port-with-filename filename)
   (if (string=? "<stdout>" filename)
       (current-output-port)
-      (open-output-port filename)))
+      (open-output-file filename)))
 
 ;; Close output port. Close the port, unless port is
 ;; "(current-output-port)" i.e. opened filename was "<stdout>".
