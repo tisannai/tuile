@@ -44,6 +44,7 @@
             como-values
             como-value
             como-apply
+            como-error
             como-command-line
 
             ;; Como actions:
@@ -491,6 +492,7 @@
             (car (opt-value opt)))
         def-val)))
 
+(define como-error parse-error)
 
 ;; ------------------------------------------------------------
 ;; Como actions API:
