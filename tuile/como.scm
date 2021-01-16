@@ -44,6 +44,7 @@
             como-values
             como-value
             como-apply
+            como-if-given
             como-error
             como-command-line
 
@@ -182,9 +183,12 @@
 
 ;; Get (find) option by name or null for default option.
 (define (get-opt como name)
-  (if (null? name)
-      (find-opt-with como 'default opt-type)
-      (find-opt-with como name opt-name)))
+  (cond
+   ((or (not name)
+        (null? name))
+    (find-opt-with como 'default opt-type))
+   (else
+    (find-opt-with como name opt-name))))
 
 
 ;; Check that all required options have been given, exit if required
@@ -491,6 +495,20 @@
             (opt-value opt)
             (car (opt-value opt)))
         def-val)))
+
+;;
+;; Execute "prog" if opt was given. "prog" takes the option as
+;; argument.
+;;
+;;    (como-if-given "file"
+;;       (lambda (opt)
+;;          (display (como-value opt))
+;;          (newline)))
+;;
+(define (como-if-given name prog)
+  (let ((opt (como-opt name)))
+    (when (opt-data-given opt)
+      (prog opt))))
 
 (define como-error parse-error)
 
