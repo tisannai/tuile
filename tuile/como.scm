@@ -35,6 +35,7 @@
   #:use-module ((srfi srfi-9)   #:select (define-record-type))
   #:use-module ((srfi srfi-11)  #:select (let-values))
   #:use-module ((srfi srfi-13)  #:select (string-contains))
+  #:use-module ((tuile utils)   #:select (simple-eval))
   #:export (
             ;; Como classic:
             como-command
@@ -115,12 +116,14 @@
   (type    opt-type)                    ; Type [symbol].
   (sopt    opt-sopt)                    ; Short option [string or symbol].
   (desc    opt-desc)                    ; Description.
-  (given   opt-given?   set-opt-given!) ; Has option been given?
+  (given   opt-given    set-opt-given!) ; Has option been given?
   (value   opt-value    set-opt-value!) ; Option value(s) [list].
   (cli     opt-cli)                     ; Cli formatter  [fn].
   (info    opt-info)                    ; Info formatter [fn].
   )
 
+
+(define opt-given? opt-given)
 
 ;; Add to option's value list.
 (define (add-opt-value! opt val)
@@ -730,5 +733,5 @@
           (parse-error "No actions given")))
 
     (for-each (lambda (action)
-                (eval (list  action) (interaction-environment)))
+                (simple-eval (list action)))
               used-actions)))

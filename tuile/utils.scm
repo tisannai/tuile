@@ -25,6 +25,7 @@
    dir-glob
 
    string->procedure
+   simple-eval
 
    aif
    for
@@ -184,6 +185,10 @@
 ;; Convert string to procedure.
 (define (string->procedure str)
   (eval (read (open-input-string str)) (interaction-environment)))
+
+;; Eval datum.
+(define (simple-eval datum)
+  (eval datum (interaction-environment)))
 
 
 ;; Anaphoric macro.
