@@ -30,7 +30,6 @@
 
 
 (define-module (tuile como)
-  #:use-module ((ice-9 format)  #:select (format))
   #:use-module ((ice-9 control) #:select (call/ec))
   #:use-module ((srfi srfi-1)   #:select (find first second third last fold))
   #:use-module ((srfi srfi-9)   #:select (define-record-type))
@@ -53,6 +52,22 @@
             como-var
             ))
 
+
+;; ------------------------------------------------------------
+;; String utilities:
+
+(define (ss . parts)
+  (string-concatenate parts))
+
+(define (ljust width str)
+  (if (< (string-length str)
+         width)
+      (let ((pad (- width (string-length str))))
+        (ss str (make-string pad #\ )))
+      str))
+
+;; String utilities:
+;; ------------------------------------------------------------
 
 
 ;; ------------------------------------------------------------
@@ -197,7 +212,7 @@
   (for-each (lambda (opt)
               (when (and (required-opt? opt)
                          (not (opt-given? opt)))
-                (parse-error (format #f "Missing required options: \"~a\"" (opt-name opt)))))
+                (parse-error (ss "Missing required options: \"" (opt-name opt) "\""))))
             (spec-opts como)))
 
 
@@ -233,7 +248,7 @@
   (let ((res (parse-values! opt (cdr cli) 1)))
     (if (= 1 (car res))
         (cdr res)
-        (parse-error (format #f "Wrong number of values for: \"~a\"" (opt-name opt))))))
+        (parse-error (ss "Wrong number of values for: \"" (opt-name opt) "\"")))))
 
 
 ;; Parse multi.
@@ -242,7 +257,7 @@
   (let ((res (parse-values! opt (cdr cli) -1)))
     (if (> (car res) 0)
         (cdr res)
-        (parse-error (format #f "Wrong number of values for: \"~a\"" (opt-name opt))))))
+        (parse-error (ss "Wrong number of values for: \"" (opt-name opt) "\"")))))
 
 
 ;; Parse any.
@@ -296,7 +311,7 @@
                      (begin
                        (set-opt-given! default #t)
                        (parse-values! default rest -1))
-                     (parse-error (string-append "Unknown option: " (car rest)))))))))
+                     (parse-error (ss "Unknown option: " (car rest)))))))))
      #f)))
 
 
@@ -309,7 +324,7 @@
 
 ;; Common formatter for most of the options.
 (define (opt-info-common opt)
-  (format #f "~12,a ~a" (opt-sopt opt) (opt-desc opt)))
+  (ss (ljust 13 (opt-sopt opt)) (opt-desc opt)))
 
 
 (define (opt-cli-help opt) #f)
@@ -321,74 +336,75 @@
 
 
 (define (opt-cli-single opt)
-  (string-append (opt-sopt opt) " <" (opt-name opt) ">"))
+  (ss (opt-sopt opt) " <" (opt-name opt) ">"))
 
 
 (define (opt-cli-opt-single opt)
-  (string-append "[" (opt-sopt opt) " <" (opt-name opt) ">" "]"))
+  (ss "[" (opt-sopt opt) " <" (opt-name opt) ">" "]"))
 
 
 (define (opt-cli-repeat opt)
-  (string-append (opt-sopt opt) " <" (opt-name opt) ">#"))
+  (ss (opt-sopt opt) " <" (opt-name opt) ">#"))
 
 
 (define (opt-cli-opt-repeat opt)
-  (string-append "[" (opt-sopt opt) " <" (opt-name opt) ">#" "]"))
+  (ss "[" (opt-sopt opt) " <" (opt-name opt) ">#" "]"))
 
 
 (define (opt-cli-multi opt)
-  (string-append (opt-sopt opt) " <" (opt-name opt) ">+"))
+  (ss (opt-sopt opt) " <" (opt-name opt) ">+"))
 
 
 (define (opt-cli-opt-multi opt)
-  (string-append "[" (opt-sopt opt) " <" (opt-name opt) ">+" "]"))
+  (ss "[" (opt-sopt opt) " <" (opt-name opt) ">+" "]"))
 
 
 (define (opt-cli-any opt)
-  (string-append (opt-sopt opt) " <" (opt-name opt) ">*"))
+  (ss (opt-sopt opt) " <" (opt-name opt) ">*"))
 
 
 (define (opt-cli-opt-any opt)
-  (string-append "[" (opt-sopt opt) " <" (opt-name opt) ">*" "]"))
+  (ss "[" (opt-sopt opt) " <" (opt-name opt) ">*" "]"))
 
 
 (define (opt-cli-default opt)
   "*default*")
 (define (opt-info-default opt)
-  (format #f "~12,a ~a" "*default*" (opt-desc opt)))
+  (ss (ljust 13 "*default*") (opt-desc opt)))
 
 
 ;; Create "cli" portion of usage.
 (define (usage-list como)
-  (string-append (string-join (cons (spec-name como)
-                                    (map (lambda (opt)
-                                           (apply-opt-cli opt))
-                                         (filter visible-opt?
-                                                 (spec-opts como))))
-                              " ")
-                 "\n"))
+  (ss (string-join (cons (spec-name como)
+                         (map (lambda (opt)
+                                (apply-opt-cli opt))
+                              (filter visible-opt?
+                                      (spec-opts como))))
+                   " ")
+      "\n"))
 
 
 ;; Create "info" portion of usage.
 (define (usage-desc como)
   (string-concatenate
    (map (lambda (opt)
-          (string-append "  "
-                         (apply-opt-info opt)
-                         "\n"))
+          (ss "  "
+              (apply-opt-info opt)
+              "\n"))
         (filter visible-opt?
                 (spec-opts como)))))
 
 
 ;; Display all usage info.
 (define (usage como)
-  (display (string-append "\n  " (usage-list como)
-                          "\n"
-                          (usage-desc como)
-                          (format #f
-                                  "\n\n  Copyright (c) ~a by ~a\n\n"
-                                  (spec-year como)
-                                  (spec-author como)))))
+  (display (ss "\n  " (usage-list como)
+               "\n"
+               (usage-desc como)
+               (ss "\n\n  Copyright (c) "
+                   (spec-year como)
+                   " by "
+                   (spec-author como)
+                   "\n\n"))))
 
 
 ;; ------------------------------------------------------------
@@ -496,7 +512,7 @@
             (car (opt-value opt)))
         def-val)))
 
-;;
+
 ;; Execute "prog" if opt was given. "prog" takes the option as
 ;; argument.
 ;;
@@ -507,8 +523,9 @@
 ;;
 (define (como-if-given name prog)
   (let ((opt (como-opt name)))
-    (when (opt-data-given opt)
+    (when (opt-given? opt)
       (prog opt))))
+
 
 (define como-error parse-error)
 
@@ -594,42 +611,42 @@
                                 (append (list (list '*default*))
                                         actions
                                         options)))
-           (formatters (map (lambda (spec)
-                              (cons (car spec) (format #f (cdr spec) (+ longest-label
-                                                                        label-gap))))
-                            (list (cons 'revert-action "  * ~~~a,a~~a")
-                                  (cons 'normal-action "    ~~~a,a~~a")
-                                  (cons 'option        "    ~~~a,a~~a\n~~a= \"~~a\"")
-                                  (cons 'default       "    ~~~a,a~~a"))))
+           (width (+ longest-label label-gap))
+           (formatters (list (cons 'revert-action (lambda (f1 f2)       (ss (ljust width f1) f2)))
+                             (cons 'normal-action (lambda (f1 f2)       (ss (ljust width f1) f2)))
+                             (cons 'option        (lambda (f1 f2 f3 f4) (ss (ljust width f1) f2 "\n" f3 "= \"" f4 "\"")))
+                             (cons 'default       (lambda (f1 f2)       (ss (ljust width f1) f2)))
+                             ))
            (action-lines (map (lambda (def)
                                 (let ((formatter (if (and revert
                                                           (equal? (second def)
                                                                   revert))
                                                      (assoc-ref formatters 'revert-action)
                                                      (assoc-ref formatters 'normal-action))))
-                                  (format #f formatter (second def) (third def))))
+                                  (formatter (second def) (third def))))
                               actions))
            (option-lines (append (map (lambda (def)
-                                        (format #f (assoc-ref formatters 'option)
-                                                (second def)
-                                                (third def)
-                                                (make-string (+ 6 label-gap longest-label) #\ )
-                                                (como-var (symbol->string (second def)))))
+                                        ((assoc-ref formatters 'option)
+                                         (second def)
+                                         (third def)
+                                         (make-string (+ 6 label-gap longest-label) #\ )
+                                         (como-var (symbol->string (second def)))))
                                       options)
                                  (if default
-                                     (list (format #f (assoc-ref formatters 'default) "*default*" (third default)))
+                                     (list ((assoc-ref formatters 'default) "*default*" (third default)))
                                      '()))))
-      (display (string-append "\n  " program " <actions-and-options>\n\n"
+      (display (ss "\n  " program " <actions-and-options>\n\n"
                               (if (pair? action-lines)
-                                  (string-append (string-join action-lines "\n") "\n\n")
+                                  (ss (string-join action-lines "\n") "\n\n")
                                   "")
                               (if (pair? option-lines)
-                                  (string-append (string-join option-lines "\n") "\n\n")
+                                  (ss (string-join option-lines "\n") "\n\n")
                                   "")
-                              (format #f
-                                      "\n  Copyright (c) ~a by ~a\n\n"
-                                      year
-                                      author)))))
+                              (ss "\n  Copyright (c) "
+                                  year
+                                  " by "
+                                  author
+                                  "\n\n")))))
 
   ;; Set external "como-usage" since "parse-error" depends on it.
   (set! como-usage usage)
@@ -641,7 +658,7 @@
                 ((option)  (set! options (append options (list i))))
                 ((default) (set! default i))
                 (else
-                 (parse-error (string-append "Unknown argument type in \"como-actions\": \"" (symbol->string (car i)) "\"")))))
+                 (parse-error (ss "Unknown argument type in \"como-actions\": \"" (symbol->string (car i)) "\"")))))
             action-list)
 
   ;; Check that at least one action exists.
@@ -681,7 +698,7 @@
                         (val (second rest)))
                     (como-var-set! var val)
                     (parse-next (cddr rest)))
-                  (parse-error (string-append "Variable \"" (car rest) "\" is missing value")))))
+                  (parse-error (ss "Variable \"" (car rest) "\" is missing value")))))
 
          ;; Default
          (else
