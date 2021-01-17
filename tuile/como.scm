@@ -34,7 +34,7 @@
   #:use-module ((srfi srfi-1)   #:select (find first second third last fold))
   #:use-module ((srfi srfi-9)   #:select (define-record-type))
   #:use-module ((srfi srfi-11)  #:select (let-values))
-  #:use-module ((tuile utils)   #:select (re-match? re-split))
+  #:use-module ((srfi srfi-13)  #:select (string-contains))
   #:export (
             ;; Como classic:
             como-command
@@ -65,6 +65,22 @@
       (let ((pad (- width (string-length str))))
         (ss str (make-string pad #\ )))
       str))
+
+(define str-match? string-contains)
+
+(define (str-split-with str pat)
+  (let ((pat-len (string-length pat)))
+    (let loop ((tail str)
+               (lst '()))
+      (if (> (string-length tail)
+             0)
+          (if (string-contains tail pat)
+              (let ((pos (string-contains tail pat)))
+                (loop (substring tail
+                                 (+ pos pat-len))
+                      (append lst (list (substring tail 0 pos)))))
+              (append lst (list tail)))
+          lst))))
 
 ;; String utilities:
 ;; ------------------------------------------------------------
@@ -685,11 +701,11 @@
 
          ;; Option
          ((or (type-is? 'option (string->symbol (car rest)))
-              (re-match? "=" (car rest)))
+              (str-match? (car rest) "="))
 
-          (if (re-match? "=" (car rest))
+          (if (str-match? (car rest) "=")
 
-              (let ((parts (re-split "=" (car rest))))
+              (let ((parts (str-split-with "=" (car rest))))
                 (como-var-set! (first parts) (second parts))
                 (parse-next (cdr rest)))
 
