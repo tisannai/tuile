@@ -28,6 +28,7 @@
    simple-eval
 
    aif
+   awhen
    for
    map-except-last
    map-except-first
@@ -191,26 +192,60 @@
   (eval datum (interaction-environment)))
 
 
-;; Anaphoric macro.
+;; Anaphoric if macro.
 ;;
-;; (aif (1+ i)
-;;   it
-;;   #f)
+;;     (aif (1+ i)
+;;          it
+;;          #f)
 (define-syntax aif
   (lambda (x)
-    (syntax-case x ()
-      ((_ test then else)
-       (syntax-case (datum->syntax x 'it) ()
-         (it
-          #'(let ((it test))
-              (if it then else))))))))
+    ;; "lst": Convert syntax to datum and convert back to a list of syntax.
+    (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
+      ;; Create template variable "it".
+      (with-syntax ((it (datum->syntax x 'it)))
+        #`(let ((it #,(cadr lst)))
+            (if it #,(caddr lst) #,(cadddr lst)))))))
+
+;;
+;; aif - alternative implementations:
+;;
+;;(define-syntax aif
+;;  (lambda (x)
+;;    (syntax-case x ()
+;;      ((_ test then else)
+;;       (syntax-case (datum->syntax x 'it) ()
+;;         (it
+;;          #'(let ((it test))
+;;              (if it then else))))))))
+;;
+;;(define-syntax aif
+;;  (lambda (x)
+;;    (syntax-case x ()
+;;      ((_ test then else)
+;;       (with-syntax ((it (datum->syntax x 'it)))
+;;         #'(let ((it test))
+;;             (if it then else)))))))
+
+
+;; Anaphoric when macro.
+;;
+;;     (awhen (1+ i)
+;;          it)
+(define-syntax awhen
+  (lambda (x)
+    ;; "lst": Convert syntax to datum and convert back to a list of syntax.
+    (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
+      ;; Create template variable "it".
+      (with-syntax ((it (datum->syntax x 'it)))
+        #`(let ((it #,(cadr lst)))
+            (when it #,(caddr lst)))))))
 
 
 ;; Execute for each in list.
 ;;
-;; (for ((i lst))
-;;   (display i)
-;;   (newline))
+;;     (for ((i lst))
+;;       (display i)
+;;       (newline))
 (define-syntax for
   (lambda (x)
     (syntax-case x ()
@@ -224,6 +259,7 @@
           (lambda (i1 i2)
             body ...)
           l1 l2)))))
+
 
 
 ;; Map all list entries except last.
