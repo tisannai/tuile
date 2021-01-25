@@ -25,7 +25,7 @@
    dir-glob
 
    string->procedure
-   simple-eval
+   common-eval
 
    aif
    awhen
@@ -188,7 +188,7 @@
   (eval (read (open-input-string str)) (interaction-environment)))
 
 ;; Eval datum.
-(define (simple-eval datum)
+(define (common-eval datum)
   (eval datum (interaction-environment)))
 
 

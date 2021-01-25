@@ -35,7 +35,7 @@
   #:use-module ((srfi srfi-9)   #:select (define-record-type))
   #:use-module ((srfi srfi-11)  #:select (let-values))
   #:use-module ((srfi srfi-13)  #:select (string-contains))
-  #:use-module ((tuile utils)   #:select (simple-eval))
+  #:use-module ((tuile utils)   #:select (common-eval))
   #:export (
             ;; Como classic:
             como-command
@@ -733,5 +733,5 @@
           (parse-error "No actions given")))
 
     (for-each (lambda (action)
-                (simple-eval (list action)))
+                (common-eval (list action)))
               used-actions)))
