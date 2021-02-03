@@ -14,6 +14,10 @@
 ;; Return one parsed line as list of field from port. Stop if EOF is
 ;; encountered.
 ;;
+;; CSV-line is typically separated into fields with semicolon. String may
+;; contain newline and double-quotes. Double-quotes are escaped by
+;; having two consecutive double-quotes act as one.
+;;
 ;; Positional arguments:
 ;;     port        File port.
 ;;

@@ -11,6 +11,8 @@
    :rj
    :ls
    :rs
+   :lc
+   :rc
    :jn
    :sp
    :ms
@@ -35,7 +37,7 @@
        (else
         ;; (format #t "else\n")
         (cons (car args) (flat-args (cdr args)))))
-      
+
       '()))
 
 
@@ -137,15 +139,43 @@
                       0)))
     (string-append (make-string pad-cnt pad-ch) str)))
 
-    
+
 ;; Left-justify with space.
 (define (:ls width . rest)
   (:lj width #\  rest))
 
-    
-;; right-justify with space.
+
+;; Right-justify with space.
 (define (:rs width . rest)
   (:rj width #\  rest))
+
+
+(define (align-or-clip-with fn width pad rest)
+  (let ((str (string-concatenate (fa rest))))
+    (if (> (string-length str)
+           width)
+        (substring str 0 width)
+        (apply fn (append (list width pad)
+                          rest)))))
+
+;; Left-just-clip with pad.
+(define (:lc width pad . rest)
+  (align-or-clip-with :lj width pad rest))
+
+;; Left-just-clip with pad.
+(define (:rc width pad . rest)
+  (align-or-clip-with :rj width pad rest))
+
+
+;; Right-just-clip with pad.
+(define (:rc width pad . rest)
+  (let ((str (string-concatenate (fa rest))))
+    (if (> (string-length str)
+           width)
+        (let ((off (- (string-length str) width)))
+          (substring str off (+ width off)))
+        (apply :rj (append (list width pad)
+                           rest)))))
 
 
 ;; Join with given string (or char).

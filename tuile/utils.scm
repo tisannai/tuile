@@ -23,6 +23,8 @@
 
    dir-list
    dir-glob
+   extname
+   expand-file-name
 
    string->procedure
    common-eval
@@ -49,8 +51,6 @@
    re-matches
    re-sub
    re-gsub
-
-   extname
 
    vector-range
    vector-reverse
@@ -81,6 +81,7 @@
 
    timestamp
    datestamp
+   days-in-month
 
    old-memf
    find-all
@@ -181,6 +182,17 @@
 
   (let ((rx (make-regexp (glob->regexp pat))))
     (filter (lambda (x) (regexp-exec rx x)) (dir-list dir))))
+
+
+;; Return filename suffix (without the dot).
+(define (extname filename)
+  (car (last-pair (string-split filename #\.))))
+
+;; Convert filename to absolute, and canonicalize it (as in Emacs).
+(define (expand-file-name filename)
+  (if (eq? (string-ref filename 0) #\~)
+      (string-append (getenv "HOME") (substring filename 1))
+      (canonicalize-path filename)))
 
 
 ;; Convert string to procedure.
@@ -604,10 +616,6 @@
        (regexp-substitute/global #f re str 'pre rep 'post)
        str))
 
-;; Return filename suffix (without the dot).
-(define (extname filename)
-  (car (last-pair (string-split filename #\.))))
-
 
 ;; Append item to list.
 ;;
@@ -908,6 +916,23 @@
 (define (datestamp)
   (srfi:date->string (srfi:current-date)
                      "~Y-~m-~d"))
+
+
+;; Return the number of days in given month.
+;;
+(define (days-in-month year month)
+  (case month
+    ((1 3 5 7 8 10 12)
+     31)
+    ((4 6 9 11)
+     30)
+    (else
+     ;; February has varying number of days.
+     (if (or (= (remainder year 400) 0)
+             (and (= (remainder year 4) 0)
+                  (not (= (remainder year 100) 0))))
+         29
+         28))))
 
 
 ;; Find all items matched with one argument proc "fn" from "lst".
