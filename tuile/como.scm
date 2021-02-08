@@ -553,6 +553,8 @@
 
 (define como-vars (make-hash-table))
 
+(define como-used-actions '())
+
 (define (como-var name)
   (hash-ref como-vars name))
 
@@ -708,7 +710,7 @@
 
           (if (str-match? (car rest) "=")
 
-              (let ((parts (str-split-with "=" (car rest))))
+              (let ((parts (str-split-with (car rest) "=")))
                 (como-var-set! (first parts) (second parts))
                 (parse-next (cdr rest)))
 

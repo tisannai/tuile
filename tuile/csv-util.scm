@@ -106,5 +106,8 @@
                  (cond
                   ((string=? "binary"   file-encoding)
                    (list #:binary #t))
+                  ((string=? "UTF-8" file-encoding)
+                   (list #:encoding "UTF-8"))
                   ((string=? "UTF-16LE" file-encoding)
-                   (list #:encoding "UTF-16LE"))))))
+                   (list #:encoding "UTF-16LE"))
+                  ))))

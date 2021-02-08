@@ -15,6 +15,7 @@
   #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:export
   (
+   any?
    flatten
    flatten-0
    flatten-1
@@ -26,6 +27,7 @@
    extname
    expand-file-name
 
+   datum->string
    string->procedure
    common-eval
 
@@ -35,6 +37,7 @@
    map-except-last
    map-except-first
    repeat-times
+   nop
 
    define-im-record
    define-fp-record
@@ -99,6 +102,8 @@
 ;; ------------------------------------------------------------
 ;; External functions:
 
+
+(define any? (lambda (lst) (not (null? lst))))
 
 ;; Flatten (and join) argument list as deep as list goes.
 (define (flatten . rest)
@@ -194,6 +199,10 @@
       (string-append (getenv "HOME") (substring filename 1))
       (canonicalize-path filename)))
 
+
+(define (datum->string datum)
+  (with-output-to-string (lambda ()
+                           (write datum))))
 
 ;; Convert string to procedure.
 (define (string->procedure str)
