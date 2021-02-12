@@ -640,7 +640,7 @@
                                         actions
                                         options)))
            (width (+ longest-label label-gap))
-           (formatters (list (cons 'revert-action (lambda (f1 f2)       (ss "    " (ljust width f1) f2)))
+           (formatters (list (cons 'revert-action (lambda (f1 f2)       (ss "  * " (ljust width f1) f2)))
                              (cons 'normal-action (lambda (f1 f2)       (ss "    " (ljust width f1) f2)))
                              (cons 'option        (lambda (f1 f2 f3 f4) (ss "    " (ljust width f1) f2 "\n" f3 "= \"" f4 "\"")))
                              (cons 'default       (lambda (f1 f2)       (ss "    " (ljust width f1) f2)))))
