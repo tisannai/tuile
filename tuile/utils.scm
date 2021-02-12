@@ -16,9 +16,18 @@
   #:export
   (
    any?
+   empty?
+   len-0?
+   len-1?
+   len-2?
+   len-3?
+   most?
+   best?
    flatten
    flatten-0
    flatten-1
+
+   pi
 
    command-line-arguments
 
@@ -30,10 +39,12 @@
    datum->string
    string->procedure
    common-eval
+   funcall
 
    aif
    awhen
    for
+   forever
    map-except-last
    map-except-first
    repeat-times
@@ -103,7 +114,43 @@
 ;; External functions:
 
 
-(define any? (lambda (lst) (not (null? lst))))
+(define any?   pair?)
+(define empty? null?)
+(define len-0? null?)
+(define len-1? (lambda (lst) (and (pair? lst) (null? (cdr lst)))))
+(define len-2? (lambda (lst) (and (pair? lst) (pair? (cdr lst)) (null? (cddr lst)))))
+(define len-3? (lambda (lst) (and (pair? lst) (pair? (cdr lst)) (pair? (cddr lst)) (null? (cdddr lst)))))
+
+(define (most? fn lst)
+  (if (null? lst)
+      #f
+      (let loop ((tail (cdr lst))
+                 (wins (car lst))
+                 (max (fn (car lst))))
+        (if (pair? tail)
+            (let ((score (fn (car tail))))
+              (if (> score max)
+                  (loop (cdr tail)
+                        (car tail)
+                        score)
+                  (loop (cdr tail)
+                        wins
+                        max)))
+            wins))))
+
+(define (best? fn lst)
+  (if (null? lst)
+      #f
+      (let loop ((tail (cdr lst))
+                 (wins (car lst)))
+        (if (pair? tail)
+            (if (fn (car tail) wins)
+                (loop (cdr tail)
+                      (car tail))
+                (loop (cdr tail)
+                      wins))
+            wins))))
+
 
 ;; Flatten (and join) argument list as deep as list goes.
 (define (flatten . rest)
@@ -144,6 +191,10 @@
           (loop (cdr lst)
                 (append res (list (car lst))))))
         res)))
+
+
+;; (* 2 (acos 0))
+(define pi 3.141592653589793)
 
 
 ;; Return command line arguments, excluding the executable.
@@ -211,6 +262,18 @@
 ;; Eval datum.
 (define (common-eval datum)
   (eval datum (interaction-environment)))
+
+;; Funcall macro (to complement apply).
+;;
+;; NOTE: One does not have to use this macro in Scheme, since Scheme
+;; is a Lisp-1 language, but it can be used for highlighting a special
+;; function application case.
+;;
+;; Write as a function:
+;;     (define (funcall fn . rest)
+;;       (apply fn rest))
+(define-syntax-rule (funcall fn arg1 ...)
+  (apply fn (list arg1 ...)))
 
 
 ;; Anaphoric if macro.
@@ -281,6 +344,20 @@
             body ...)
           l1 l2)))))
 
+
+;; Loop forever.
+;;
+;;     (forever
+;;      (display "hello")
+;;      (newline))
+;;
+(define-syntax forever
+  (lambda (x)
+    (syntax-case x ()
+      ((forever body ...)
+       #'(let loop-forever ()
+           body ...
+           )))))
 
 
 ;; Map all list entries except last.

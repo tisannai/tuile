@@ -61,7 +61,7 @@
   (string-concatenate parts))
 
 (define (ljust width str)
-  (if (< (string-length str)
+  (if (< (string-length (ss str))
          width)
       (let ((pad (- width (string-length str))))
         (ss str (make-string pad #\ )))
@@ -595,10 +595,17 @@
                        (revert #f)
                        (label-gap 2))
 
+  ;; Convert object to string if it is not yet.
+  (define (->string obj)
+    (if (string? obj)
+        obj
+        (object->string obj)))
+
+
   ;; Initialize variables to specified value or #f.
   (define (como-vars-init defs)
     (for-each (lambda (def)
-                (hash-set! como-vars (symbol->string (second def))
+                (hash-set! como-vars (->string (second def))
                            (if (> (length def) 3)
                                (last def) ; Has default, use it.
                                #f)))
@@ -624,7 +631,7 @@
   ;; Display all usage info.
   (define (usage)
     (let* ((longest-label (fold (lambda (i len)
-                                  (let ((sym-len (string-length (symbol->string (car i)))))
+                                  (let ((sym-len (string-length (->string (car i)))))
                                     (if (> sym-len len)
                                         sym-len
                                         len)))
@@ -633,25 +640,24 @@
                                         actions
                                         options)))
            (width (+ longest-label label-gap))
-           (formatters (list (cons 'revert-action (lambda (f1 f2)       (ss (ljust width f1) f2)))
-                             (cons 'normal-action (lambda (f1 f2)       (ss (ljust width f1) f2)))
-                             (cons 'option        (lambda (f1 f2 f3 f4) (ss (ljust width f1) f2 "\n" f3 "= \"" f4 "\"")))
-                             (cons 'default       (lambda (f1 f2)       (ss (ljust width f1) f2)))
-                             ))
+           (formatters (list (cons 'revert-action (lambda (f1 f2)       (ss "    " (ljust width f1) f2)))
+                             (cons 'normal-action (lambda (f1 f2)       (ss "    " (ljust width f1) f2)))
+                             (cons 'option        (lambda (f1 f2 f3 f4) (ss "    " (ljust width f1) f2 "\n" f3 "= \"" f4 "\"")))
+                             (cons 'default       (lambda (f1 f2)       (ss "    " (ljust width f1) f2)))))
            (action-lines (map (lambda (def)
                                 (let ((formatter (if (and revert
                                                           (equal? (second def)
                                                                   revert))
                                                      (assoc-ref formatters 'revert-action)
                                                      (assoc-ref formatters 'normal-action))))
-                                  (formatter (second def) (third def))))
+                                  (formatter (->string (second def)) (third def))))
                               actions))
            (option-lines (append (map (lambda (def)
                                         ((assoc-ref formatters 'option)
-                                         (second def)
+                                         (->string (second def))
                                          (third def)
                                          (make-string (+ 6 label-gap longest-label) #\ )
-                                         (como-var (symbol->string (second def)))))
+                                         (->string (como-var (->string (second def))))))
                                       options)
                                  (if default
                                      (list ((assoc-ref formatters 'default) "*default*" (third default)))
@@ -679,7 +685,7 @@
                 ((option)  (set! options (append options (list i))))
                 ((default) (set! default i))
                 (else
-                 (parse-error (ss "Unknown argument type in \"como-actions\": \"" (symbol->string (car i)) "\"")))))
+                 (parse-error (ss "Unknown argument type in \"como-actions\": \"" (->string (car i)) "\"")))))
             action-list)
 
   ;; Check that at least one action exists.
