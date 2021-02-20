@@ -21,8 +21,8 @@
    len-1?
    len-2?
    len-3?
-   most?
-   best?
+   most
+   best
    flatten
    flatten-0
    flatten-1
@@ -121,7 +121,12 @@
 (define len-2? (lambda (lst) (and (pair? lst) (pair? (cdr lst)) (null? (cddr lst)))))
 (define len-3? (lambda (lst) (and (pair? lst) (pair? (cdr lst)) (pair? (cddr lst)) (null? (cdddr lst)))))
 
-(define (most? fn lst)
+;; Find the item in "lst" that has largest value returned by property
+;; getter "fn".
+;;
+;;     (most identity '(1 2 3))
+;;
+(define (most fn lst)
   (if (null? lst)
       #f
       (let loop ((tail (cdr lst))
@@ -138,7 +143,12 @@
                         max)))
             wins))))
 
-(define (best? fn lst)
+;; Find the item in "lst" that is best by property
+;; comparator "fn".
+;;
+;;     (best (lambda (i curwin) (> i curwin)) '(1 2 3))
+;;
+(define (best fn lst)
   (if (null? lst)
       #f
       (let loop ((tail (cdr lst))
