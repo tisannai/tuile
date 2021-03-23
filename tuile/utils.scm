@@ -786,8 +786,9 @@
       assoc-list))
 
 
-;; Combine two assoc lists. Override and complement entries in A with
-;; entries from B.
+;; Combine two mutable assoc lists.
+;;
+;;Override and complement entries in A with entries from B.
 (define (assoc-merge a b)
   (define (amerge a b)
     (if (pair? b)
