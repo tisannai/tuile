@@ -74,6 +74,7 @@
    assoc-has-key?
    assoc-update!
    assoc-repeat!
+   assoc-merge
 
    hash-has-key?
    hash-keys
@@ -783,6 +784,17 @@
                      proc
                      (cdr set-list))
       assoc-list))
+
+
+;; Combine two assoc lists. Override and complement entries in A with
+;; entries from B.
+(define (assoc-merge a b)
+  (define (amerge a b)
+    (if (pair? b)
+        (amerge (assoc-set! a (caar b) (cdar b))
+                (cdr b))
+        a))
+  (amerge (amerge (list) a) b))
 
 
 ;; Hash table has key?
