@@ -526,9 +526,12 @@
 (define (como-apply opt-name def-val)
   (let ((opt (get-opt como opt-name)))
     (if (opt-given? opt)
-        (if (multi-value-opt? opt)
-            (opt-value opt)
-            (car (opt-value opt)))
+        (if (and (eq? 'opt-any (opt-type opt))
+                 (null? (opt-value opt)))
+            def-val
+            (if (multi-value-opt? opt)
+                (opt-value opt)
+                (car (opt-value opt))))
         def-val)))
 
 
