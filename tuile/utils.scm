@@ -28,6 +28,8 @@
    flatten-1
 
    pi
+   unspecified
+   uns
 
    command-line-arguments
 
@@ -204,8 +206,20 @@
         res)))
 
 
+(define (clean-list lst)
+  (let filter ((rest lst))
+    (if (pair? rest)
+        (if (unspecified? (car rest))
+            (filter (cdr rest))
+            (cons (car rest) (filter (cdr rest))))
+        '())))
+
+
 ;; (* 2 (acos 0))
 (define pi 3.141592653589793)
+
+(define unspecified (if #f #t))
+(define uns unspecified)
 
 
 ;; Return command line arguments, excluding the executable.
