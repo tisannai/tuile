@@ -20,12 +20,16 @@
 
 (use-modules (tuile pr))
 
-;; Create an empty massoc, which used to add entries.
+;; Create an empty massoc (default) or pre-fill it with given entries
+;; (alist).
 ;;
 ;; NOTE: a null-list is not usable, empty massoc must have empty list
 ;; as first entry.
-(define (make-massoc)
-  (list '()))
+(define (make-massoc . rest)
+  (if (and (pair? rest)
+           (pair? (car rest)))
+      (filter (lambda (p) (pair? p)) (car rest))
+      (list '())))
 
 
 ;; Return true if massoc is empty.
@@ -44,14 +48,14 @@
 (define (massoc-keys ma)
   (if (massoc-empty? ma)
       '()
-      (map car ma)))
+      (map car (reverse ma))))
 
 
 ;; Return massoc values.
 (define (massoc-values ma)
   (if (massoc-empty? ma)
       '()
-      (map cdr ma)))
+      (map cdr (reverse ma))))
 
 
 ;; Reference massoc value.
