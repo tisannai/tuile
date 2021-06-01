@@ -1,5 +1,6 @@
 (define-module (tuile gulex)
   #:use-module (tuile pr)
+  #:use-module ((tuile utils) #:select (datum->string))
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (ice-9 textual-ports)
@@ -15,6 +16,7 @@
    char-stream-line-prev
    token-stream
    token-stream-open
+   token-stream-open-with-token-table
    token-stream-close
    token-stream-get
    token-stream-put
@@ -131,9 +133,6 @@
 (define (parse-regexp-entry regexp)
 
   (define cs (cons 0 (string->list regexp)))
-
-  (define (datum-to-string datum)
-    (with-output-to-string (lambda () (write datum))))
 
   ;; Recursive regexp parser.
   (define (parse-regexp group? opt?)
@@ -372,7 +371,7 @@
          ;;      ^
          ((cur-is? #\+)
           (dbug "OOM")
-          ;; (dbug (datum-to-string lexers))
+          ;; (dbug (datum->string lexers))
           (get)
           (loop #f
                 (if lookahead
@@ -434,10 +433,6 @@
   (define (dbug msg)
     (when lex-debug
       (pr "LEX: " msg)))
-
-  ;; Convert datum to string representation.
-  (define (datum-to-string datum)
-    (with-output-to-string (lambda () (write datum))))
 
   ;; Return value formatter.
   (define (return success? matched)
@@ -521,7 +516,7 @@
 
       (begin
 
-        (dbug (ss "Start: token: " token ", lexer: " (datum-to-string lexer) ", char: " (cur)))
+        (dbug (ss "Start: token: " token ", lexer: " (datum->string lexer) ", char: " (cur)))
 
         (cond
 
@@ -717,6 +712,11 @@
         (lexer (lexer-table-to-lexer-top lexer-table)))
     (make-token-stream cs lexer '())))
 
+;; Open token stream for name (file/string) and type
+;; (file/string). Use token-table for token extraction rules.
+(define (token-stream-open-with-token-table name type token-table)
+  (token-stream-open name type (parse-gulex-token-table token-table)))
+
 ;; Close token stream.
 (define (token-stream-close ts)
   (char-stream-close (token-stream-cs ts)))
@@ -730,12 +730,15 @@
       (lex-interp-entry (token-stream-lexer ts)
                         (token-stream-cs ts))))
 
+;; Put back token.
 (define (token-stream-put ts token)
   (set-token-stream-buf! ts (append (token-stream-buf ts) (list token))))
 
+;; Get current char-stream line.
 (define (token-stream-line ts)
   (char-stream-line (token-stream-cs ts)))
 
+;; Get previous char-stream line.
 (define (token-stream-line-prev ts)
   (char-stream-line-prev (token-stream-cs ts)))
 
