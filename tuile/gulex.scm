@@ -24,53 +24,19 @@
    token-stream-line-prev
    parse-gulex-token-table
    token-table->lexer-ir
-   lexer-table-to-lexer-top
+   lexer-table->lexer-ir
    lex-interp-entry
    ))
 
 
-;; gulex-token-table example:
-;;
-;;(define gulex-token-table
-;;  (list
-;;
-;;;;   '("guile"                 GUILE)
-;;;;   '("guilo"                 GUILO)
-;;;;   '("[a-m]?"                LEFTCHAR)
-;;;;   '("[a-m]+n"                LEFTCHAR)
-;;   '("[a-m]*n"                LEFTCHAR)
-;;   '("[a-z]+"                ID)
-;;   '("[0-9]+"                NUM)
-;;   '("[ \t]+"                SPACE)
-;;   
-;;;;   '("."                    UNKNOWN)
-;;
-;;;;   '("[a-z]+"                ID)
-;;;;   '("[0-9]+"                NUM)
-;;
-;;;;   '("[a-z]"                 ID)        ; (sel (ran #\a #\z))
-;;;;   '("[abc]"                 ID2)       ; (sel #\a #\b #\c)
-;;;;   '("[^abc]"                ID3)       ; (inv (sel #\a #\b #\c))
-;;;;   '("[0-9]+"                INT)       ; (oom (sel (ran #\0 #\9)))
-;;;;   '("[0-9]?"                INT)       ; (zoo (sel (ran #\0 #\9)))
-;;;;   '("[0-9]+.[0-9]+"         FLOAT)     ; (oom (sel (ran #\0 #\9)))
-;;;;                                        ; (any)
-;;;;                                        ; (oom (sel (ran #\0 #\9)))
-;;;;   '("guile"                 GUILE)     ; #\g #\u #\i #\l #\e
-;;;;   '("(ab|cd)"               PREFIX)    ; (opt (seq #\a #\b) (seq #\c #\d))
-;;;;
-;;;;   '("\\("                   LEFT-PAR)  ; #\(
-;;;;   '("\\)"                   RIGHT-PAR) ; #\)
-;;;;   '("//.*"                  COMMENT)   ; #\/ #\/ (zom (any))
-;;;;   '("\n"                    NEWLINE)   ; #\newline
-;;
-;;   ))
-
-
+;; For usage: see `gulex`, the Gulex CLI tool README.md.
 
 ;; Proper C block comment regex:
 ;;   /\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/
 
+;; opt - options
+;; tok - define token
+;; seq - sequence
 ;; sel - select from chars
 ;; zoo - zero or one
 ;; zom - zero or more
@@ -78,8 +44,6 @@
 ;; ran - range
 ;; any - any char
 ;; inv - not
-;; opt - options
-;; seq - sequence
 
 
 ;; ------------------------------------------------------------
@@ -413,9 +377,9 @@
        table))
 
 
-;; Return lexer-top: ((token lexer-def) ...)
+;; Return lexer-ir: ((token lexer-def) ...)
 (define (token-table->lexer-ir table)
-  (lexer-table-to-lexer-top (parse-gulex-token-table table)))
+  (lexer-table->lexer-ir (parse-gulex-token-table table)))
 
 
 ;; ------------------------------------------------------------
@@ -712,16 +676,15 @@
   (buf   token-stream-buf set-token-stream-buf!))        ; Buffer for put-back.
 
 ;; Open token stream for name (file/string) and type
-;; (file/string). Use lexer-table for token extraction rules.
-(define (token-stream-open name type lexer-table)
-  (let ((cs (char-stream-open name type))
-        (lexer (lexer-table-to-lexer-top lexer-table)))
-    (make-token-stream cs lexer '())))
+;; (file/string). Use lexer-ir for token extraction rules.
+(define (token-stream-open name type lexer-ir)
+  (let ((cs (char-stream-open name type)))
+    (make-token-stream cs lexer-ir '())))
 
 ;; Open token stream for name (file/string) and type
 ;; (file/string). Use token-table for token extraction rules.
 (define (token-stream-open-with-token-table name type token-table)
-  (token-stream-open name type (parse-gulex-token-table token-table)))
+  (token-stream-open name type (token-table->lexer-ir token-table)))
 
 ;; Close token stream.
 (define (token-stream-close ts)
@@ -756,13 +719,13 @@
 ;;     ((<token> <lexer-def>) ...)
 ;; TO
 ;;     (opt (tok <token> <lexer-def>) ...)
-(define (lexer-table-to-lexer-top lexer-table)
+(define (lexer-table->lexer-ir lexer-table)
   (cons 'opt (map (lambda (p)
                     (cons 'tok p))
                   lexer-table)))
 
 
-(define (lex-interp-entry lexer-top char-stream)
-  (let ((ret (lex-interp #f lexer-top char-stream)))
+(define (lex-interp-entry lexer-ir char-stream)
+  (let ((ret (lex-interp #f lexer-ir char-stream)))
     (cons (first ret)
           (list->string (second ret)))))

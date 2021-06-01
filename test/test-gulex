@@ -25,17 +25,17 @@
    ))
 
 
-(define lexer-top (token-table->lexer-ir gulex-token-table))
+(define lexer-ir (token-table->lexer-ir gulex-token-table))
 
 (define (get-token-for string)
   (let* ((cs (char-stream-open string 'string))
-         (ret (car (lex-interp-entry lexer-top cs))))
+         (ret (car (lex-interp-entry lexer-ir cs))))
     (char-stream-close cs)
     ret))
 
 (define (get-string-for string)
   (let* ((cs (char-stream-open string 'string))
-         (ret (cdr (lex-interp-entry lexer-top cs))))
+         (ret (cdr (lex-interp-entry lexer-ir cs))))
     (char-stream-close cs)
     ret))
 
