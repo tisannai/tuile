@@ -33,13 +33,18 @@
         (with-output
          (sh "cd test; test-graph")))
 
+(action test-gulex
+        (with-output
+         (sh "cd test; test-gulex")))
+
 (action test-all
         (test-pr)
         (test-como)
         (test-fn)
         (test-massoc)
         (test-fmt)
-        (test-graph))
+        (test-graph)
+        (test-gulex))
 
 (action clean
         (sh "rm -f test/*.log"))

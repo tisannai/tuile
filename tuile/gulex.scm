@@ -23,6 +23,7 @@
    token-stream-line
    token-stream-line-prev
    parse-gulex-token-table
+   token-table->lexer-ir
    lexer-table-to-lexer-top
    lex-interp-entry
    ))
@@ -410,6 +411,11 @@
          (list (second e)
                (parse-regexp-entry (first e))))
        table))
+
+
+;; Return lexer-top: ((token lexer-def) ...)
+(define (token-table->lexer-ir table)
+  (lexer-table-to-lexer-top (parse-gulex-token-table table)))
 
 
 ;; ------------------------------------------------------------

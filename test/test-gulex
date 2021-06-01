@@ -25,7 +25,7 @@
    ))
 
 
-(define lexer-top (lexer-table-to-lexer-top (parse-gulex-token-table gulex-token-table)))
+(define lexer-top (token-table->lexer-ir gulex-token-table))
 
 (define (get-token-for string)
   (let* ((cs (char-stream-open string 'string))
