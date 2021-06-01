@@ -1,0 +1,118 @@
+#!/usr/bin/guile -s
+!#
+
+(use-modules (srfi srfi-64))
+(use-modules (srfi srfi-1))
+
+(add-to-load-path "..")
+(use-modules (tuile pr))
+(use-modules (tuile utils))
+(use-modules (tuile gulex))
+
+
+(define gulex-token-table
+  (list
+   '("guile"                 GUILE)
+   '("guilo"                 GUILO)
+   '("[a-b]?k"               LEFTCHAR1)
+   '("[c-d]+n"               LEFTCHAR2)
+   '("[e-f]*n"               LEFTCHAR3)
+   '("(ab|cd)+"              PREFIX)
+   '("[a-z][a-z_]+"          ID)
+   '("[0-9]+"                NUM)
+   '("[ \t]+"                SPACE)
+   '("."                     UNKNOWN)
+   ))
+
+
+(define lexer-top (lexer-table-to-lexer-top (parse-gulex-token-table gulex-token-table)))
+
+(define (get-token-for string)
+  (let* ((cs (char-stream-open string 'string))
+         (ret (car (lex-interp-entry lexer-top cs))))
+    (char-stream-close cs)
+    ret))
+
+(define (get-string-for string)
+  (let* ((cs (char-stream-open string 'string))
+         (ret (cdr (lex-interp-entry lexer-top cs))))
+    (char-stream-close cs)
+    ret))
+
+(define st? string=?)
+
+(test-begin "gulex")
+
+;;(pr (lex-interp-entry lexer-top char-stream))
+
+(test-assert (eq? 'GUILE (get-token-for "guile") ))
+(test-assert (st? "guile" (get-string-for "guile") ))
+
+(test-assert (eq? 'GUILO (get-token-for "guilo") ))
+(test-assert (st? "guilo" (get-string-for "guilo") ))
+
+(test-assert (eq? 'LEFTCHAR1 (get-token-for "ak")))
+(test-assert (eq? 'LEFTCHAR1 (get-token-for "kkk")))
+
+(test-assert (eq? 'LEFTCHAR2 (get-token-for "cddcnnn")))
+(test-assert (st? "cddcn" (get-string-for "cddcnnn")))
+
+(test-assert (eq? 'LEFTCHAR3 (get-token-for "fenfefe")))
+(test-assert (st? "fen" (get-string-for "fenfefe")))
+
+(test-assert (eq? 'LEFTCHAR3 (get-token-for "fenfefe")))
+(test-assert (st? "fen" (get-string-for "fenfefe")))
+
+(test-assert (eq? 'ID (get-token-for "foo_bar")))
+(test-assert (st? "foo_bar" (get-string-for "foo_bar")))
+
+(test-assert (eq? 'NUM (get-token-for "1234")))
+(test-assert (st? "1234" (get-string-for "1234")))
+
+(test-assert (eq? 'SPACE (get-token-for " 	  ")))
+(test-assert (st? " 	  " (get-string-for " 	  ")))
+
+(test-assert (eq? 'UNKNOWN (get-token-for "\\?")))
+(test-assert (st? "?" (get-string-for "?")))
+
+(test-assert (eq? 'UNKNOWN (get-token-for "!")))
+(test-assert (st? "!" (get-string-for "!")))
+
+(test-assert (eq? 'UNKNOWN (get-token-for "\\*")))
+(test-assert (st? "*" (get-string-for "*")))
+
+
+(let ((ts (token-stream-open-with-token-table "guile guilo 32123 foo_bar diiduu abcdabcdaa !!!"
+                                              'string
+                                              gulex-token-table)))
+  (let loop ((ref '(
+                    (GUILE . "guile")
+                    (SPACE . " ")
+                    (GUILO . "guilo")
+                    (SPACE . " ")
+                    (NUM . "32123")
+                    (SPACE . " ")
+                    (ID . "foo_bar")
+                    (SPACE . " ")
+                    (ID . "diiduu")
+                    (SPACE . " ")
+                    (PREFIX . "abcdabcd")
+                    (ID . "aa")
+                    (SPACE . " ")
+                    (UNKNOWN . "!")
+                    (UNKNOWN . "!")
+                    (UNKNOWN . "!")
+                    )))
+    (let ((ret (token-stream-get ts)))
+      (cond
+       ((eq? (car ret)
+             'eof)
+        #t)
+       (else
+        ;; (pr "ret: " (datum->string ret))
+        ;; (pr "ref: " (datum->string (car ref)))
+        (test-assert (cdar ref) (equal? ret (car ref)))
+        (loop (cdr ref)))))))
+
+
+(test-end)
