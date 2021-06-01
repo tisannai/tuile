@@ -43,8 +43,6 @@
 
 (test-begin "gulex")
 
-;;(pr (lex-interp-entry lexer-top char-stream))
-
 (test-assert (eq? 'GUILE (get-token-for "guile") ))
 (test-assert (st? "guile" (get-string-for "guile") ))
 
