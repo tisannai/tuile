@@ -14,6 +14,8 @@
   (list
    '("guile"                 GUILE)
    '("guilo"                 GUILO)
+   '("\\("                   LPAR)
+   '("\\[[^\\]]+\\]"         WIDTH)
    '("[a-b]?k"               LEFTCHAR1)
    '("[c-d]+n"               LEFTCHAR2)
    '("[e-f]*n"               LEFTCHAR3)
@@ -29,13 +31,13 @@
 
 (define (get-token-for string)
   (let* ((cs (char-stream-open string 'string))
-         (ret (car (lex-interp-entry lexer-ir cs))))
+         (ret (gulex-token-type (gulex-lex-interp-entry lexer-ir cs))))
     (char-stream-close cs)
     ret))
 
 (define (get-string-for string)
   (let* ((cs (char-stream-open string 'string))
-         (ret (cdr (lex-interp-entry lexer-ir cs))))
+         (ret (gulex-token-value (gulex-lex-interp-entry lexer-ir cs))))
     (char-stream-close cs)
     ret))
 
@@ -43,11 +45,16 @@
 
 (test-begin "gulex")
 
-(test-assert (eq? 'GUILE (get-token-for "guile") ))
-(test-assert (st? "guile" (get-string-for "guile") ))
+(test-assert (eq? 'GUILE (get-token-for "guile")))
+(test-assert (st? "guile" (get-string-for "guile")))
 
-(test-assert (eq? 'GUILO (get-token-for "guilo") ))
-(test-assert (st? "guilo" (get-string-for "guilo") ))
+(test-assert (eq? 'GUILO (get-token-for "guilo")))
+(test-assert (st? "guilo" (get-string-for "guilo")))
+
+(test-assert (eq? 'LPAR (get-token-for "(")))
+
+(test-assert (eq? 'WIDTH (get-token-for "[22:0]")))
+(test-assert (st? "[22:0]" (get-string-for "[22:0]")))
 
 (test-assert (eq? 'LEFTCHAR1 (get-token-for "ak")))
 (test-assert (eq? 'LEFTCHAR1 (get-token-for "kkk")))
@@ -82,7 +89,8 @@
 
 (let ((ts (token-stream-open-with-token-table "guile guilo 32123 foo_bar diiduu abcdabcdaa !!!"
                                               'string
-                                              gulex-token-table)))
+                                              gulex-token-table
+                                              #:skip-token-prefetch #t)))
   (let loop ((ref '(
                     (GUILE . "guile")
                     (SPACE . " ")
@@ -103,13 +111,15 @@
                     )))
     (let ((ret (token-stream-get ts)))
       (cond
-       ((eq? (car ret)
+       ((eq? (gulex-token-type ret)
              'eof)
         #t)
        (else
         ;; (pr "ret: " (datum->string ret))
         ;; (pr "ref: " (datum->string (car ref)))
-        (test-assert (cdar ref) (equal? ret (car ref)))
+        (test-assert (cdar ref) (equal? (cons (gulex-token-type ret)
+                                              (gulex-token-value ret))
+                                        (car ref)))
         (loop (cdr ref)))))))
 
 

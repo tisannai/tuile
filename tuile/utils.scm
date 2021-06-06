@@ -105,6 +105,7 @@
    find-first
 
    with-exception-terminate
+   string-clip
    make-string-list
    ))
 
@@ -1110,6 +1111,35 @@
     proc
     #:unwind? #t))
 
+
+;; Return substring with possibly negative indeces.
+(define (string-clip str . rest)
+  (define (normalize index)
+    (if (< index 0)
+        (+ (+ (string-length str) 1)
+           index)
+        index))
+
+  (define (order i1 i2)
+    (let ((n1 (normalize i1))
+          (n2 (normalize i2)))
+      (if (< n2 n1)
+          (values n2 n1)
+          (values n1 n2))))
+
+  (cond
+   ((= 0 (length rest))
+    str)
+   ((= 1 (length rest))
+    (substring str
+               0
+               (normalize (first rest))))
+   (else
+    (call-with-values (lambda () (order (first rest) (second rest)))
+      (lambda (n1 n2)
+        (substring str
+                   n1
+                   n2))))))
 
 ;; Create list of string from symbols, i.e. non-quoted text.
 ;;
