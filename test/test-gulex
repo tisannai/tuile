@@ -22,6 +22,7 @@
    '("(ab|cd)+"              PREFIX)
    '("[a-z][a-z_]+"          ID)
    '("[0-9]+"                NUM)
+   '("[0-9]+(\\.[0-9]+)?"    FLOAT)
    '("[ \t]+"                SPACE)
    '("."                     UNKNOWN)
    ))
@@ -71,8 +72,11 @@
 (test-assert (eq? 'NUM (get-token-for "1234")))
 (test-assert (st? "1234" (get-string-for "1234")))
 
+(test-assert (eq? 'FLOAT (get-token-for "1234.43")))
+(test-assert (st? "1234.43" (get-string-for "1234.43")))
+
 (test-assert (eq? 'SPACE (get-token-for "         ")))
-(test-assert (st? "       " (get-string-for "     ")))
+(test-assert (st? "     " (get-string-for "     ")))
 
 (test-assert (eq? 'UNKNOWN (get-token-for "\\?")))
 (test-assert (st? "?" (get-string-for "?")))

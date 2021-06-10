@@ -324,8 +324,10 @@
          ;; [a-z]*
          ;;      ^
          ((cur-is? #\*)
-          (when (not lookahead)
-            (err "Missing repeatable item"))
+          (dbug "ZOM")
+          ;; TODO 210610_1209: Is it ok to comment out?
+          ;;          (when (not lookahead)
+          ;;            (err "Missing repeatable item"))
           (get)
           (loop #f
                 (if lookahead
@@ -337,8 +339,10 @@
          ;; [a-z]?
          ;;      ^
          ((cur-is? #\?)
-          (when (not lookahead)
-            (err "Missing repeatable item"))
+          (dbug "ZOO")
+          ;; TODO 210610_1209: Is it ok to comment out?
+          ;;          (when (not lookahead)
+          ;;            (err "Missing repeatable item"))
           (get)
           (loop #f
                 (if lookahead
