@@ -1,6 +1,6 @@
 (define-module (tuile gulex)
   #:use-module (tuile pr)
-  #:use-module ((tuile utils) #:select (datum->string))
+  #:use-module ((tuile utils) #:select (datum->string find-first))
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (ice-9 textual-ports)
@@ -427,6 +427,17 @@
   (define (get)
     (char-stream-get char-stream))
 
+  ;; Get N characters.
+  (define (get-n n)
+    (if (= 0 n)
+        #f
+        (let loop ((i n))
+          (if (> i 1)
+              (begin
+                (get)
+                (loop (1- i)))
+              (get)))))
+
   ;; Return current char.
   (define (cur)
     (char-stream-char char-stream))
@@ -438,7 +449,7 @@
   ;; Put back m, but make the first current "char".
   ;; Return: empty list.
   (define (put-back m)
-    (dbug (ss "put-back: " (list->string m)))
+    (dbug (ss "put-back: \"" (list->string m) "\""))
     (when (pair? m)
       (for-each (lambda (ch)
                   (char-stream-put char-stream ch))
@@ -637,34 +648,63 @@
 
           (dbug (ss "Options ----: "))
 
-          (let loop-opt ((lexer (cdr lexer))
-                         (m '()))
+          ;; Return the longest (or first if many longest), if any.
+          (let ((opt-return (lambda (opts)
+                              (if (pair? opts)
+                                  (begin
+                                    (dbug (ss "Option matches: " (datum->string opts)))
+                                    (let* ((best (apply max (map (lambda (ret)
+                                                                   (length (second ret)))
+                                                                 opts)))
+                                           (ret (find-first (lambda (i)
+                                                              (= (length (second i))
+                                                                 best))
+                                                            (reverse opts))))
+                                      ;; Take the matched token away from char stream.
+                                      (get-n (length (second ret)))
+                                      ret))
+                                  (return #f '())))))
 
-            (if (pair? lexer)
+              (let loop-opt ((lexer (cdr lexer))
+                             (opts '()))
 
-                ;; Continue.
-                (let ((ret (lex-interp token
-                                       (car lexer)
-                                       char-stream)))
-                  (cond
+                (if (pair? lexer)
 
-                   ((first ret)
-                    (dbug (ss "Options match: " token))
-                    (return (first ret) (second ret)))
+                    ;; Continue.
+                    (let ((ret (lex-interp token
+                                           (car lexer)
+                                           char-stream)))
+                      (cond
 
-                   ((eof?)
-                    (dbug (ss "Options failure: no data"))
-                    (return #f (put-back m)))
+                       ((first ret)
+                        (dbug (ss "Options match: " token))
+                        ;;                    (return (first ret) (second ret))
+                        ;; Put back the matched token and current (if not eof).
+                        (put-back (append (second ret) (if (eof?) '() (list (cur)))))
+                        (loop-opt (cdr lexer)
+                                  (cons (return (first ret) (second ret))
+                                        opts)))
 
-                   (else
-                    (dbug (ss "Options mismatch"))
-                    (loop-opt (cdr lexer)
-                              '()))))
+                       ((eof?)
+                        (dbug (ss "Options failure: no data"))
+                        ;;                    (return #f (put-back m))
+                        ;; (return #f '())
+                        (opt-return opts)
+                        )
 
-                ;; Matching done (failure).
-                (begin
-                  (dbug (ss "Options failure: no matches"))
-                  (return #f (put-back m))))))
+                       (else
+                        (dbug (ss "Options mismatch"))
+                        (loop-opt (cdr lexer)
+                                  opts))))
+
+                    ;; Matching done (failure).
+                    (begin
+                      (if (pair? opts)
+                          (dbug (ss "Options return: some matches"))
+                          (dbug (ss "Options return: no matches")))
+                      ;;                  (return #f '(put-back m))
+                      ;; (return #f '())
+                      (opt-return opts))))))
 
          ;; (tok ID (seq ...))
          ((eq? 'tok (car lexer))

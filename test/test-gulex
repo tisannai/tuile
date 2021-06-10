@@ -57,16 +57,13 @@
 (test-assert (st? "[22:0]" (get-string-for "[22:0]")))
 
 (test-assert (eq? 'LEFTCHAR1 (get-token-for "ak")))
-(test-assert (eq? 'LEFTCHAR1 (get-token-for "kkk")))
+(test-assert (eq? 'ID (get-token-for "kkk")))
 
-(test-assert (eq? 'LEFTCHAR2 (get-token-for "cddcnnn")))
-(test-assert (st? "cddcn" (get-string-for "cddcnnn")))
+(test-assert (eq? 'LEFTCHAR2 (get-token-for "cddcn")))
+(test-assert (st? "cddcn" (get-string-for "cddcn")))
 
-(test-assert (eq? 'LEFTCHAR3 (get-token-for "fenfefe")))
-(test-assert (st? "fen" (get-string-for "fenfefe")))
-
-(test-assert (eq? 'LEFTCHAR3 (get-token-for "fenfefe")))
-(test-assert (st? "fen" (get-string-for "fenfefe")))
+(test-assert (eq? 'LEFTCHAR3 (get-token-for "fefen")))
+(test-assert (st? "fefen" (get-string-for "fefen")))
 
 (test-assert (eq? 'ID (get-token-for "foo_bar")))
 (test-assert (st? "foo_bar" (get-string-for "foo_bar")))
@@ -74,8 +71,8 @@
 (test-assert (eq? 'NUM (get-token-for "1234")))
 (test-assert (st? "1234" (get-string-for "1234")))
 
-(test-assert (eq? 'SPACE (get-token-for " 	  ")))
-(test-assert (st? " 	  " (get-string-for " 	  ")))
+(test-assert (eq? 'SPACE (get-token-for "         ")))
+(test-assert (st? "       " (get-string-for "     ")))
 
 (test-assert (eq? 'UNKNOWN (get-token-for "\\?")))
 (test-assert (st? "?" (get-string-for "?")))
@@ -87,7 +84,8 @@
 (test-assert (st? "*" (get-string-for "*")))
 
 
-(let ((ts (token-stream-open-with-token-table "guile guilo 32123 foo_bar diiduu abcdabcdaa !!!"
+(let (
+      (ts (token-stream-open-with-token-table "guile guilo 32123 foo_bar diiduu abcdabcd aa !!!"
                                               'string
                                               gulex-token-table
                                               #:skip-token-prefetch #t)))
@@ -103,6 +101,7 @@
                     (ID . "diiduu")
                     (SPACE . " ")
                     (PREFIX . "abcdabcd")
+                    (SPACE . " ")
                     (ID . "aa")
                     (SPACE . " ")
                     (UNKNOWN . "!")
