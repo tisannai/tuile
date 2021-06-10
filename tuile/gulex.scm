@@ -115,11 +115,11 @@
   ;; Recursive regexp parser.
   (define (parse-regexp group? opt?)
 
-    (define parse-debug #f)
-
-    (define (dbug msg)
-      (when parse-debug
-        (pr "PARSE: " msg)))
+    ;; Debug is expensive, hence do dbug with macro.
+    (define-syntax-rule (dbug msg)
+      #t
+      ;; (pr "PARSE: " msg)
+      )
 
     (define special (string->list "*+.[]"))
     (define setchar (string->list "-^"))
@@ -230,7 +230,6 @@
       (let ((ret (parse-sel-body)))
         (use #\])
         ret))
-
 
     ;; "lookahead" is lookahead non-terminal.
     ;; "lexers" is a sequence of match atoms.
@@ -415,13 +414,11 @@
 ;;
 (define (lex-interp token lexer char-stream)
 
-  ;; Enable debug printing.
-  (define lex-debug #f)
-
-  ;; Debug message display.
-  (define (dbug msg)
-    (when lex-debug
-      (pr "LEX: " msg)))
+  ;; Debug is expensive, hence do dbug with macro.
+  (define-syntax-rule (dbug msg)
+    #t
+    ;; (pr "LEX: " msg)
+    )
 
   ;; Return value formatter.
   (define (return success? matched)
