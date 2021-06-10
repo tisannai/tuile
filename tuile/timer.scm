@@ -1,18 +1,5 @@
 (define-module (tuile timer)
-  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
-  #:use-module (srfi srfi-11)
-  #:use-module (srfi srfi-43)
-  #:use-module (oop goops)
-  #:use-module (ice-9 ftw)
-  #:use-module (ice-9 rdelim)
-  #:use-module (ice-9 regex)
-  #:use-module (ice-9 textual-ports)
-  #:use-module (ice-9 popen)
-  #:use-module ((ice-9 control) #:select (% abort))
-  #:use-module ((srfi srfi-9 gnu) #:select (define-immutable-record-type))
-  #:use-module ((srfi srfi-19) #:prefix srfi:)
-  #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:export
   (
    timer-create
@@ -25,7 +12,7 @@
    timer-close
    timer-reduce
    timer->string
-   ))
+   timer->display))
 
 
 ;;
@@ -36,8 +23,9 @@
 ;; Internal functions:
 
 (define-record-type timer
-  (make-timer start-time end-time)
+  (make-timer name start-time end-time)
   timer?
+  (name       timer-name)
   (start-time timer-start-time set-timer-start-time!)
   (end-time   timer-end-time   set-timer-end-time!))
 
@@ -49,13 +37,18 @@
   (cons (quotient val 1000000)
         (remainder val 1000000)))
 
+(define (rest->name rest)
+  (if (pair? rest)
+      (car rest)
+      #f))
+
 
 ;; ------------------------------------------------------------
 ;; External functions:
 
 ;; Create timer record.
-(define (timer-create)
-  (make-timer #f '()))
+(define (timer-create . rest)
+  (make-timer (rest->name rest) #f '()))
 
 ;; Set start time.
 (define (timer-start timer)
@@ -84,8 +77,9 @@
 
 
 ;; Create time and set start time.
-(define (timer-open)
-  (make-timer (gettimeofday)
+(define (timer-open . rest)
+  (make-timer (rest->name rest)
+              (gettimeofday)
               '()))
 
 ;; Add timer time.
@@ -98,9 +92,14 @@
   (timer-value timer))
 
 ;; Reduce multi-time timer to single-time timer.
-(define (timer-reduce timer)
-  (make-timer (timer-start-time timer)
-              (list (car (timer-end-time timer)))))
+(define (timer-reduce timer . rest)
+  (if (pair? rest)
+      (make-timer (rest->name rest)
+                  (timer-start-time timer)
+                  (list (car (timer-end-time timer))))
+      (make-timer (timer-name timer)
+                  (timer-start-time timer)
+                  (list (car (timer-end-time timer))))))
 
 ;; Convert timer to timer value(s).
 (define (timer->string timer)
@@ -110,3 +109,9 @@
       (val->str (timer-value timer))
       (map val->str
            (timer-values timer))))
+
+(define (timer-display timer)
+  (display (timer-name timer))
+  (display ": ")
+  (display (timer->value timer))
+  (newline))
