@@ -80,6 +80,7 @@
 
    hash-has-key?
    hash-keys
+   hash-values
 
    read-lines-from-port
    with-each-line-from-port
@@ -820,6 +821,10 @@
 ;; Return list of hash table keys.
 (define (hash-keys hsh)
   (hash-map->list (lambda (k v) k) hsh))
+
+;; Return list of hash table keys.
+(define (hash-values hsh)
+  (hash-map->list (lambda (k v) v) hsh))
 
 
 ;; Read all lines from port to list (or vector).
