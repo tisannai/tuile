@@ -9,6 +9,7 @@
    lookup-has-key?
    lookup-each
    lookup-keys
+   lookup-values
    ))
 
 
@@ -66,3 +67,10 @@
 ;; Return list of lookup keys (in order).
 (define (lookup-keys lup)
   (reverse (lookup-lst lup)))
+
+
+;; Return list of lookup values (in order).
+(define (lookup-values lup)
+  (map (lambda (key)
+         (hash-ref (lookup-hsh lup) key))
+       (lookup-keys lup)))

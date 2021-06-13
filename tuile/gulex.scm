@@ -459,7 +459,7 @@
       (set-char-stream-char! char-stream (car m)))
     '())
 
-  ;; Check "ch" agains lexer.
+  ;; Check "ch" against lexer.
   ;;
   ;; Return #t on match.
   (define (lex-interp-step ch lexer)
