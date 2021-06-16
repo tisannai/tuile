@@ -50,6 +50,8 @@
    map-except-last
    map-except-first
    repeat-times
+   from-to
+   from-to-step
    nop
 
    define-im-record
@@ -108,6 +110,8 @@
    with-exception-terminate
    string-clip
    make-string-list
+   sequence
+   range
    ))
 
 
@@ -441,6 +445,30 @@
                (begin
                  body ...
                  (repeat-loop (1+ i))))))))))
+
+;; Run "i" from "from" to "to" with step of 1.
+(define-syntax from-to
+  (lambda (x)
+    (syntax-case x ()
+      ((_ from to body ...)
+       (with-syntax ((i (datum->syntax x 'i)))
+         #'(let repeat-loop ((i from))
+             (when (< i (1+ to))
+               (begin
+                 body ...
+                 (repeat-loop (1+ i))))))))))
+
+;; Run "i" from "from" to "to" with step of "step".
+(define-syntax from-to-step
+  (lambda (x)
+    (syntax-case x ()
+      ((_ from to step body ...)
+       (with-syntax ((i (datum->syntax x 'i)))
+         #'(let repeat-loop ((i from))
+             (when (< i (1+ to))
+               (begin
+                 body ...
+                 (repeat-loop (+ i step))))))))))
 
 
 ;; No operation, i.e. pass argument forward.
@@ -1155,6 +1183,21 @@
     (let* ((stx (syntax->datum x))
            (-> datum->syntax))
       #`(map symbol->string (quote #,(-> x (cdr stx)))))))
+
+
+(define (sequence start len . rest)
+  (let ((step (if (pair? rest) (car rest) 1)))
+    (let loop ((num start))
+      (if (< num (+ len start))
+          (cons num (loop (+ num step)))
+          '()))))
+
+(define (range start end . rest)
+  (let ((step (if (pair? rest) (car rest) 1)))
+    (let loop ((num start))
+      (if (< num end)
+          (cons num (loop (+ num step)))
+          '()))))
 
 
 ;; Usage:
