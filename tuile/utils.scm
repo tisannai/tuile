@@ -483,7 +483,7 @@
 ;;
 ;; To this:
 ;;   (define-record-type foo
-;;     (make-foo bar)
+;;     (make-foo bar hii)
 ;;     foo?
 ;;     (bar   foo-bar)
 ;;     (hii   foo-hii)
@@ -514,7 +514,7 @@
 ;;
 ;; To this:
 ;;   (define-immutable-record-type foo
-;;     (make-foo bar)
+;;     (make-foo bar hii)
 ;;     foo?
 ;;     (bar   foo-bar set-foo-bar)
 ;;     (hii   foo-hii set-foo-hii)
@@ -548,7 +548,7 @@
 ;;
 ;; To this:
 ;;   (define-record-type foo
-;;     (make-foo bar)
+;;     (make-foo bar hii)
 ;;     foo?
 ;;     (bar   foo-bar set-foo-bar!)
 ;;     (hii   foo-hii set-foo-hii!)
