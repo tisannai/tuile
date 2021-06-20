@@ -482,7 +482,7 @@
 ;;   (define-im-record foo bar hii)
 ;;
 ;; To this:
-;;   (define-record-type foo
+;;   (define-record-type <foo>
 ;;     (make-foo bar hii)
 ;;     foo?
 ;;     (bar   foo-bar)
@@ -492,7 +492,7 @@
 (define-syntax define-im-record
   (lambda (x)
     (let ((stx (syntax->datum x)))
-      #`(define-record-type #,(datum->syntax x (cadr stx))
+      #`(define-record-type #,(datum->syntax x (string->symbol (string-append "<" (symbol->string (cadr stx)) ">")))
           (#,(datum->syntax x (string->symbol (string-append "make-" (symbol->string (cadr stx)))))
            #,@(map (lambda (i) (datum->syntax x i)) (cddr stx)))
           #,(datum->syntax x (string->symbol (string-append (symbol->string (cadr stx)) "?")))
@@ -513,7 +513,7 @@
 ;;   (define-fp-record foo bar hii)
 ;;
 ;; To this:
-;;   (define-immutable-record-type foo
+;;   (define-immutable-record-type <foo>
 ;;     (make-foo bar hii)
 ;;     foo?
 ;;     (bar   foo-bar set-foo-bar)
@@ -523,7 +523,7 @@
 (define-syntax define-fp-record
   (lambda (x)
     (let ((stx (syntax->datum x)))
-      #`(define-immutable-record-type #,(datum->syntax x (cadr stx))
+      #`(define-immutable-record-type #,(datum->syntax x (string->symbol (string-append "<" (symbol->string (cadr stx)) ">")))
           (#,(datum->syntax x (string->symbol (string-append "make-" (symbol->string (cadr stx)))))
            #,@(map (lambda (i) (datum->syntax x i)) (cddr stx)))
           #,(datum->syntax x (string->symbol (string-append (symbol->string (cadr stx)) "?")))
@@ -547,7 +547,7 @@
 ;;   (define-mu-record foo bar hii)
 ;;
 ;; To this:
-;;   (define-record-type foo
+;;   (define-record-type <foo>
 ;;     (make-foo bar hii)
 ;;     foo?
 ;;     (bar   foo-bar set-foo-bar!)
@@ -557,7 +557,7 @@
 (define-syntax define-mu-record
   (lambda (x)
     (let ((stx (syntax->datum x)))
-      #`(define-record-type #,(datum->syntax x (cadr stx))
+      #`(define-record-type #,(datum->syntax x (string->symbol (string-append "<" (symbol->string (cadr stx)) ">")))
           (#,(datum->syntax x (string->symbol (string-append "make-" (symbol->string (cadr stx)))))
            #,@(map (lambda (i) (datum->syntax x i)) (cddr stx)))
           #,(datum->syntax x (string->symbol (string-append (symbol->string (cadr stx)) "?")))
