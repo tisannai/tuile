@@ -28,12 +28,13 @@
    ))
 
 
-;;(define lexer-ir (token-table->lexer-ir gulex-token-table))
-(define lexer-interp (gulex-create-lexer-interp gulex-token-table))
+;;(define test-lexer gulex-create-lexer-interp)
+(define test-lexer gulex-create-lexer-fsm)
+
+(define lexer-interp (test-lexer gulex-token-table))
 
 (define (get-token-for string)
   (let* ((cs (char-stream-open string 'string))
-         ;; (ret (gulex-token-type (gulex-lex-interp-entry lexer-ir cs)))
          (ret (gulex-token-type (gulex-lexer-get-token lexer-interp cs)))
          )
     (char-stream-close cs)
@@ -41,7 +42,6 @@
 
 (define (get-string-for string)
   (let* ((cs (char-stream-open string 'string))
-         ;; (ret (gulex-token-value (gulex-lex-interp-entry lexer-ir cs)))
          (ret (gulex-token-value (gulex-lexer-get-token lexer-interp cs)))
          )
     (char-stream-close cs)
@@ -96,7 +96,7 @@
 (let (
       (ts (token-stream-open-with-lexer "guile guilo 32123 foo_bar diiduu abcdabcd aa !!!"
                                         'string
-                                        (gulex-create-lexer-interp gulex-token-table)
+                                        (test-lexer gulex-token-table)
                                         #:skip-token-prefetch #t)))
   (let loop ((ref '(
                     (GUILE . "guile")

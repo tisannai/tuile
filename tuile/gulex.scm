@@ -1,8 +1,9 @@
 (define-module (tuile gulex)
   #:use-module (tuile pr)
-  #:use-module ((tuile utils) #:select (datum->string find-first))
+  #:use-module ((tuile utils) #:select (datum->string find-first define-mu-record))
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-111)
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 pretty-print)
   #:export
@@ -28,8 +29,8 @@
    gulex-parse-token-table
    token-table->lexer-ir
    lexer-table->lexer-ir
-;;   gulex-lex-interp-entry
    gulex-create-lexer-interp
+   gulex-create-lexer-fsm
    gulex-lexer-get-token
    gulex-show-token
    gulex-token-type
@@ -730,13 +731,527 @@
 
 
 ;; ------------------------------------------------------------
+;; Lexer fsm:
+
+;; Lexer node for one char match step.
+(define-mu-record lnode
+  rule
+  label
+  term
+  next)
+
+
+;; Is "ch" accepted by lnode?
+(define (lnode-accept? lnode ch)
+
+  (define (accept? ch lexer)
+
+    (if (char? lexer)
+
+        (char=? lexer ch)
+
+        ;; Non-char.
+        (case (car lexer)
+
+          ;; (sel #\a #\b #\c)
+          ((sel)
+           (let loop ((lexer (cdr lexer)))
+             (if (pair? lexer)
+                 (if (if (char? (car lexer))
+                         (char=? (car lexer) ch)
+                         (accept? ch (car lexer)))
+                     #t
+                     (loop (cdr lexer)))
+
+                 #f)))
+
+          ;; (any)
+          ((any)
+           (not (char=? ch #\newline)))
+
+          ;; (inv (sel #\a #\b #\c))
+          ((inv)
+           (not (accept? ch (second lexer))))
+
+          ;; (ran #\a #\c)
+          ((ran)
+           ;; (pr "ran: " (second lexer) ", " (third lexer))
+           (and (>= (char->integer ch)
+                    (char->integer (second lexer)))
+                (<= (char->integer ch)
+                    (char->integer (third lexer))))))))
+
+  (cond
+   ((eof-object? ch)
+    #f)
+   ((lnode-rule lnode)
+    (accept? ch (lnode-rule lnode)))
+   (else
+    #f)))
+
+
+;; ------------------------------------------------------------
+;; Test code:
+
+(define (show-lnode lnode)
+  (string-join (list (ss "label: " (lnode-label lnode))
+                     (ss "    rule: " (datum->string (lnode-rule lnode)))
+                     (if (lnode-term lnode)
+                         (ss "    <term>")
+                         (ss "    next: " (datum->string (lnode-next lnode)))))
+               "\n"))
+
+(define (show-lnode-list lnode-list)
+  (string-join (map show-lnode lnode-list)
+               "\n"))
+
+;; Test code:
+;; ------------------------------------------------------------
+
+
+;; Convert lexer-ir to lnode-list
+(define (lexer-ir->lnode-list ir)
+
+  (define lnode-index 0)
+  (define lnode-list (list))
+
+  (define (lnode-get-label)
+    (let ((label lnode-index))
+      (set! lnode-index (1+ lnode-index))
+      label))
+
+  (define (lnode-add rule term next)
+    (let ((lnode (make-lnode rule
+                             (lnode-get-label)
+                             term
+                             next)))
+      (set! lnode-list (cons lnode lnode-list))
+      lnode))
+
+  (define (lnode-create-terminal)
+    (let ((ret (lnode-add #f #t (list))))
+      (lnode-label ret)))
+
+  (define (lnode-create rule next)
+    (lnode-add rule #f next))
+
+  (define (get-label lnode-or-nodes)
+    (if (list? lnode-or-nodes)
+        (lnode-label (car lnode-or-nodes))
+        (lnode-label lnode-or-nodes)))
+
+  (define (lnode-create-sub ir next)
+    (if (single? ir)
+        (lnode-create ir (list next))
+        (->net ir next)))
+
+  (define (non-char-single? sub)
+    (case (car sub)
+      ((sel any inv ran) #t)
+      (else #f)))
+
+  (define (single? sub)
+    (or (char? sub)
+        (non-char-single? sub)))
+
+
+  ;; (seq (oom (opt (seq #\a #\b) (seq #\c #\d))) #\a)
+  (define (seq->net ir next)
+    (reverse
+     (let loop ((tail (reverse (cdr ir)))
+                (prev next))
+       (if (pair? tail)
+           (let ((sub (lnode-create-sub (car tail) prev)))
+             (cons sub (loop (cdr tail)
+                             (lnode-label sub))))
+           '()))))
+
+
+  ;; (opt (seq #\a #\b) (seq #\c #\d))
+  (define (opt->net ir next)
+    (let ((opts
+           (let loop ((tail (cdr ir)))
+             (if (pair? tail)
+                 (cons (get-label (lnode-create-sub (car tail)
+                                                    next))
+                           (loop (cdr tail)))
+                 '()))))
+      (lnode-create #f opts)))
+
+  ;; (zoo #\a)
+  (define (zoo->net ir next)
+    (let* ((sub (lnode-create-sub (second ir) next))
+           (opt (lnode-create #f
+                              (list (get-label sub)
+                                    next))))
+      opt))
+
+  ;; (zom |<-         argument          ->|)
+  ;; (zom (opt (seq #\a #\b) (seq #\c #\d)))
+  (define (zom->net ir next)
+    (let* ((out (lnode-create #f (list next)))
+           (sub (lnode-create-sub (second ir) (get-label out)))
+           (in (lnode-create #f (list (get-label out)))))
+      (set-lnode-next! out (cons (get-label sub)
+                                 (lnode-next out)))
+      in))
+
+
+  ;; (oom |<-         argument          ->|)
+  ;; (oom (opt (seq #\a #\b) (seq #\c #\d)))
+  (define (oom->net ir next)
+    (let* ((out (lnode-create #f (list next)))
+           (sub (lnode-create-sub (second ir) (get-label out)))
+           (in (lnode-create #f (list (get-label sub)))))
+      (set-lnode-next! out (cons (get-label sub)
+                                 (lnode-next out)))
+      in))
+
+
+  (define (->net ir next)
+    (case (car ir)
+      ((seq) (seq->net ir next))
+      ((opt) (opt->net ir next))
+      ((zoo) (zoo->net ir next))
+      ((zom) (zom->net ir next))
+      ((oom) (oom->net ir next))))
+
+
+  ;; ------------------------------------------------------------
+  ;; Test code:
+
+  (define next #f)
+
+  (define (reset)
+    (set! lnode-index 0)
+    (set! lnode-list (list))
+    (set! next (lnode-create-terminal)))
+
+
+  (define (show-lnode lnode)
+    (pr "label: " (lnode-label lnode))
+    (pr "    rule: " (datum->string (lnode-rule lnode)))
+    (if (lnode-term lnode)
+        (pr "    <term>")
+        (pr "    next: " (datum->string (lnode-next lnode)))))
+
+  (define (show-lnode-list)
+    (for-each show-lnode lnode-list))
+
+  (define (try ir)
+    (pr "IR: " (datum->string ir))
+    (set! lnode-index 0)
+    (set! lnode-list (list))
+    (let ((res (let ((next (lnode-create-terminal)))
+                 (->net ir next))))
+      (show-lnode-list)))
+
+  ;; Tested sequences:
+  (when #f
+    (try '(seq (sel #\a #\b)))
+    (try '(seq #\a #\b))
+    (try '(opt (seq #\a #\b) (seq #\c #\d)))
+    (try '(zoo #\a))
+    (try '(seq (zoo #\a)))
+    (try '(seq (zoo #\a) #\b))
+    (try '(seq (zoo #\a) (zoo #\b)))
+    (try '(zom #\a))
+    (try '(seq (zom #\a)))
+    (try '(oom #\a))
+    (try '(seq (oom #\a)))
+
+    ;; Not working.
+    (try '(seq (oom #\a)))
+    )
+
+  ;; Test code:
+  ;; ------------------------------------------------------------
+
+
+  (->net ir (lnode-create-terminal))
+  lnode-list)
+
+
+
+(define-mu-record fsm
+  token
+  nodes
+  start
+  state
+  valid-prev
+  valid-cur)
+
+
+;; Return fsm.
+;;
+;; Perform "fsm-reset" before use.
+;;
+(define (lexer-ir->fsm token ir)
+
+  ;; Create FSM.
+  ;;
+  ;; Order lnode-list using labels and store the ordered list as vector
+  ;; for efficient lookup.
+  ;;
+  ;; Args:
+  ;;     lnode-list Ordered graph of lnodes.
+  ;;
+  (define (fsm-create token lnode-list)
+    (let ((start (lnode-label (car lnode-list))))
+      (make-fsm token
+                (list->vector
+                 (sort lnode-list
+                       (lambda (a b)
+                         (< (lnode-label a)
+                            (lnode-label b)))))
+                start
+                (list)
+                #f
+                #f)))
+
+
+  (let* ((lnode-list (lexer-ir->lnode-list ir)))
+    (fsm-create token lnode-list)))
+
+
+;; FSM based lexer.
+;;
+;; Args:
+;;     fsm-set       Set of FSM lexers.
+;;     char-stream   Character stream handle.
+;;
+;; Return: (token|#f lexeme)
+;;
+(define (lexer-fsm fsm-set char-stream)
+
+
+  ;; Debug is expensive, hence do dbug with macro.
+  (define-syntax-rule (dbug msg)
+    #t
+    ;; (pr "LEX: " msg)
+    )
+
+  ;; Return value formatter.
+  (define (return success? matched)
+    (list success? matched))
+
+  ;; Get next char from stream.
+  (define (get)
+    (char-stream-get char-stream))
+
+  ;; Get N characters.
+  (define (get-n n)
+    (if (= 0 n)
+        #f
+        (let loop ((i n))
+          (if (> i 1)
+              (begin
+                (get)
+                (loop (1- i)))
+              (get)))))
+
+  ;; Return current char.
+  (define (cur)
+    (char-stream-char char-stream))
+
+  ;; Is EOF reached?
+  (define (eof?)
+    (eof-object? (char-stream-char char-stream)))
+
+  ;; Put back m, but make the first current "char".
+  ;; Return: empty list.
+  (define (put-back m)
+    (dbug (ss "put-back: \"" (list->string m) "\""))
+    (when (pair? m)
+      (for-each (lambda (ch)
+                  (char-stream-put char-stream ch))
+                (reverse (cdr m)))
+      (dbug (ss "put-back, char: " (car m)))
+      (set-char-stream-char! char-stream (car m)))
+    '())
+
+  ;; Create return value for single char match and get new char.
+  (define (single-char-match token char)
+    (dbug (ss "Single char match: " char))
+    (get)
+    (return token (list char)))
+
+  ;; Create return value for single char mismatch.
+  (define (single-char-mismatch token char)
+    (dbug (ss "Single char mismatch: " char))
+    (return #f '()))
+
+
+  ;; Reset fsm before starting matching with "fsm-step".
+  (define (fsm-reset-set fsm-set)
+    (for-each (lambda (fsm)
+                (set-fsm-state! fsm (list (fsm-start fsm)))
+                (set-fsm-valid-prev! fsm #f)
+                (set-fsm-valid-cur! fsm #f))
+              fsm-set))
+
+  ;; Copy cur state to prev before continuing matching with "fsm-step".
+  (define (fsm-store-valid-set fsm-set)
+    (for-each (lambda (fsm)
+                (set-fsm-valid-prev! fsm (fsm-valid-cur fsm))
+                (set-fsm-valid-cur! fsm #f))
+              fsm-set))
+
+
+  ;; Return true if success.
+  ;;
+  ;; NOTE: No stepping is performed if step would fail.
+  (define (fsm-step fsm ch)
+
+    (define (fsm-get-lnode fsm index)
+      (vector-ref (fsm-nodes fsm) index))
+
+    (define (fsm-ready? fsm)
+      (fold (lambda (i res)
+              (or res (lnode-term (fsm-get-lnode fsm i))))
+            #f
+            (fsm-state fsm)))
+
+    (define (fsm-terminated? fsm)
+      #t)
+
+    ;; Return states in fanout of state (current state).
+    (define (fsm-fanout fsm from)
+      (define (depth-first fsm from)
+        (let loop ((tail from))
+          (if (pair? tail)
+              (let ((lnode (fsm-get-lnode fsm (car tail))))
+                (if (or (lnode-rule lnode)
+                        (null? (lnode-next lnode)))
+                    (cons (car tail) (depth-first fsm (cdr from)))
+                    (depth-first fsm (lnode-next lnode))))
+              '())))
+      (depth-first fsm from))
+
+
+    (define (fsm-accept? fsm index ch)
+      (if (lnode-accept? (fsm-get-lnode fsm index)
+                         ch)
+          index
+          #f))
+
+    (dbug (ss "FSM *****"))
+    (dbug (ss "FSM nodes: \n" (show-lnode-list (vector->list (fsm-nodes fsm)))))
+    (dbug (ss "FSM state: " (ds (fsm-state fsm))))
+    (dbug (ss "FSM valid-prev: " (fsm-valid-prev fsm)))
+    (dbug (ss "FSM valid-cur: " (fsm-valid-cur fsm)))
+    (dbug (ss "FSM fanout: " (ds (fsm-fanout fsm (fsm-state fsm)))))
+    (dbug (ss "FSM ....."))
+
+    (if (eof-object? ch)
+
+        (begin
+          (set-fsm-valid-cur! fsm #f)
+          #f)
+
+        (let* ((fanout (fsm-fanout fsm (fsm-state fsm)))
+               (accepting (filter identity
+                                  (map (lambda (index)
+                                         (fsm-accept? fsm index ch))
+                                       fanout))))
+          (if (pair? accepting)
+              (begin
+                (dbug (ss "FSM MATCH"))
+                (set-fsm-state!
+                 fsm
+                 (apply append
+                        (map (lambda (index)
+                               (fsm-fanout
+                                fsm
+                                (lnode-next (fsm-get-lnode fsm index))))
+                             accepting)))
+                (set-fsm-valid-cur! fsm #t)
+                #t)
+              (begin
+                (dbug (ss "FSM MISMATCH"))
+                (set-fsm-valid-cur! fsm #f)
+                #f)))))
+
+
+  (define (fsm-step-set fsm-set ch)
+
+    (define (->valid-set-cur fsm-set)
+      (filter (lambda (fsm)
+                (fsm-valid-cur fsm))
+              fsm-set))
+
+    (for-each (lambda (fsm)
+                (fsm-step fsm ch))
+              fsm-set)
+
+    (let ((valid-set (->valid-set-cur fsm-set)))
+      (if (null? valid-set)
+          (cons 'failure '())
+          (cons 'continue valid-set))))
+
+
+  ;; Reset all FSMs to initial state.
+  (fsm-reset-set fsm-set)
+
+  ;; Loop through char-stream.
+  (if (not (eof?))
+
+      (let loop ((chars '())
+                 (one-pass #f)
+                 (prev-set fsm-set))
+
+        (fsm-store-valid-set prev-set)
+
+        (begin
+          (dbug (ss "------"))
+          (dbug (ss "FSM: matching: " (cur)))
+
+          (let ((next-res (fsm-step-set prev-set (cur))))
+
+            (if (eq? (car next-res) 'continue)
+                (dbug (ss "FSM: next-res: " (car next-res)
+                          ", valid-cur: " (ds (map fsm-valid-cur (cdr next-res)))
+                          ", state: " (ds (map fsm-state (cdr next-res)))
+                          )
+                      )
+                (dbug (ss "next-res car: " (car next-res))))
+            (dbug (ss "eof-object: " (eof-object? (cur))))
+
+            (cond
+             ((eq? (car next-res) 'failure)
+              (if one-pass
+                  (return (fsm-token (first prev-set))
+                          (reverse chars))
+                  (return #f '())))
+             (else
+              (let ((ch (cur)))
+                (get)
+                (loop (cons ch chars)
+                      #t
+                      (cdr next-res))))))))
+      ;; EOF return.
+      (return 'eof '())))
+
+
+(define (gulex-create-lexer-fsm gulex-token-table)
+  (let* ((lexer-ir (token-table->lexer-ir gulex-token-table))
+         (fsm-set (map (lambda (token-ir)
+                         (lexer-ir->fsm (second token-ir) (third token-ir)))
+                       (cdr lexer-ir))))
+    (lambda (char-stream)
+      (lexer-fsm fsm-set char-stream))))
+
+
+
+
+;; ------------------------------------------------------------
 ;; Token stream:
 
 (define-record-type token-stream
   (make-token-stream cs lexer token buf)
   token-stream?
   (cs    token-stream-cs)                            ; Char-stream.
-  (lexer token-stream-lexer)                         ; Lexer (top).
+  (lexer token-stream-lexer)                         ; Lexer (interp, fsm, ...).
   (token token-stream-token set-token-stream-token!) ; Current token.
   (buf   token-stream-buf set-token-stream-buf!))        ; Buffer for put-back.
 
@@ -765,11 +1280,8 @@
                  (let ((ret (car (token-stream-buf ts))))
                    (set-token-stream-buf! ts (cdr (token-stream-buf ts)))
                    ret)
-;;                 (gulex-lex-interp-entry (token-stream-lexer ts)
-;;                                         (token-stream-cs ts))
                  (gulex-lexer-get-token (token-stream-lexer ts)
-                                        (token-stream-cs ts))
-                 )))
+                                        (token-stream-cs ts)))))
     (set-token-stream-token! ts ret)
     ret))
 
@@ -814,18 +1326,6 @@
   (set! gulex-show-token-active (if (pair? rest)
                                     (car rest)
                                     #t)))
-
-;;(define (gulex-lex-interp-entry lexer-ir char-stream)
-;;  (let* ((file (char-stream-file char-stream))
-;;         (line (1+ (char-stream-line char-stream)))
-;;         (lex-ret (lex-interp #f lexer-ir char-stream))
-;;         (ret (list (first lex-ret)
-;;                    (list->string (second lex-ret))
-;;                    file
-;;                    line)))
-;;    (when gulex-show-token-active
-;;      (pr "GULEX: Token: " (datum->string ret)))
-;;    ret))
 
 ;; Return: (<token> <lexeme> <file> <line>)
 (define (gulex-lexer-get-token lexer char-stream)
