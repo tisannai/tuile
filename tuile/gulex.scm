@@ -1098,36 +1098,60 @@
               fsm-set))
 
 
+  (define (fsm-get-lnode fsm index)
+    (vector-ref (fsm-nodes fsm) index))
+
+  ;; Return states in fanout of state (current state).
+  (define (fsm-fanout fsm from)
+    (define (depth-first fsm from)
+      ;; (pr "fsm-fanout from: " (ds from))
+      (let loop ((tail from))
+        (if (pair? tail)
+            (begin
+              ;; (pr "fsm-fanout cur: " (car tail))
+              (let ((lnode (fsm-get-lnode fsm (car tail))))
+                ;; (pr "fsm-fanout lnode: " (ds lnode))
+                (if (or (lnode-rule lnode)
+                        (null? (lnode-next lnode)))
+                    (cons (car tail) (loop (cdr tail)))
+                    (append (depth-first fsm (lnode-next lnode))
+                            (loop (cdr tail)))
+                    )))
+            '())))
+    (if (and (= (length from) 1)
+             (lnode-rule (fsm-get-lnode fsm (car from))))
+        from
+        (depth-first fsm from)))
+
+;;  ;; Return states in fanout of state (current state).
+;;  (define (fsm-fanout fsm from)
+;;    (define (depth-first fsm from)
+;;      (let loop ((tail from))
+;;        (if (pair? tail)
+;;            (let ((lnode (fsm-get-lnode fsm (car tail))))
+;;              (pr "fsm-fanout lnode: " (ds lnode))
+;;              (if (or (lnode-rule lnode)
+;;                      (null? (lnode-next lnode)))
+;;                  (cons (car tail) (depth-first fsm (cdr from)))
+;;                  (depth-first fsm (lnode-next lnode))))
+;;            '())))
+;;;;    (pr "length from: " (length from))
+;;;;    (pr "from: " (ds (fsm-get-lnode fsm (car from))))
+;;    (if (and (= (length from) 1)
+;;             (lnode-rule (fsm-get-lnode fsm (car from))))
+;;        from
+;;        (depth-first fsm from)))
+
   ;; Return true if success.
   ;;
   ;; NOTE: No stepping is performed if step would fail.
   (define (fsm-step fsm ch)
 
-    (define (fsm-get-lnode fsm index)
-      (vector-ref (fsm-nodes fsm) index))
-
-    (define (fsm-ready? fsm)
-      (fold (lambda (i res)
-              (or res (lnode-term (fsm-get-lnode fsm i))))
-            #f
-            (fsm-state fsm)))
-
-    (define (fsm-terminated? fsm)
-      #t)
-
-    ;; Return states in fanout of state (current state).
-    (define (fsm-fanout fsm from)
-      (define (depth-first fsm from)
-        (let loop ((tail from))
-          (if (pair? tail)
-              (let ((lnode (fsm-get-lnode fsm (car tail))))
-                (if (or (lnode-rule lnode)
-                        (null? (lnode-next lnode)))
-                    (cons (car tail) (depth-first fsm (cdr from)))
-                    (depth-first fsm (lnode-next lnode))))
-              '())))
-      (depth-first fsm from))
-
+    ;;    (define (fsm-ready? fsm)
+    ;;      (fold (lambda (i res)
+    ;;              (or res (lnode-term (fsm-get-lnode fsm i))))
+    ;;            #f
+    ;;            (fsm-state fsm)))
 
     (define (fsm-accept? fsm index ch)
       (if (lnode-accept? (fsm-get-lnode fsm index)
@@ -1156,15 +1180,23 @@
                                        fanout))))
           (if (pair? accepting)
               (begin
+                (dbug (ss "FSM accepting: " (ds accepting)))
                 (dbug (ss "FSM MATCH"))
+                ;;                (set-fsm-state!
+                ;;                 fsm
+                ;;                 (apply append
+                ;;                        (map (lambda (index)
+                ;;                               (fsm-fanout
+                ;;                                fsm
+                ;;                                (lnode-next (fsm-get-lnode fsm index))))
+                ;;                             accepting)))
                 (set-fsm-state!
                  fsm
                  (apply append
                         (map (lambda (index)
-                               (fsm-fanout
-                                fsm
-                                (lnode-next (fsm-get-lnode fsm index))))
+                               (lnode-next (fsm-get-lnode fsm index)))
                              accepting)))
+                ;;                (set-fsm-state! fsm accepting)
                 (set-fsm-valid-cur! fsm #t)
                 #t)
               (begin
@@ -1188,6 +1220,25 @@
       (if (null? valid-set)
           (cons 'failure '())
           (cons 'continue valid-set))))
+
+
+  ;;  (define (fsm-find-terminated fsm-set)
+  ;;    (find (lambda (fsm)
+  ;;            (eq? (fsm-valid-prev fsm) 0))
+  ;;          fsm-set))
+
+  ;; Find first fsm which has one of it's state as 0.
+  (define (fsm-find-terminated fsm-set)
+    (find (lambda (fsm)
+            (let ((fanout (fsm-fanout fsm (fsm-state fsm))))
+              ;; (pr (ss "token: "  (fsm-token fsm) ", fanout: " (ds fanout)))
+              (find (lambda (i) (= i 0)) fanout))
+            ;;            (dbug (ss "state: " (ds (fsm-state fsm))))
+            ;;            (let ((st (fsm-state fsm)))
+            ;;              (and (= (length st) 1)
+            ;;                   (= (car st) 0)))
+            )
+          fsm-set))
 
 
   ;; Reset all FSMs to initial state.
@@ -1220,7 +1271,7 @@
             (cond
              ((eq? (car next-res) 'failure)
               (if one-pass
-                  (return (fsm-token (first prev-set))
+                  (return (fsm-token (fsm-find-terminated prev-set))
                           (reverse chars))
                   (return #f '())))
              (else

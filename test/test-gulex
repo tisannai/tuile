@@ -51,6 +51,12 @@
 
 (test-begin "gulex")
 
+(test-assert (eq? 'PREFIX (get-token-for "abcdabcd")))
+(test-assert (st? "abcdabcd" (get-string-for "abcdabcd")))
+
+(test-assert (eq? 'ID (get-token-for "guilebron")))
+(test-assert (st? "guilebron" (get-string-for "guilebron")))
+
 (test-assert (eq? 'GUILE (get-token-for "guile")))
 (test-assert (st? "guile" (get-string-for "guile")))
 
@@ -94,11 +100,14 @@
 
 
 (let (
-      (ts (token-stream-open-with-lexer "guile guilo 32123 foo_bar diiduu abcdabcd aa !!!"
+      (ts (token-stream-open-with-lexer "  guilebron  guile guilo 32123 foo_bar diiduu abcdabcd aa !!!"
                                         'string
                                         (test-lexer gulex-token-table)
                                         #:skip-token-prefetch #t)))
   (let loop ((ref '(
+                    (SPACE . "  ")
+                    (ID . "guilebron")
+                    (SPACE . "  ")
                     (GUILE . "guile")
                     (SPACE . " ")
                     (GUILO . "guilo")
@@ -129,6 +138,5 @@
                                               (gulex-token-value ret))
                                         (car ref)))
         (loop (cdr ref)))))))
-
 
 (test-end)
