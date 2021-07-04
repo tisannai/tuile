@@ -967,7 +967,6 @@
   ;; Test code:
   ;; ------------------------------------------------------------
 
-
   (->net ir (lnode-create-terminal))
   lnode-list)
 
@@ -1024,7 +1023,6 @@
 ;;
 (define (lexer-fsm fsm-set char-stream)
 
-
   ;; Debug is expensive, hence do dbug with macro.
   (define-syntax-rule (dbug msg)
     #t
@@ -1039,17 +1037,6 @@
   (define (get)
     (char-stream-get char-stream))
 
-  ;; Get N characters.
-  (define (get-n n)
-    (if (= 0 n)
-        #f
-        (let loop ((i n))
-          (if (> i 1)
-              (begin
-                (get)
-                (loop (1- i)))
-              (get)))))
-
   ;; Return current char.
   (define (cur)
     (char-stream-char char-stream))
@@ -1057,30 +1044,6 @@
   ;; Is EOF reached?
   (define (eof?)
     (eof-object? (char-stream-char char-stream)))
-
-  ;; Put back m, but make the first current "char".
-  ;; Return: empty list.
-  (define (put-back m)
-    (dbug (ss "put-back: \"" (list->string m) "\""))
-    (when (pair? m)
-      (for-each (lambda (ch)
-                  (char-stream-put char-stream ch))
-                (reverse (cdr m)))
-      (dbug (ss "put-back, char: " (car m)))
-      (set-char-stream-char! char-stream (car m)))
-    '())
-
-  ;; Create return value for single char match and get new char.
-  (define (single-char-match token char)
-    (dbug (ss "Single char match: " char))
-    (get)
-    (return token (list char)))
-
-  ;; Create return value for single char mismatch.
-  (define (single-char-mismatch token char)
-    (dbug (ss "Single char mismatch: " char))
-    (return #f '()))
-
 
   ;; Reset fsm before starting matching with "fsm-step".
   (define (fsm-reset-set fsm-set)
@@ -1097,7 +1060,7 @@
                 (set-fsm-valid-cur! fsm #f))
               fsm-set))
 
-
+  ;; Return lnode by index.
   (define (fsm-get-lnode fsm index)
     (vector-ref (fsm-nodes fsm) index))
 
@@ -1123,41 +1086,18 @@
         from
         (depth-first fsm from)))
 
-;;  ;; Return states in fanout of state (current state).
-;;  (define (fsm-fanout fsm from)
-;;    (define (depth-first fsm from)
-;;      (let loop ((tail from))
-;;        (if (pair? tail)
-;;            (let ((lnode (fsm-get-lnode fsm (car tail))))
-;;              (pr "fsm-fanout lnode: " (ds lnode))
-;;              (if (or (lnode-rule lnode)
-;;                      (null? (lnode-next lnode)))
-;;                  (cons (car tail) (depth-first fsm (cdr from)))
-;;                  (depth-first fsm (lnode-next lnode))))
-;;            '())))
-;;;;    (pr "length from: " (length from))
-;;;;    (pr "from: " (ds (fsm-get-lnode fsm (car from))))
-;;    (if (and (= (length from) 1)
-;;             (lnode-rule (fsm-get-lnode fsm (car from))))
-;;        from
-;;        (depth-first fsm from)))
-
   ;; Return true if success.
   ;;
   ;; NOTE: No stepping is performed if step would fail.
   (define (fsm-step fsm ch)
 
-    ;;    (define (fsm-ready? fsm)
-    ;;      (fold (lambda (i res)
-    ;;              (or res (lnode-term (fsm-get-lnode fsm i))))
-    ;;            #f
-    ;;            (fsm-state fsm)))
-
+    ;; Check if fsm accepts at "index" the "ch".
     (define (fsm-accept? fsm index ch)
       (if (lnode-accept? (fsm-get-lnode fsm index)
                          ch)
           index
           #f))
+
 
     (dbug (ss "FSM *****"))
     (dbug (ss "FSM nodes: \n" (show-lnode-list (vector->list (fsm-nodes fsm)))))
@@ -1169,11 +1109,15 @@
 
     (if (eof-object? ch)
 
+        ;; EOF is never accepted.
         (begin
           (set-fsm-valid-cur! fsm #f)
           #f)
 
-        (let* ((fanout (fsm-fanout fsm (fsm-state fsm)))
+        (let* (
+               ;; Propagate current state as far as possible.
+               (fanout (fsm-fanout fsm (fsm-state fsm)))
+               ;; Collect all states that accept "ch".
                (accepting (filter identity
                                   (map (lambda (index)
                                          (fsm-accept? fsm index ch))
@@ -1182,21 +1126,14 @@
               (begin
                 (dbug (ss "FSM accepting: " (ds accepting)))
                 (dbug (ss "FSM MATCH"))
-                ;;                (set-fsm-state!
-                ;;                 fsm
-                ;;                 (apply append
-                ;;                        (map (lambda (index)
-                ;;                               (fsm-fanout
-                ;;                                fsm
-                ;;                                (lnode-next (fsm-get-lnode fsm index))))
-                ;;                             accepting)))
                 (set-fsm-state!
                  fsm
+                 ;; Step each accepting state one forward to get new
+                 ;; state.
                  (apply append
                         (map (lambda (index)
                                (lnode-next (fsm-get-lnode fsm index)))
                              accepting)))
-                ;;                (set-fsm-state! fsm accepting)
                 (set-fsm-valid-cur! fsm #t)
                 #t)
               (begin
@@ -1205,6 +1142,8 @@
                 #f)))))
 
 
+  ;; Step the full-set forward and return failure or success with
+  ;; accepting fsm(s).
   (define (fsm-step-set fsm-set ch)
 
     (define (->valid-set-cur fsm-set)
@@ -1222,23 +1161,14 @@
           (cons 'continue valid-set))))
 
 
-  ;;  (define (fsm-find-terminated fsm-set)
-  ;;    (find (lambda (fsm)
-  ;;            (eq? (fsm-valid-prev fsm) 0))
-  ;;          fsm-set))
-
-  ;; Find first fsm which has one of it's state as 0.
+  ;; Find first fsm which has one of it's state as 0 in the propagated
+  ;; fanout.
   (define (fsm-find-terminated fsm-set)
     (find (lambda (fsm)
             (let ((fanout (fsm-fanout fsm (fsm-state fsm))))
-              ;; (pr (ss "token: "  (fsm-token fsm) ", fanout: " (ds fanout)))
-              (find (lambda (i) (= i 0)) fanout))
-            ;;            (dbug (ss "state: " (ds (fsm-state fsm))))
-            ;;            (let ((st (fsm-state fsm)))
-            ;;              (and (= (length st) 1)
-            ;;                   (= (car st) 0)))
-            )
+              (find (lambda (i) (= i 0)) fanout)))
           fsm-set))
+
 
 
   ;; Reset all FSMs to initial state.
@@ -1270,11 +1200,13 @@
 
             (cond
              ((eq? (car next-res) 'failure)
+              ;; Return previous set state (round), if any.
               (if one-pass
                   (return (fsm-token (fsm-find-terminated prev-set))
                           (reverse chars))
                   (return #f '())))
              (else
+              ;; Continue;
               (let ((ch (cur)))
                 (get)
                 (loop (cons ch chars)
