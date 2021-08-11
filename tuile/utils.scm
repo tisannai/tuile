@@ -28,6 +28,7 @@
    flatten-1
 
    pi
+   integer-and-fraction
    unspecified
    uns
 
@@ -223,6 +224,13 @@
 
 ;; (* 2 (acos 0))
 (define pi 3.141592653589793)
+
+;; Return integer and fractional parts as pair.
+(define (integer-and-fraction real decimals)
+  (call-with-values (lambda () (round/ (* (expt 10 decimals) real) (expt 10 decimals)))
+    (lambda (q r)
+      (cons (inexact->exact (round q))
+            (inexact->exact (round r))))))
 
 (define unspecified (if #f #t))
 (define uns unspecified)
