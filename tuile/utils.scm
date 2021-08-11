@@ -223,7 +223,7 @@
 
 
 ;; (* 2 (acos 0))
-(define pi 3.141592653589793)
+(define pi (* 2 (acos 0)))
 
 ;; Return integer and fractional parts of real as pair.
 (define (->integer-fraction real decimals)
