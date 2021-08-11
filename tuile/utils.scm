@@ -28,7 +28,7 @@
    flatten-1
 
    pi
-   integer-and-fraction
+   ->integer-fraction
    unspecified
    uns
 
@@ -225,9 +225,11 @@
 ;; (* 2 (acos 0))
 (define pi 3.141592653589793)
 
-;; Return integer and fractional parts as pair.
-(define (integer-and-fraction real decimals)
-  (call-with-values (lambda () (round/ (* (expt 10 decimals) real) (expt 10 decimals)))
+;; Return integer and fractional parts of real as pair.
+(define (->integer-fraction real decimals)
+  (call-with-values (lambda ()
+                      (let ((scaler (expt 10 decimals)))
+                        (round/ (* real scaler) scaler)))
     (lambda (q r)
       (cons (inexact->exact (round q))
             (inexact->exact (round r))))))
