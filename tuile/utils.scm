@@ -222,14 +222,14 @@
         '())))
 
 
-;; (* 2 (acos 0))
+;; PI = 3.141592653589793
 (define pi (* 2 (acos 0)))
 
 ;; Return integer and fractional parts of real as pair.
 (define (->integer-fraction real decimals)
   (call-with-values (lambda ()
                       (let ((scaler (expt 10 decimals)))
-                        (round/ (* real scaler) scaler)))
+                        (floor/ (* real scaler) scaler)))
     (lambda (q r)
       (cons (inexact->exact (round q))
             (inexact->exact (round r))))))
