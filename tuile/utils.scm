@@ -256,7 +256,8 @@
 
   ;; Glob pattern to regexp.
   (define (glob->regexp pat)
-    (let ((len (string-length pat)))
+    (let ((len (string-length pat))
+          (in-selection 0))
       (string-concatenate
        (append
         (list "^")
@@ -268,6 +269,15 @@
                   ((#\?) (cons "[^.]" (loop (1+ i))))
                   ((#\[) (cons "[" (loop (1+ i))))
                   ((#\]) (cons "]" (loop (1+ i))))
+                  ((#\{) (begin
+                           (set! in-selection (1+ in-selection))
+                           (cons "(" (loop (1+ i)))))
+                  ((#\}) (begin
+                           (set! in-selection (1- in-selection))
+                           (cons ")" (loop (1+ i)))))
+                  ((#\,) (if (> in-selection 0)
+                             (cons "|" (loop (1+ i)))
+                             (cons "," (loop (1+ i)))))
                   ((#\\)
                    (cons (list->string (list char (string-ref pat (1+ i))))
                          (loop (+ i 2))))
