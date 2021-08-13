@@ -36,6 +36,7 @@
 
    dir-list
    dir-glob
+   dir-glob-re
    extname
    expand-file-name
 
@@ -250,7 +251,7 @@
 
 ;; Glob directory.
 ;;
-;;     (dir-glob "../foo" "*.c")
+;;     (dir-glob "../foo" "*.{c,cc}")
 ;;
 (define (dir-glob dir pat)
 
@@ -287,7 +288,15 @@
               '()))
         (list "$")))))
 
-  (let ((rx (make-regexp (glob->regexp pat))))
+  (dir-glob-re dir (glob->regexp pat)))
+
+
+;; Glob directory with regexp.
+;;
+;;     (dir-glob-re "../foo" ".*[.](c|cc)")
+;;
+(define (dir-glob-re dir pat)
+  (let ((rx (make-regexp pat)))
     (filter (lambda (x) (regexp-exec rx x)) (dir-list dir))))
 
 
