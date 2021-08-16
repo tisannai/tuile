@@ -88,8 +88,13 @@
     (set-char-stream-char! cs ret)
     ret))
 
-(define (char-stream-put cs ch)
-  (unget-char (char-stream-port cs) ch)
+(define (char-stream-put cs char-or-chars)
+  (if (list? char-or-chars)
+      (let loop ((chars char-or-chars))
+        (when (pair? chars)
+          (unget-char (char-stream-port cs) (car chars))
+          (loop (cdr chars))))
+      (unget-char (char-stream-port cs) char-or-chars))
   (set-char-stream-char! cs #f))
 
 (define (char-stream-file cs)
@@ -1027,8 +1032,8 @@
 
   ;; Debug is expensive, hence do dbug with macro.
   (define-syntax-rule (dbug msg)
-    ; #t
-    (pr "LEX: " msg)
+    #t
+    ;; (pr "LEX: " msg)
     )
 
   ;; Return value formatter.
@@ -1205,63 +1210,33 @@
                       (ss "next-res car: " (car next-res))))
 
             (cond
+
              ((eq? (car next-res) 'failure)
-              ;; Return previous set state (round), if any.
+              ;; Matching terminated.
               (if one-pass-done
+                  ;; Return previous set state (round) or from best-terminated.
                   (let ((terminated-from-prev-set (fsm-find-terminated prev-set)))
+
                     (if terminated-from-prev-set
-                        (return (fsm-token (fsm-find-terminated prev-set))
+
+                        ;; Last-standing FSM was matched to termination.
+                        (return (fsm-token terminated-from-prev-set)
                                 (reverse chars))
-                        #f ;; TODO continue here.
 
-#|
-#!/usr/bin/guile -s
-!#
+                        ;; Some earlier terminated FSM is used.
+                        (begin
+                          ;; Put back chars that are not
+                          ;; matched. First put-back "cur" and then
+                          ;; all that overflow "best-terminated-fsm".
+                          (let ((leftover-count (- (length chars)
+                                                   (car best-terminated-fsm))))
+                            (char-stream-put char-stream (cons (cur)
+                                                               (take chars leftover-count)))
+                            (return (fsm-token (cdr best-terminated-fsm))
+                                    (reverse (drop chars leftover-count)))))))
 
-(use-modules (srfi srfi-64))
-(use-modules (srfi srfi-1))
-
-(add-to-load-path "..")
-(use-modules (tuile pr))
-(use-modules (tuile utils))
-(use-modules (tuile gulex))
-
-
-(define gulex-token-table
-  (list
-   '("[0-9]+"                NUM)
-   '("[0-9]+'[bh][0-9A-Za-z]+" BASENUM)
-   '("."                     UNKNOWN)
-   ))
-
-
-;;(define test-lexer gulex-create-lexer-interp)
-(define test-lexer gulex-create-lexer-fsm)
-
-(define lexer-interp (test-lexer gulex-token-table))
-
-(define (get-token-for string)
-  (let* ((cs (char-stream-open string 'string))
-         (ret (gulex-token-type (gulex-lexer-get-token lexer-interp cs)))
-         )
-    (char-stream-close cs)
-    ret))
-
-(define (get-string-for string)
-  (let* ((cs (char-stream-open string 'string))
-         (ret (gulex-token-value (gulex-lexer-get-token lexer-interp cs)))
-         )
-    (char-stream-close cs)
-    ret))
-
-(define st? string=?)
-
-(pr (get-string-for "8'd37"))
-|#
-
-
-                        ))
                   (return #f '())))
+
              (else
               ;; Continue;
               (let ((ch (cur)))
@@ -1270,9 +1245,8 @@
                       #t
                       (let ((best (cadr next-res)))
                         (if (fsm-terminated? best)
-                            (cons (fsm-match-count best)
-                                  best)
-                            #f))
+                            (cons (fsm-match-count best) best)
+                            best-terminated-fsm))
                       (cdr next-res))))))))
       ;; EOF return.
       (return 'eof '())))
