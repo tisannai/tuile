@@ -977,6 +977,7 @@
   nodes
   start
   state
+  match-count
   valid-prev
   valid-cur)
 
@@ -1005,6 +1006,7 @@
                             (lnode-label b)))))
                 start
                 (list)
+                0
                 #f
                 #f)))
 
@@ -1025,8 +1027,8 @@
 
   ;; Debug is expensive, hence do dbug with macro.
   (define-syntax-rule (dbug msg)
-    #t
-    ;; (pr "LEX: " msg)
+    ; #t
+    (pr "LEX: " msg)
     )
 
   ;; Return value formatter.
@@ -1049,6 +1051,7 @@
   (define (fsm-reset-set fsm-set)
     (for-each (lambda (fsm)
                 (set-fsm-state! fsm (list (fsm-start fsm)))
+                (set-fsm-match-count! fsm 0)
                 (set-fsm-valid-prev! fsm #f)
                 (set-fsm-valid-cur! fsm #f))
               fsm-set))
@@ -1099,18 +1102,19 @@
           #f))
 
 
-    (dbug (ss "FSM *****"))
+    (dbug (ss "FSM ***** START"))
     (dbug (ss "FSM nodes: \n" (show-lnode-list (vector->list (fsm-nodes fsm)))))
     (dbug (ss "FSM state: " (ds (fsm-state fsm))))
     (dbug (ss "FSM valid-prev: " (fsm-valid-prev fsm)))
     (dbug (ss "FSM valid-cur: " (fsm-valid-cur fsm)))
     (dbug (ss "FSM fanout: " (ds (fsm-fanout fsm (fsm-state fsm)))))
-    (dbug (ss "FSM ....."))
 
     (if (eof-object? ch)
 
         ;; EOF is never accepted.
         (begin
+          (dbug (ss "FSM EOF MISMATCH"))
+          (dbug (ss "FSM ***** END"))
           (set-fsm-valid-cur! fsm #f)
           #f)
 
@@ -1126,6 +1130,7 @@
               (begin
                 (dbug (ss "FSM accepting: " (ds accepting)))
                 (dbug (ss "FSM MATCH"))
+                (dbug (ss "FSM ***** END"))
                 (set-fsm-state!
                  fsm
                  ;; Step each accepting state one forward to get new
@@ -1134,10 +1139,12 @@
                         (map (lambda (index)
                                (lnode-next (fsm-get-lnode fsm index)))
                              accepting)))
+                (set-fsm-match-count! fsm (1+ (fsm-match-count fsm)))
                 (set-fsm-valid-cur! fsm #t)
                 #t)
               (begin
                 (dbug (ss "FSM MISMATCH"))
+                (dbug (ss "FSM ***** END"))
                 (set-fsm-valid-cur! fsm #f)
                 #f)))))
 
@@ -1147,9 +1154,7 @@
   (define (fsm-step-set fsm-set ch)
 
     (define (->valid-set-cur fsm-set)
-      (filter (lambda (fsm)
-                (fsm-valid-cur fsm))
-              fsm-set))
+      (filter fsm-valid-cur fsm-set))
 
     (for-each (lambda (fsm)
                 (fsm-step fsm ch))
@@ -1161,13 +1166,15 @@
           (cons 'continue valid-set))))
 
 
+  (define (fsm-terminated? fsm)
+    (let ((fanout (fsm-fanout fsm (fsm-state fsm))))
+      (find (lambda (i) (= i 0)) fanout)))
+
+
   ;; Find first fsm which has one of it's state as 0 in the propagated
   ;; fanout.
   (define (fsm-find-terminated fsm-set)
-    (find (lambda (fsm)
-            (let ((fanout (fsm-fanout fsm (fsm-state fsm))))
-              (find (lambda (i) (= i 0)) fanout)))
-          fsm-set))
+    (find fsm-terminated? fsm-set))
 
 
 
@@ -1178,7 +1185,8 @@
   (if (not (eof?))
 
       (let loop ((chars '())
-                 (one-pass #f)
+                 (one-pass-done #f)
+                 (best-terminated-fsm #f)
                  (prev-set fsm-set))
 
         (fsm-store-valid-set prev-set)
@@ -1189,21 +1197,70 @@
 
           (let ((next-res (fsm-step-set prev-set (cur))))
 
-            (if (eq? (car next-res) 'continue)
-                (dbug (ss "FSM: next-res: " (car next-res)
+            (dbug (ss " -- SET RESULT"))
+            (dbug (if (eq? (car next-res) 'continue)
+                      (ss "FSM: next-res: " (car next-res)
                           ", valid-cur: " (ds (map fsm-valid-cur (cdr next-res)))
-                          ", state: " (ds (map fsm-state (cdr next-res)))
-                          )
-                      )
-                (dbug (ss "next-res car: " (car next-res))))
-            (dbug (ss "eof-object: " (eof-object? (cur))))
+                          ", state: " (ds (map fsm-state (cdr next-res))))
+                      (ss "next-res car: " (car next-res))))
 
             (cond
              ((eq? (car next-res) 'failure)
               ;; Return previous set state (round), if any.
-              (if one-pass
-                  (return (fsm-token (fsm-find-terminated prev-set))
-                          (reverse chars))
+              (if one-pass-done
+                  (let ((terminated-from-prev-set (fsm-find-terminated prev-set)))
+                    (if terminated-from-prev-set
+                        (return (fsm-token (fsm-find-terminated prev-set))
+                                (reverse chars))
+                        #f ;; TODO continue here.
+
+#|
+#!/usr/bin/guile -s
+!#
+
+(use-modules (srfi srfi-64))
+(use-modules (srfi srfi-1))
+
+(add-to-load-path "..")
+(use-modules (tuile pr))
+(use-modules (tuile utils))
+(use-modules (tuile gulex))
+
+
+(define gulex-token-table
+  (list
+   '("[0-9]+"                NUM)
+   '("[0-9]+'[bh][0-9A-Za-z]+" BASENUM)
+   '("."                     UNKNOWN)
+   ))
+
+
+;;(define test-lexer gulex-create-lexer-interp)
+(define test-lexer gulex-create-lexer-fsm)
+
+(define lexer-interp (test-lexer gulex-token-table))
+
+(define (get-token-for string)
+  (let* ((cs (char-stream-open string 'string))
+         (ret (gulex-token-type (gulex-lexer-get-token lexer-interp cs)))
+         )
+    (char-stream-close cs)
+    ret))
+
+(define (get-string-for string)
+  (let* ((cs (char-stream-open string 'string))
+         (ret (gulex-token-value (gulex-lexer-get-token lexer-interp cs)))
+         )
+    (char-stream-close cs)
+    ret))
+
+(define st? string=?)
+
+(pr (get-string-for "8'd37"))
+|#
+
+
+                        ))
                   (return #f '())))
              (else
               ;; Continue;
@@ -1211,6 +1268,11 @@
                 (get)
                 (loop (cons ch chars)
                       #t
+                      (let ((best (cadr next-res)))
+                        (if (fsm-terminated? best)
+                            (cons (fsm-match-count best)
+                                  best)
+                            #f))
                       (cdr next-res))))))))
       ;; EOF return.
       (return 'eof '())))
