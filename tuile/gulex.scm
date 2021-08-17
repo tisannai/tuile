@@ -66,7 +66,7 @@
   (name  char-stream-name)      ; Name of stream (filename for files)
   (type  char-stream-type)      ; Stream type (file, string)
   (port  char-stream-port)      ; Port of stream
-  (char  char-stream-char set-char-stream-char!)) ; Last char
+  (char  char-stream-char set-char-stream-char!)) ; Current (prefetch) char
 
 (define (char-stream-open name type)
   (let ((cs (make-char-stream name
@@ -77,6 +77,7 @@
                                 (else
                                  (error (ss "char-stream: Invalid stream type: " type))))
                               #f)))
+    ;; Prefetch first char.
     (char-stream-get cs)
     cs))
 
@@ -88,14 +89,24 @@
     (set-char-stream-char! cs ret)
     ret))
 
+;; Put back one or more chars. Note that chars must be in latest first
+;; order.
 (define (char-stream-put cs char-or-chars)
-  (if (list? char-or-chars)
-      (let loop ((chars char-or-chars))
-        (when (pair? chars)
-          (unget-char (char-stream-port cs) (car chars))
-          (loop (cdr chars))))
-      (unget-char (char-stream-port cs) char-or-chars))
-  (set-char-stream-char! cs #f))
+  ;; Put-back old (latest) cur-char, unless EOF.
+  (when (not (eof-object? (char-stream-char cs)))
+    (unget-char (char-stream-port cs)
+                (char-stream-char cs)))
+  (let ((cur-char (if (pair? char-or-chars)
+                      ;; Put-back all but last and return last as cur-char.
+                      (let loop ((chars char-or-chars))
+                        (if (pair? (cdr chars))
+                            (begin
+                              (unget-char (char-stream-port cs) (car chars))
+                              (loop (cdr chars)))
+                            (car chars)))
+                      ;; Put-back char becomes new cur-char.
+                      char-or-chars)))
+    (set-char-stream-char! cs cur-char)))
 
 (define (char-stream-file cs)
   (if (eq? 'file (char-stream-type cs))
@@ -458,13 +469,8 @@
   ;; Put back m, but make the first current "char".
   ;; Return: empty list.
   (define (put-back m)
-    (dbug (ss "put-back: \"" (list->string m) "\""))
     (when (pair? m)
-      (for-each (lambda (ch)
-                  (char-stream-put char-stream ch))
-                (reverse (cdr m)))
-      (dbug (ss "put-back, char: " (car m)))
-      (set-char-stream-char! char-stream (car m)))
+      (char-stream-put char-stream (reverse m)))
     '())
 
   ;; Check "ch" against lexer.
@@ -578,7 +584,7 @@
                           ;; Matching done (failure).
                           (begin
                             (dbug (ss "Sequence mismatch, with: " (cur)))
-                            (return #f (put-back (append m (list (cur)))))))))
+                            (return #f (put-back m))))))
 
                 ;; Matching done (success).
                 (begin
@@ -629,7 +635,7 @@
                          (return matched? m))
                        (begin
                          (dbug (ss "One-or-more mismatch: " token ", string: " (list->string m) ", cur: " (cur)))
-                         (return #f (put-back (append m (list (cur))))))))))
+                         (return #f (put-back m)))))))
 
             (let loop-oom ((matched? #f)
                            (m '()))
@@ -689,15 +695,13 @@
                         (dbug (ss "Options match: " token))
                         ;;                    (return (first ret) (second ret))
                         ;; Put back the matched token and current (if not eof).
-                        (put-back (append (second ret) (if (eof?) '() (list (cur)))))
+                        (put-back (second ret))
                         (loop-opt (cdr lexer)
                                   (cons (return (first ret) (second ret))
                                         opts)))
 
                        ((eof?)
                         (dbug (ss "Options failure: no data"))
-                        ;;                    (return #f (put-back m))
-                        ;; (return #f '())
                         (opt-return opts)
                         )
 
@@ -711,8 +715,6 @@
                       (if (pair? opts)
                           (dbug (ss "Options return: some matches"))
                           (dbug (ss "Options return: no matches")))
-                      ;;                  (return #f '(put-back m))
-                      ;; (return #f '())
                       (opt-return opts))))))
 
          ;; (tok ID (seq ...))
@@ -1230,8 +1232,7 @@
                           ;; all that overflow "best-terminated-fsm".
                           (let ((leftover-count (- (length chars)
                                                    (car best-terminated-fsm))))
-                            (char-stream-put char-stream (cons (cur)
-                                                               (take chars leftover-count)))
+                            (char-stream-put char-stream (take chars leftover-count))
                             (return (fsm-token (cdr best-terminated-fsm))
                                     (reverse (drop chars leftover-count)))))))
 
