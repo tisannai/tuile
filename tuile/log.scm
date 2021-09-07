@@ -5,6 +5,7 @@
   #:export
   (
    prl
+   prl-setup
    prl-enable
    prl-disable
    prl-prefix
@@ -17,6 +18,13 @@
 
 (eval-when (expand load eval)
   (define prl-enabled-logs '()))
+
+
+(define* (prl-setup #:key (enable '()) (prefix-fn #f))
+  (when (pair? enable)
+    (prl-enable enable))
+  (when (pair? prefix-fn)
+    (prl-prefix prefix-fn)))
 
 
 (define (prl-enable . rest)
@@ -58,10 +66,6 @@
     (output rest))))
 
 
-;; Prefix function.
-(define prl-prefix-fn #f)
-
-
 ;; Set prefix processor function. The function is a 2 argument
 ;; function which gets group and rest.
 ;;
@@ -75,6 +79,7 @@
 ;;   (prl-prefix (lambda (grp rest)
 ;;                 (ss "* " (symbol->string grp) ": ")))
 ;;
+(define prl-prefix-fn #f)
 (define (prl-prefix fn)
   (set! prl-prefix-fn fn))
 
