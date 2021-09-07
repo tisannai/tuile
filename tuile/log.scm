@@ -19,8 +19,6 @@
 (eval-when (expand load eval)
   (define prl-enabled-logs '()))
 
-(define prl-prefix-fn #f)
-
 
 (define* (prl-setup #:key (enable '()) (prefix-fn #f))
   (when (pair? enable)
@@ -81,6 +79,7 @@
 ;;   (prl-prefix (lambda (grp rest)
 ;;                 (ss "* " (symbol->string grp) ": ")))
 ;;
+(define prl-prefix-fn #f)
 (define (prl-prefix fn)
   (set! prl-prefix-fn fn))
 
