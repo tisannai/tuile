@@ -19,10 +19,12 @@
 (eval-when (expand load eval)
   (define prl-enabled-logs '()))
 
+(define prl-prefix-fn #f)
+
 
 (define* (prl-setup #:key (enable '()) (prefix-fn #f))
   (when (pair? enable)
-    (prl-enable enable))
+    (apply prl-enable enable))
   (when (pair? prefix-fn)
     (prl-prefix prefix-fn)))
 
@@ -54,8 +56,8 @@
     (when prl-prefix-fn
       (let ((out (prl-prefix-fn grp rest)))
         (when (string? out)
-          (prp out))
-        (pr rest))))
+          (prp out))))
+    (pr rest))
 
   (cond
    ((symbol? grp)
@@ -79,7 +81,6 @@
 ;;   (prl-prefix (lambda (grp rest)
 ;;                 (ss "* " (symbol->string grp) ": ")))
 ;;
-(define prl-prefix-fn #f)
 (define (prl-prefix fn)
   (set! prl-prefix-fn fn))
 
