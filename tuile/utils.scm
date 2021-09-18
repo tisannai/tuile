@@ -26,6 +26,7 @@
    flatten
    flatten-0
    flatten-1
+   list-compact
 
    pi
    ->integer-fraction
@@ -213,6 +214,10 @@
                 (append res (list (car lst))))))
         res)))
 
+
+(define (list-compact lst . opt-pred)
+  (let ((pred (if (pair? opt-pred) opt-pred unsigned?)))
+    (filter pred lst)))
 
 (define (clean-list lst)
   (let filter ((rest lst))
