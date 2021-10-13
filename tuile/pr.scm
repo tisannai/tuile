@@ -17,6 +17,7 @@
    :jn
    :sp
    :ms
+   :in
    :nl
    ))
 
@@ -197,6 +198,10 @@
 (define (:ms width char-or-str)
   (make-string width (ch-or-str-as-ch char-or-str)))
 
+
+;; Space indentation by count.
+(define (:im count)
+  (make-string count #\ ))
 
 ;; Newline string.
 (define :nl "\n")
