@@ -109,6 +109,7 @@
    old-memf
    find-all
    find-first
+   find-member
 
    with-exception-terminate
    string-clip
@@ -216,8 +217,9 @@
 
 
 (define (list-compact lst . opt-pred)
-  (let ((pred (if (pair? opt-pred) opt-pred unsigned?)))
+  (let ((pred (if (pair? opt-pred) opt-pred unspecified?)))
     (filter pred lst)))
+
 
 (define (clean-list lst)
   (let filter ((rest lst))
@@ -1169,6 +1171,11 @@
                         (car tail)))
                (loop (cdr tail)))
            #f))))
+
+
+(define (find-member item lst)
+  (let ((res (member item lst)))
+    (if res (car res) res)))
 
 
 ;; Terminate exception (with "handler" of one argument) if exception
