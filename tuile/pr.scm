@@ -200,7 +200,7 @@
 
 
 ;; Space indentation by count.
-(define (:im count)
+(define (:in count)
   (make-string count #\ ))
 
 ;; Newline string.
