@@ -114,13 +114,18 @@
   opt?
   (name    opt-name)                    ; Long option [string].
   (type    opt-type)                    ; Type [symbol].
-  (sopt    opt-sopt)                    ; Short option [string or symbol].
+  (sopt    opt-sopt-rec)                ; Short option [string or symbol].
   (desc    opt-desc)                    ; Description.
   (given   opt-given    set-opt-given!) ; Has option been given?
   (value   opt-value    set-opt-value!) ; Option value(s) [list].
   (cli     opt-cli)                     ; Cli formatter  [fn].
   (info    opt-info)                    ; Info formatter [fn].
   )
+
+(define (opt-sopt rec)
+  (if (opt-sopt-rec rec)
+      (opt-sopt-rec rec)
+      ""))
 
 
 (define opt-given? opt-given)
