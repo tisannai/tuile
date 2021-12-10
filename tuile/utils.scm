@@ -52,6 +52,7 @@
    forever
    map-except-last
    map-except-first
+   repeat
    repeat-times
    from-to
    from-to-step
@@ -470,6 +471,12 @@
         res)))
 
 (define -> fn-pipe)
+
+(define (repeat fn cnt)
+  (let loop ((i 0))
+    (if (< i cnt)
+        (cons (fn) (loop (1+ i)))
+        '())))
 
 (define-syntax repeat-times
   (lambda (x)
