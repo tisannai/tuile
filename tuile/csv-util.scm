@@ -24,18 +24,21 @@
   (define (separator? ch) (char=? ch separator))
   (define (newline? ch) (char=? ch #\newline))
 
-  (define state 'in-field)
-  (define line (list))
-  (define field (list))
-  (define lines (list))
+  (define state 'in-field)     ; State is in-field or in-string state.
+  (define line (list))         ; List of fields per line.
+  (define field (list))        ; Field characters.
+  (define lines (list))        ; Lines collection.
 
+  ;; Add char to field.
   (define (append-field! ch)
     (set! field (append field (list ch))))
 
+  ;; Add field to line.
   (define (append-line!)
     (set! line (append line (list (list->string field))))
     (set! field (list)))
 
+  ;; Add line to lines.
   (define (append-lines!)
     (set! lines (append lines (list line)))
     (set! line (list)))
@@ -43,46 +46,51 @@
   (let parse-char ((ch (get-char port)))
     (cond
 
+     ;; End of file.
      ((eof-object? ch)
       lines)
 
+     ;; Ignored char.
      ((string-index ignores ch)
       (parse-char (get-char port)))
 
+     ;; Regular input.
      (else
 
       (case state
 
-       ((in-field)
-        (cond
+        ((in-field)
+         ;; Normal field input, i.e. outside string.
+         (cond
 
-         ((quote? ch)
-          (set! state 'in-string))
+          ((quote? ch)
+           (set! state 'in-string))
 
-         ((or (separator? ch)
-              (newline? ch))
-          (append-line!)
-          (when (newline? ch)
-            (append-lines!)))
+          ((or (separator? ch)
+               (newline? ch))
+           (append-line!)
+           (when (newline? ch)
+             (append-lines!)))
 
-         (else
-          (append-field! ch)))
+          (else
+           (append-field! ch)))
 
-        (parse-char (get-char port)))
+         (parse-char (get-char port)))
 
-       ((in-string)
-        (cond
+        ((in-string)
+         ;; Within string.
+         (cond
 
-         ((escape? ch)
-          (append-field! (get-char port)))
+          ((escape? ch)
+           (append-field! (get-char port)))
 
-         ((quote? ch)
-          (set! state 'in-field))
+          ((quote? ch)
+           (set! state 'in-field))
 
-         (else
-          (append-field! ch)))
+          (else
+           (append-field! ch)))
 
-        (parse-char (get-char port))))))))
+         (parse-char (get-char port))))))))
 
 
 ;; Return one parsed line as list of field from port. Stop if EOF is
@@ -173,13 +181,7 @@
                          (when (string=? file-encoding "UTF-16LE")
                            ;; Eat out the header chars.
                            (get-char port))
-                         (csv-parse-from-port port #:separator field-separator)
-;;                         (let loop ((lines '()))
-;;                           (if (eof-object? (lookahead-char port))
-;;                               lines
-;;                               (loop (append lines (list (csv-parse-line port
-;;                                                                         #:separator field-separator))))))
-                         ))
+                         (csv-parse-from-port port #:separator field-separator)))
                  (cond
                   ((string=? "binary"   file-encoding)
                    (list #:binary #t))
