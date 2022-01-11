@@ -27,6 +27,7 @@
    flatten-0
    flatten-1
    list-compact
+   clean-list
 
    pi
    ->integer-fraction
@@ -217,8 +218,10 @@
         res)))
 
 
+;; Compact list by removing (by default) unspecified and false values.
 (define (list-compact lst . opt-pred)
-  (let ((pred (if (pair? opt-pred) opt-pred unspecified?)))
+  (let ((pred (if (pair? opt-pred) (car opt-pred) (lambda (item) (not (or (unspecified? item)
+                                                                          (not item)))))))
     (filter pred lst)))
 
 
