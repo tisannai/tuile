@@ -59,38 +59,25 @@
 
       (case state
 
-        ((in-field)
-         ;; Normal field input, i.e. outside string.
-         (cond
+        ((in-field)         ; Normal field input, i.e. outside string.
+         (cond ((quote? ch)
+                (set! state 'in-string))
+               ((or (separator? ch) (newline? ch))
+                (append-line!)
+                (when (newline? ch)
+                  (append-lines!)))
+               (else
+                (append-field! ch))))
 
-          ((quote? ch)
-           (set! state 'in-string))
+        ((in-string)                    ; Within string.
+         (cond ((escape? ch)
+                (append-field! (get-char port)))
+               ((quote? ch)
+                (set! state 'in-field))
+               (else
+                (append-field! ch)))))
 
-          ((or (separator? ch)
-               (newline? ch))
-           (append-line!)
-           (when (newline? ch)
-             (append-lines!)))
-
-          (else
-           (append-field! ch)))
-
-         (parse-char (get-char port)))
-
-        ((in-string)
-         ;; Within string.
-         (cond
-
-          ((escape? ch)
-           (append-field! (get-char port)))
-
-          ((quote? ch)
-           (set! state 'in-field))
-
-          (else
-           (append-field! ch)))
-
-         (parse-char (get-char port))))))))
+      (parse-char (get-char port))))))
 
 
 ;; Return list of parsed CSV-file lines.
