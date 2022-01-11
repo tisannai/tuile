@@ -1,7 +1,7 @@
 (define-module (tuile csv-util)
   #:export
   (
-   csv-parse-line
+   csv-parse-from-port
    read-csv-file-with-options
    ))
 
@@ -9,6 +9,80 @@
 (use-modules (srfi srfi-43))
 (use-modules (srfi srfi-19))
 (use-modules (ice-9 textual-ports))
+
+
+;; Convert csv input (from port) to list of lines, where each line
+;; includes list of fields.
+;;
+;; port          Streaming port (file or string stream).
+;; separator     Column separator (default: #\;)
+;; ignores       String including ignoreable chars (default: "\r").
+(define* (csv-parse-from-port port #:key (separator #\;) (ignores "\r"))
+
+  (define (quote? ch) (char=? ch #\"))
+  (define (escape? ch) (char=? ch #\\))
+  (define (separator? ch) (char=? ch separator))
+  (define (newline? ch) (char=? ch #\newline))
+
+  (define state 'in-field)
+  (define line (list))
+  (define field (list))
+  (define lines (list))
+
+  (define (append-field! ch)
+    (set! field (append field (list ch))))
+
+  (define (append-line!)
+    (set! line (append line (list (list->string field))))
+    (set! field (list)))
+
+  (define (append-lines!)
+    (set! lines (append lines (list line)))
+    (set! line (list)))
+
+  (let parse-char ((ch (get-char port)))
+    (cond
+
+     ((eof-object? ch)
+      lines)
+
+     ((string-index ignores ch)
+      (parse-char (get-char port)))
+
+     (else
+
+      (case state
+
+       ((in-field)
+        (cond
+
+         ((quote? ch)
+          (set! state 'in-string))
+
+         ((or (separator? ch)
+              (newline? ch))
+          (append-line!)
+          (when (newline? ch)
+            (append-lines!)))
+
+         (else
+          (append-field! ch)))
+
+        (parse-char (get-char port)))
+
+       ((in-string)
+        (cond
+
+         ((escape? ch)
+          (append-field! (get-char port)))
+
+         ((quote? ch)
+          (set! state 'in-field))
+
+         (else
+          (append-field! ch)))
+
+        (parse-char (get-char port))))))))
 
 
 ;; Return one parsed line as list of field from port. Stop if EOF is
@@ -23,6 +97,7 @@
 ;;
 ;; Keyword arguments:
 ;;     separator   CSV file field separator as char (default: ";").
+#;
 (define* (csv-parse-line port #:key (separator #\;))
 
   ;; Get char from port.
@@ -98,11 +173,13 @@
                          (when (string=? file-encoding "UTF-16LE")
                            ;; Eat out the header chars.
                            (get-char port))
-                         (let loop ((lines '()))
-                           (if (eof-object? (lookahead-char port))
-                               lines
-                               (loop (append lines (list (csv-parse-line port
-                                                                         #:separator field-separator))))))))
+                         (csv-parse-from-port port #:separator field-separator)
+;;                         (let loop ((lines '()))
+;;                           (if (eof-object? (lookahead-char port))
+;;                               lines
+;;                               (loop (append lines (list (csv-parse-line port
+;;                                                                         #:separator field-separator))))))
+                         ))
                  (cond
                   ((string=? "binary"   file-encoding)
                    (list #:binary #t))
