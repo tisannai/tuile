@@ -478,7 +478,7 @@
 (define (repeat fn cnt)
   (let loop ((i 0))
     (if (< i cnt)
-        (cons (fn) (loop (1+ i)))
+        (cons (fn i) (loop (1+ i)))
         '())))
 
 (define-syntax repeat-times
