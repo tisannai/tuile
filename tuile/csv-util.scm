@@ -23,61 +23,39 @@
   (define (escape? ch) (char=? ch #\\))
   (define (separator? ch) (char=? ch separator))
   (define (newline? ch) (char=? ch #\newline))
+  (define (+ch ch field) (cons ch field))
+  (define (+field field line) (cons (list->string (reverse field)) line))
+  (define (+line line lines) (cons (reverse line) lines))
 
-  (define state 'in-field)     ; State is in-field or in-string state.
-  (define line (list))         ; List of fields per line.
-  (define field (list))        ; Field characters.
-  (define lines (list))        ; Lines collection.
-
-  ;; Add char to field.
-  (define (append-field! ch)
-    (set! field (append field (list ch))))
-
-  ;; Add field to line.
-  (define (append-line!)
-    (set! line (append line (list (list->string field))))
-    (set! field (list)))
-
-  ;; Add line to lines.
-  (define (append-lines!)
-    (set! lines (append lines (list line)))
-    (set! line (list)))
-
-  (let parse-char ((ch (get-char port)))
-    (cond
-
-     ;; End of file.
-     ((eof-object? ch)
-      lines)
-
-     ;; Ignored char.
-     ((string-index ignores ch)
-      (parse-char (get-char port)))
-
-     ;; Regular input.
-     (else
-
-      (case state
-
-        ((in-field)         ; Normal field input, i.e. outside string.
-         (cond ((quote? ch)
-                (set! state 'in-string))
-               ((or (separator? ch) (newline? ch))
-                (append-line!)
-                (when (newline? ch)
-                  (append-lines!)))
-               (else
-                (append-field! ch))))
-
-        ((in-string)                    ; Within string.
-         (cond ((escape? ch)
-                (append-field! (get-char port)))
-               ((quote? ch)
-                (set! state 'in-field))
-               (else
-                (append-field! ch)))))
-
-      (parse-char (get-char port))))))
+  (let parse-char ((state 'in-field)
+                   (field '())
+                   (line '())
+                   (lines '()))
+    (let ((ch (get-char port)))
+      (cond
+       ((eof-object? ch)                ; End of file.
+        (reverse lines))
+       ((string-index ignores ch)       ; Ignored char.
+        (parse-char state field line lines))
+       (else                            ; Regular input.
+        (case state
+          ((in-field)        ; Normal field input, i.e. not-in-string.
+           (cond ((quote? ch)
+                  (parse-char 'in-string field line lines))
+                 ((separator? ch)
+                  (parse-char state '() (+field field line) lines))
+                 ((newline? ch)
+                  (parse-char state '() '() (+line (+field field line)
+                                                   lines)))
+                 (else
+                  (parse-char state (+ch ch field) line lines))))
+          ((in-string)                  ; Within string.
+           (cond ((escape? ch)
+                  (parse-char state (+ch (get-char port) field) line lines))
+                 ((quote? ch)
+                  (parse-char 'in-field field line lines))
+                 (else
+                  (parse-char state (+ch ch field) line lines))))))))))
 
 
 ;; Return list of parsed CSV-file lines.
