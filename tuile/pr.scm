@@ -8,6 +8,7 @@
    prdl
    ss
    ds
+   pd
    :lj
    :rj
    :ls
@@ -88,6 +89,9 @@
 (define (ds datum)
   (with-output-to-string (lambda ()
                            (write datum))))
+
+(define (pd datum)
+  (pr (ds datum)))
 
 ;; Line print from args.
 (define (pr . args)

@@ -59,6 +59,7 @@
    from-to-step
    nop
 
+   record-type
    define-im-record
    define-fp-record
    define-mu-record
@@ -520,6 +521,12 @@
 ;; No operation, i.e. pass argument forward.
 (define (nop arg)
   arg)
+
+
+(define (record-type r)
+  (if (record? r)
+      (record-type-name (record-type-descriptor r))
+      #f))
 
 
 ;; Create immutable record.

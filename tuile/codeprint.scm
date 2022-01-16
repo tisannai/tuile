@@ -1,5 +1,6 @@
 (define-module (tuile codeprint)
   #:use-module (tuile utils)
+  #:use-module (tuile pr)
   #:export
   (
    codeprint-open
@@ -100,12 +101,34 @@
                (close cp)
                (loop (cdr args)))
               ((p)
-               (let p-loop ((args (cdr args)))
-                 (if (arg? args)
-                     (begin
-                       (print cp (car args))
-                       (p-loop (cdr args)))
-                     (loop args))))
+               ;; Normal indented line print.
+               (if (not (arg? (cdr args)))
+                   (begin
+                     (newline (codeprint-port cp))
+                     (loop (cdr args)))
+                   (let p-loop ((args (cdr args)))
+                     (if (arg? args)
+                         (begin
+                           (print cp (car args))
+                           (p-loop (cdr args)))
+                         (loop args)))))
+              ((s)
+               ;; Line list printing with separator: 's <lst> <sep>.
+               (let ((args (cadr args))
+                     (sep (caddr args)))
+                 (cond
+                  ((null? args) #f)
+                  ((null? (cdr args))
+                   (print cp (car args)))
+                  (else
+                   (display (update-line cp (car args)) (codeprint-port cp))
+                   (let ((sep (string-append sep "\n" (indent-spaces cp))))
+                     (let s-loop ((args (cdr args)))
+                       (if (pair? args)
+                           (begin
+                             (display (ss sep (car args)) (codeprint-port cp))
+                             (s-loop (cdr args)))
+                           (newline (codeprint-port cp)))))))))
               ((i)
                (let ((args (cdr args)))
                  (if (arg? args)
