@@ -14,8 +14,7 @@
    +body
    +var
    /output
-   <variable>
-   <input-port>
+   <input-port>                         ; This is needed for some reason?
    ))
 
 
@@ -144,7 +143,8 @@
   comment
   )
 
-(define-method (initialize (self <variable>) initargs)
+;; This is initialize method with unique name.
+(define-method (initialize-variable (self <variable>) initargs)
   (slot-set! self 'name (list-ref initargs 0))
   (slot-set! self 'width (list-ref initargs 1))
   (let ((rest (drop initargs 2)))
@@ -152,6 +152,9 @@
                         (comment #f))
                   (slot-set! self 'info info)
                   (slot-set! self 'comment comment))))
+
+(define-method (initialize (self <variable>) initargs)
+  (initialize-variable self initargs))
 
 (define-method (sizedef (self <variable>))
   (ss (:lj 32 " " (width-fulldef (slot-ref self 'width)))
@@ -162,6 +165,8 @@
 
 (define-class <input-port> (<variable>))
 (define-method (vardef (self <input-port>)) (ss "input  " (sizedef self) ";"))
+
+;;(define dummy-input-port (make <input-port> "foo" "bar"))
 
 (define-class <clock> (<input-port>))
 (define-class <reset> (<input-port>))
@@ -174,14 +179,8 @@
   value
   )
 (define-method (initialize (self <reg>) initargs)
-  (slot-set! self 'name (list-ref initargs 0))
-  (slot-set! self 'width (list-ref initargs 1))
-  (slot-set! self 'value (list-ref initargs 2))
-  (let ((rest (drop initargs 3)))
-    (let-optional rest ((info #f)
-                        (comment #f))
-                  (slot-set! self 'info info)
-                  (slot-set! self 'comment comment))))
+  (initialize-variable self (delete-ref initargs 2))
+  (slot-set! self 'value (list-ref initargs 2)))
 (define-method (vardef (self <reg>)) (ss "reg    " (sizedef self) ";"))
 
 

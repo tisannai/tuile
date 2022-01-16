@@ -13,6 +13,7 @@
   #:use-module ((srfi srfi-9 gnu) #:select (define-immutable-record-type))
   #:use-module ((srfi srfi-19) #:prefix srfi:)
   #:use-module ((srfi srfi-88) #:select (string->keyword))
+  #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
   #:export
   (
    any?
@@ -26,6 +27,7 @@
    flatten
    flatten-0
    flatten-1
+   delete-ref
    list-compact
    clean-list
 
@@ -45,6 +47,7 @@
    datum->string
    string->procedure
    common-eval
+   assert
    funcall
 
    aif
@@ -218,6 +221,19 @@
                 (append res (list (car lst))))))
         res)))
 
+;; Delete nth element from list.
+(define (delete-ref lst nth)
+  (let loop ((head '())
+             (tail lst)
+             (i 0))
+    (if (and (pair? tail)
+             (< i nth))
+        (loop (cons (car tail) head)
+              (cdr tail)
+              (1+ i))
+        (append (reverse head)
+                (if (pair? tail) (cdr tail) '())))))
+
 
 ;; Compact list by removing (by default) unspecified and false values.
 (define (list-compact lst . opt-pred)
@@ -334,6 +350,12 @@
 ;; Eval datum.
 (define (common-eval datum)
   (eval datum (interaction-environment)))
+
+;; Assert truthness of expr.
+(define (assert expr)
+  (if expr
+      expr
+      (raise-exception (make-non-continuable-error))))
 
 ;; Funcall macro (to complement apply).
 ;;

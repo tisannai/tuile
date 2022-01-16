@@ -375,6 +375,8 @@ p
 ;; ------------------------------------------------------------
 ;; ## Guile class:
 
+;; NOTE: Comprehensive GOOPS examples in vlogmod.scm.
+
 ;; counter-1 class (object)
 ;;
 ;;            name      inheritance list
