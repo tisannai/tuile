@@ -1,0 +1,96 @@
+#!/usr/bin/guile -s
+!#
+
+(use-modules (srfi srfi-64))
+(use-modules (tuile pr))
+(use-modules (tuile codeprint))
+
+(add-to-load-path "..")
+(use-modules (tuile vlogmod))
+
+
+(test-begin "vlogmod")
+
+(test-equal "module creation" #t
+            (string=?
+             (with-output-to-string
+                     (lambda ()
+                       (let ((pp (codeprint-open "<stdout>")))
+                         (define v (/create "my_mod"))
+                         (=header v (list "// This is my module."
+                                          "`include \"my_inc.v\""
+                                          ""))
+                         
+                         (+var v 'clock "clk")
+                         (+var v 'reset "rstn")
+                         (+var v 'input "init")
+                         (+var v 'input "en")
+                         (+var v '(output reg) "count" 3)
+                         (+var v 'param "my_par" 13)
+                         (+var v 'comb "combi" 10)
+                         (+var v 'wire "wirei")
+                         (+var v 'tie "tiei" 10 12)
+                         
+                         (+body v "always @( posedge clk or negedge rstn ) begin" )
+                         (+body v "   if ( !rstn) begin")
+                         (+body v "      count <= 16'b0;")
+                         (+body v "   end else begin")
+                         (+body v "      if ( init ) begin")
+                         (+body v "         count <= 0;")
+                         (+body v "      end else if ( en ) begin")
+                         (+body v "         count <= count + 1;")
+                         (+body v "      end")
+                         (+body v "   end")
+                         (+body v "end" )
+
+                         (/output v pp)
+                         (codeprint-close pp))))
+             "// This is my module.
+`include \"my_inc.v\"
+
+module my_mod
+  (
+   clk,
+   rstn,
+   init,
+   en,
+   count
+   );
+
+   parameter my_par = 13;
+
+   input                                  clk;
+   input                                  rstn;
+   input                                  init;
+   input                                  en;
+
+   output        [2:0]                    count;
+
+   reg           [2:0]                    count;
+
+   reg           [9:0]                    combi;
+
+   wire                                   wirei;
+
+   wire          [9:0]                    tiei;
+
+
+   assign tiei = 12;
+
+
+   always @( posedge clk or negedge rstn ) begin
+      if ( !rstn) begin
+         count <= 16'b0;
+      end else begin
+         if ( init ) begin
+            count <= 0;
+         end else if ( en ) begin
+            count <= count + 1;
+         end
+      end
+   end
+
+endmodule
+"))
+
+(test-end)

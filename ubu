@@ -37,6 +37,10 @@
         (with-output
          (sh "cd test; test-gulex")))
 
+(action test-vlogmod
+        (with-output
+         (sh "cd test; test-vlogmod")))
+
 (action test-all
         (test-pr)
         (test-como)
@@ -44,7 +48,8 @@
         (test-massoc)
         (test-fmt)
         (test-graph)
-        (test-gulex))
+        (test-gulex)
+        (test-vlogmod))
 
 (action clean
         (sh "rm -f test/*.log"))

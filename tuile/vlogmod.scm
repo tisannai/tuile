@@ -1,11 +1,11 @@
 (define-module (tuile vlogmod)
-  #:use-modules (srfi srfi-1)
-  #:use-modules (tuile utils)
-  #:use-modules (tuile pr)
-  #:use-modules (tuile codeprint)
-  #:use-modules (oop goops)
-  #:use-modules (oop goops describe)
-  #:use-modules (ice-9 optargs)
+  #:use-module (srfi srfi-1)
+  #:use-module (tuile utils)
+  #:use-module (tuile pr)
+  #:use-module (tuile codeprint)
+  #:use-module (ice-9 optargs)
+  #:use-module (oop goops)
+  #:use-module (oop goops describe)
   #:export
   (
    /create
@@ -14,6 +14,8 @@
    +body
    +var
    /output
+   <variable>
+   <input-port>
    ))
 
 
@@ -77,6 +79,15 @@
   body                                  ; 11: body lines
   )
 
+(define (inputs v)
+  (list-compact (append (vlogmod-clocks v)
+                        (vlogmod-resets v)
+                        (vlogmod-inputs v))))
+
+(define outputs vlogmod-outputs)
+
+(define (ports v) (append (inputs v) (outputs v)))
+
 
 ;; ------------------------------------------------------------
 ;; Width
@@ -122,8 +133,9 @@
 ;; Width
 ;; ------------------------------------------------------------
 
+
 ;; ------------------------------------------------------------
-;; Variable:
+;; Variable types:
 
 (define-class <variable> ()
   name
@@ -134,11 +146,10 @@
 
 (define-method (initialize (self <variable>) initargs)
   (slot-set! self 'name (list-ref initargs 0))
-  (let ((rest (cdr initargs)))
-    (let-optional rest ((width 1)
-                        (info #f)
+  (slot-set! self 'width (list-ref initargs 1))
+  (let ((rest (drop initargs 2)))
+    (let-optional rest ((info #f)
                         (comment #f))
-                  (slot-set! self 'width width)
                   (slot-set! self 'info info)
                   (slot-set! self 'comment comment))))
 
@@ -149,24 +160,6 @@
 (define-method (portdef (self <variable>))
   (slot-ref self 'name))
 
-
-(define-class <reg> (<variable>)
-  value
-  )
-(define-method (initialize (self <reg>) initargs)
-  (slot-set! self 'name (list-ref initargs 0))
-  (let ((rest (cdr initargs)))
-    (let-optional rest ((width 1)
-                        (value #f)
-                        (info #f)
-                        (comment #f))
-                  (slot-set! self 'width width)
-                  (slot-set! self 'value value)
-                  (slot-set! self 'info info)
-                  (slot-set! self 'comment comment))))
-(define-method (vardef (self <reg>)) (ss "reg    " (sizedef self) ";"))
-
-
 (define-class <input-port> (<variable>))
 (define-method (vardef (self <input-port>)) (ss "input  " (sizedef self) ";"))
 
@@ -176,6 +169,21 @@
 
 (define-class <output> (<variable>))
 (define-method (vardef (self <output>)) (ss "output " (sizedef self) ";"))
+
+(define-class <reg> (<variable>)
+  value
+  )
+(define-method (initialize (self <reg>) initargs)
+  (slot-set! self 'name (list-ref initargs 0))
+  (slot-set! self 'width (list-ref initargs 1))
+  (slot-set! self 'value (list-ref initargs 2))
+  (let ((rest (drop initargs 3)))
+    (let-optional rest ((info #f)
+                        (comment #f))
+                  (slot-set! self 'info info)
+                  (slot-set! self 'comment comment))))
+(define-method (vardef (self <reg>)) (ss "reg    " (sizedef self) ";"))
+
 
 (define-class <wire> (<variable>))
 (define-method (vardef (self <wire>)) (ss "wire   " (sizedef self) ";"))
@@ -190,11 +198,11 @@
 (define-class <tie> (<reg>))
 (define-method (vardef (self <tie>)) (ss "wire   " (sizedef self) ";"))
 
-;; Variable:
+;; Variable types:
 ;; ------------------------------------------------------------
 
 
-
+;; Create vlogmod with name.
 (define (/create name)
   ;; Apply name, and for the rest of the fields, calculate the number
   ;; of non-name fields from <vlogmod> and use empty lists as init values.
@@ -204,6 +212,10 @@
                                               2))
                                        (list)))))
 
+;; Add variable with type and optionally with width and value.
+;;
+;; Width is 1 by default.
+;; value is 0 by default, but it is only needed by reg and tie.
 (define* (+var v type-or-types name #:optional (width 1) (value 0))
   (define (add for this) (append (for v) (list this)))
   (let ((width (width-create width))
@@ -222,17 +234,16 @@
           ((param) (set-vlogmod-params! v (add vlogmod-params (make <param> name width)))))
         (loop (cdr types))))))
 
-(define (+body v line) (set-vlogmod-body! v (append (vlogmod-body v) (list line))))
-(define (+header v line) (set-vlogmod-header! v (append (vlogmod-header v) (list line))))
+;; Add line(s) to body.
+(define (+body v line) (set-vlogmod-body! v (append (vlogmod-body v) (if (list? line) line (list line)))))
+
+;; Add line(s) to header.
+(define (+header v line) (set-vlogmod-header! v (append (vlogmod-header v) (if (list? line) line (list line)))))
+
+;; Set header content.
 (define (=header v lines) (set-vlogmod-header! v lines))
 
-(define (/inputs v)
-  (list-compact (append (vlogmod-clocks v)
-                        (vlogmod-resets v)
-                        (vlogmod-inputs v))))
-(define /outputs vlogmod-outputs)
-(define (/ports v) (append (/inputs v) (/outputs v)))
-
+;; Output <vlogmod> with codeprinter ("pp").
 (define (/output v pp)
   (define (output-vardefs lst)
     (pp 'p)
@@ -243,11 +254,11 @@
   (pp 'p (ss "module " (vlogmod-name v)))
   (pp 'p "  (")
   (pp 'i)
-  (pp 's (map portdef (/ports v)) ",")
+  (pp 's (map portdef (ports v)) ",")
   (pp 'p ");")
   (output-vardefs (vlogmod-params v))
-  (output-vardefs (/inputs v))
-  (output-vardefs (/outputs v))
+  (output-vardefs (inputs v))
+  (output-vardefs (outputs v))
   (output-vardefs (vlogmod-regs v))
   (output-vardefs (vlogmod-combs v))
   (output-vardefs (vlogmod-wires v))
