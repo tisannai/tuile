@@ -172,12 +172,13 @@
 (define (:lc width pad . rest)
   (align-or-clip-with :lj width pad rest))
 
-;; Left-just-clip with pad.
+;; Right-just-clip with pad.
 (define (:rc width pad . rest)
   (align-or-clip-with :rj width pad rest))
 
 
 ;; Right-just-clip with pad.
+#;
 (define (:rc width pad . rest)
   (let ((str (string-concatenate (fa rest))))
     (if (> (string-length str)
