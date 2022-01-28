@@ -96,9 +96,6 @@
   (close-input-port (char-stream-port cs)))
 
 (define (char-stream-get cs)
-;;  (let ((ret (get-char (char-stream-port cs))))
-;;    (char-stream-char-set! cs ret)
-;;    ret)
   (let ((ret (if (pair? (char-stream-putback cs))
                  (let ((ret (car (char-stream-putback cs))))
                    (char-stream-putback-set! cs (cdr (char-stream-putback cs)))
@@ -110,22 +107,6 @@
 ;; Put back one or more chars. Note that chars must be in latest first
 ;; order.
 (define (char-stream-put cs char-or-chars)
-;;  ;; Put-back old (latest) cur-char, unless EOF.
-;;  (when (not (eof-object? (char-stream-char cs)))
-;;    (unget-char (char-stream-port cs)
-;;                (char-stream-char cs)))
-;;  (let ((cur-char (if (pair? char-or-chars)
-;;                      ;; Put-back all but last and return last as cur-char.
-;;                      (let loop ((chars char-or-chars))
-;;                        (if (pair? (cdr chars))
-;;                            (begin
-;;                              (unget-char (char-stream-port cs) (car chars))
-;;                              (loop (cdr chars)))
-;;                            (car chars)))
-;;                      ;; Put-back char becomes new cur-char.
-;;                      char-or-chars)))
-;;    (char-stream-char-set! cs cur-char))
-  ;; Put-back old (latest) cur-char, unless EOF.
   (let* ((char-list (if (list? char-or-chars) char-or-chars (list char-or-chars)))
          (putbacks (cons (char-stream-char cs) char-list)))
     (char-stream-putback-set! cs (append (reverse putbacks) (char-stream-putback cs)))
