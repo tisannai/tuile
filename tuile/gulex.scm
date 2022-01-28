@@ -62,14 +62,6 @@
 ;; ------------------------------------------------------------
 ;; Char stream:
 
-;;(define-record-type char-stream
-;;  (make-char-stream name type port char)
-;;  char-stream?
-;;  (name  char-stream-name)      ; Name of stream (filename for files)
-;;  (type  char-stream-type)      ; Stream type (file, string)
-;;  (port  char-stream-port)      ; Port of stream
-;;  (char  char-stream-char set-char-stream-char!)) ; Current (prefetch) char
-
 (define-record-type char-stream
   (fields name                   ; Name of stream (filename for files)
           type                   ; Stream type (file, string)
@@ -750,12 +742,6 @@
 ;; Lexer fsm:
 
 ;; Lexer node for one char match step.
-;;(define-mu-record lnode
-;;  rule
-;;  label
-;;  term
-;;  next)
-
 (define-record-type lnode
   (fields rule
           label
@@ -992,16 +978,6 @@
   (->net ir (lnode-create-terminal))
   lnode-list)
 
-
-
-;;(define-mu-record fsm
-;;  token
-;;  nodes
-;;  start
-;;  state
-;;  match-count
-;;  valid-prev
-;;  valid-cur)
 
 (define-record-type fsm
   (fields token
