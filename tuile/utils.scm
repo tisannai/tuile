@@ -1201,6 +1201,9 @@
 ;;
 ;; NOTE: Using a delimited continuation, with default-prompt-handler.
 ;;
+;;
+;; Deprecated
+#;
 (define (find-first fn lst)
   (% (let loop ((tail lst))
        (if (pair? tail)
@@ -1210,6 +1213,7 @@
                         (car tail)))
                (loop (cdr tail)))
            #f))))
+(define find-first find)
 
 
 (define (find-member item lst)

@@ -32,12 +32,9 @@
 (define-module (tuile como)
   #:use-module ((ice-9 control) #:select (call/ec))
   #:use-module ((srfi srfi-1)   #:select (find first second third last fold))
-  #:use-module ((srfi srfi-9)   #:select (define-record-type))
-  #:use-module ((srfi srfi-11)  #:select (let-values))
   #:use-module ((srfi srfi-13)  #:select (string-contains))
-  #:use-module ((tuile utils)   #:select (common-eval))
-  #:export (
-            ;; Como classic:
+  #:use-module (tuile compatible)
+  #:export ( ;; Como classic:
             como-command
             como-usage
             como-given?
@@ -52,6 +49,7 @@
             como-actions
             como-var
             ))
+
 
 
 ;; ------------------------------------------------------------
@@ -77,9 +75,9 @@
              0)
           (if (string-contains tail pat)
               (let ((pos (string-contains tail pat)))
-                (loop (substring tail
-                                 (+ pos pat-len))
-                      (append lst (list (substring tail 0 pos)))))
+                (loop (comp-substring tail
+                                      (+ pos pat-len))
+                      (append lst (list (comp-substring tail 0 pos)))))
               (append lst (list tail)))
           lst))))
 
@@ -94,14 +92,21 @@
 ;;
 ;; Program data.
 ;;
+;;(define-record-type spec
+;;  (make-spec name author year opts)
+;;  spec?
+;;  (name    spec-name)                   ; Program name.
+;;  (author  spec-author)                 ; Program author.
+;;  (year    spec-year)                   ; Program year.
+;;  (opts    spec-opts)                   ; Program options data [list <opt>].
+;;  )
+
+;; rnrs-record.
 (define-record-type spec
-  (make-spec name author year opts)
-  spec?
-  (name    spec-name)                   ; Program name.
-  (author  spec-author)                 ; Program author.
-  (year    spec-year)                   ; Program year.
-  (opts    spec-opts)                   ; Program options data [list <opt>].
-  )
+  (fields name
+          author
+          year
+          opts))
 
 
 ;;
@@ -109,18 +114,30 @@
 ;;
 ;; Collection of all static and dynamic option data.
 ;;
+;;(define-record-type opt
+;;  (make-opt name type sopt desc given value cli info)
+;;  opt?
+;;  (name    opt-name)                    ; Long option [string].
+;;  (type    opt-type)                    ; Type [symbol].
+;;  (sopt    opt-sopt-rec)                ; Short option [string or symbol].
+;;  (desc    opt-desc)                    ; Description.
+;;  (given   opt-given    set-opt-given!) ; Has option been given?
+;;  (value   opt-value    set-opt-value!) ; Option value(s) [list].
+;;  (cli     opt-cli)                     ; Cli formatter  [fn].
+;;  (info    opt-info)                    ; Info formatter [fn].
+;;  )
+
+;; rnrs-record.
 (define-record-type opt
-  (make-opt name type sopt desc given value cli info)
-  opt?
-  (name    opt-name)                    ; Long option [string].
-  (type    opt-type)                    ; Type [symbol].
-  (sopt    opt-sopt-rec)                ; Short option [string or symbol].
-  (desc    opt-desc)                    ; Description.
-  (given   opt-given    set-opt-given!) ; Has option been given?
-  (value   opt-value    set-opt-value!) ; Option value(s) [list].
-  (cli     opt-cli)                     ; Cli formatter  [fn].
-  (info    opt-info)                    ; Info formatter [fn].
-  )
+  (fields name
+          type
+          sopt-rec
+          desc
+          (mutable given)
+          (mutable value)
+          cli
+          info))
+
 
 (define (opt-sopt rec)
   (if (opt-sopt-rec rec)
@@ -133,8 +150,8 @@
 ;; Add to option's value list.
 (define (add-opt-value! opt val)
   (if (null? (opt-value opt))
-      (set-opt-value! opt (list val))
-      (set-opt-value! opt (append (opt-value opt) (list val)))))
+      (opt-value-set! opt (list val))
+      (opt-value-set! opt (append (opt-value opt) (list val)))))
 
 
 ;; Apply cli formatter.
@@ -206,13 +223,13 @@
   (cond
 
    ;; Match long opt "--".
-   ((string=? "--" (substring cli 0 2))
+   ((string=? "--" (comp-substring cli 0 2))
     (find-opt-with como
-                   (substring cli 2)
+                   (comp-substring cli 2)
                    opt-name))
 
    ;; Match short opt "-".
-   ((string=? "-" (substring cli 0 1))
+   ((string=? "-" (comp-substring cli 0 1))
     (find-opt-with como
                    cli
                    opt-sopt))
@@ -262,13 +279,13 @@
 
 ;; Parse switch.
 (define (parse-switch! opt cli)
-  (set-opt-given! opt #t)
+  (opt-given-set! opt #t)
   (cdr cli))
 
 
 ;; Parse single.
 (define (parse-single! opt cli)
-  (set-opt-given! opt #t)
+  (opt-given-set! opt #t)
   (let ((res (parse-values! opt (cdr cli) 1)))
     (if (= 1 (car res))
         (cdr res)
@@ -277,7 +294,7 @@
 
 ;; Parse multi.
 (define (parse-multi! opt cli)
-  (set-opt-given! opt #t)
+  (opt-given-set! opt #t)
   (let ((res (parse-values! opt (cdr cli) -1)))
     (if (> (car res) 0)
         (cdr res)
@@ -286,7 +303,7 @@
 
 ;; Parse any.
 (define (parse-any! opt cli)
-  (set-opt-given! opt #t)
+  (opt-given-set! opt #t)
   (let ((res (parse-values! opt (cdr cli) -1)))
     (cdr res)))
 
@@ -333,7 +350,7 @@
                (let ((default (find-opt-with como 'default opt-type)))
                  (if default
                      (begin
-                       (set-opt-given! default #t)
+                       (opt-given-set! default #t)
                        (parse-values! default rest -1))
                      (parse-error (ss "Unknown option: " (car rest)))))))))
      #f)))
@@ -343,6 +360,8 @@
 ;; ------------------------------------------------------------
 ;; Usage displays.
 
+;; Settable usage display procedure.
+(define como-usage-proc #f)
 
 ;; "cli" and "info" formatters for all option types.
 
@@ -494,6 +513,7 @@
 
 ;; Specify cli, parse cli, and check for required args.
 (define (como-command name author year opts-def)
+  (set! como-usage-proc usage)
   (set! como (create-como name author year opts-def))
   (when (parse-cli! como (cli-content))
     (usage como)
@@ -503,7 +523,7 @@
 
 ;; Display usage info.
 (define (como-usage)
-  (usage como))
+  (como-usage-proc como))
 
 
 ;; Get option by name (tag).
@@ -559,12 +579,12 @@
 ;; ------------------------------------------------------------
 ;; Como actions API:
 
-(define como-vars (make-hash-table))
+(define como-vars (comp-hash-make 'string))
 
 (define como-used-actions '())
 
 (define (como-var name)
-  (hash-ref como-vars name))
+  (comp-hash-ref como-vars name))
 
 
 ;;
@@ -591,7 +611,7 @@
 ;;                     [default   dir       "Directory."       "."]
 ;;                     ))
 ;;
-;; Options (as keyword arguments):
+;; Options (as optional association list):
 ;;
 ;;     revert      Action (as symbol) to revert to if none is defined
 ;;                 (default: #f).
@@ -599,9 +619,14 @@
 ;;     label-gap   Gap between action/option label and description in
 ;;                 help (default: 2).
 ;;
-(define* (como-actions program author year action-list #:key
-                       (revert #f)
-                       (label-gap 2))
+(define (como-actions program author year action-list . opts)
+
+  (define (option key . default)
+    (if (assoc key opts)
+        (assoc-ref opts key)
+        (and (pair? default) (car default))))
+  (define (opt-revert)     (option 'revert))
+  (define (opt-label-gap)  (option 'label-gap 2))
 
   ;; Convert object to string if it is not yet.
   (define (->string obj)
@@ -613,17 +638,17 @@
   ;; Initialize variables to specified value or #f.
   (define (como-vars-init defs)
     (for-each (lambda (def)
-                (hash-set! como-vars (->string (second def))
+                (comp-hash-set! como-vars (->string (second def))
                            (if (> (length def) 3)
                                (last def) ; Has default, use it.
                                #f)))
               defs)
     (when default
-      (hash-set! como-vars "default" '())))
+      (comp-hash-set! como-vars "default" '())))
 
   ;; Set como-var a value.
   (define (como-var-set! name val)
-    (hash-set! como-vars name val))
+    (comp-hash-set! como-vars name val))
 
   ;; Check if cli item is of queried type.
   (define (type-is? type entry)
@@ -647,15 +672,15 @@
                                 (append (list (list '*default*))
                                         actions
                                         options)))
-           (width (+ longest-label label-gap))
+           (width (+ longest-label (opt-label-gap)))
            (formatters (list (cons 'revert-action (lambda (f1 f2)       (ss "  * " (ljust width f1) f2)))
                              (cons 'normal-action (lambda (f1 f2)       (ss "    " (ljust width f1) f2)))
                              (cons 'option        (lambda (f1 f2 f3 f4) (ss "    " (ljust width f1) f2 "\n" f3 "= \"" f4 "\"")))
                              (cons 'default       (lambda (f1 f2)       (ss "    " (ljust width f1) f2)))))
            (action-lines (map (lambda (def)
-                                (let ((formatter (if (and revert
+                                (let ((formatter (if (and (opt-revert)
                                                           (equal? (second def)
-                                                                  revert))
+                                                                  (opt-revert)))
                                                      (assoc-ref formatters 'revert-action)
                                                      (assoc-ref formatters 'normal-action))))
                                   (formatter (->string (second def)) (third def))))
@@ -664,27 +689,27 @@
                                         ((assoc-ref formatters 'option)
                                          (->string (second def))
                                          (third def)
-                                         (make-string (+ 6 label-gap longest-label) #\ )
+                                         (make-string (+ 6 (opt-label-gap) longest-label) #\ )
                                          (->string (como-var (->string (second def))))))
                                       options)
                                  (if default
                                      (list ((assoc-ref formatters 'default) "*default*" (third default)))
                                      '()))))
       (display (ss "\n  " program " <actions-and-options>\n\n"
-                              (if (pair? action-lines)
-                                  (ss (string-join action-lines "\n") "\n\n")
-                                  "")
-                              (if (pair? option-lines)
-                                  (ss (string-join option-lines "\n") "\n\n")
-                                  "")
-                              (ss "\n  Copyright (c) "
-                                  year
-                                  " by "
-                                  author
-                                  "\n\n")))))
+                   (if (pair? action-lines)
+                       (ss (string-join action-lines "\n") "\n\n")
+                       "")
+                   (if (pair? option-lines)
+                       (ss (string-join option-lines "\n") "\n\n")
+                       "")
+                   (ss "\n  Copyright (c) "
+                       year
+                       " by "
+                       author
+                       "\n\n")))))
 
   ;; Set external "como-usage" since "parse-error" depends on it.
-  (set! como-usage usage)
+  (set! como-usage-proc usage)
 
   ;; Parse cli types.
   (for-each (lambda (i)
@@ -744,10 +769,10 @@
               (parse-error "No default argument defined"))))))
 
     (when (= (length used-actions) 0)
-      (if revert
-          (set! used-actions (list revert))
+      (if (opt-revert)
+          (set! used-actions (list (opt-revert)))
           (parse-error "No actions given")))
 
     (for-each (lambda (action)
-                (common-eval (list action)))
+                (comp-eval (list action)))
               used-actions)))

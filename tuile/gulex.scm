@@ -1,11 +1,13 @@
 (define-module (tuile gulex)
   #:use-module (tuile pr)
-  #:use-module ((tuile utils) #:select (datum->string find-first define-mu-record))
+  ;;  #:use-module ((tuile utils) #:select (datum->string find-first define-mu-record))
+;;  #:use-module ((tuile utils) #:select (datum->string find-first))
   #:use-module (srfi srfi-1)
-  #:use-module (srfi srfi-9)
+  ;;  #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-111)
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 pretty-print)
+  #:use-module (tuile compatible)
   #:export
   (
    char-stream
@@ -60,13 +62,21 @@
 ;; ------------------------------------------------------------
 ;; Char stream:
 
+;;(define-record-type char-stream
+;;  (make-char-stream name type port char)
+;;  char-stream?
+;;  (name  char-stream-name)      ; Name of stream (filename for files)
+;;  (type  char-stream-type)      ; Stream type (file, string)
+;;  (port  char-stream-port)      ; Port of stream
+;;  (char  char-stream-char set-char-stream-char!)) ; Current (prefetch) char
+
 (define-record-type char-stream
-  (make-char-stream name type port char)
-  char-stream?
-  (name  char-stream-name)      ; Name of stream (filename for files)
-  (type  char-stream-type)      ; Stream type (file, string)
-  (port  char-stream-port)      ; Port of stream
-  (char  char-stream-char set-char-stream-char!)) ; Current (prefetch) char
+  (fields name                   ; Name of stream (filename for files)
+          type                   ; Stream type (file, string)
+          port                   ; Port of stream
+          (mutable putback)      ; Putback buffer
+          (mutable char)))       ; Current (prefetch) char
+
 
 (define (char-stream-open name type)
   (let ((cs (make-char-stream name
@@ -76,6 +86,7 @@
                                 ((string) (open-input-string name))
                                 (else
                                  (error (ss "char-stream: Invalid stream type: " type))))
+                              (list)
                               #f)))
     ;; Prefetch first char.
     (char-stream-get cs)
@@ -85,28 +96,40 @@
   (close-input-port (char-stream-port cs)))
 
 (define (char-stream-get cs)
-  (let ((ret (get-char (char-stream-port cs))))
-    (set-char-stream-char! cs ret)
+;;  (let ((ret (get-char (char-stream-port cs))))
+;;    (char-stream-char-set! cs ret)
+;;    ret)
+  (let ((ret (if (pair? (char-stream-putback cs))
+                 (let ((ret (car (char-stream-putback cs))))
+                   (char-stream-putback-set! cs (cdr (char-stream-putback cs)))
+                   ret)
+                 (get-char (char-stream-port cs)))))
+    (char-stream-char-set! cs ret)
     ret))
 
 ;; Put back one or more chars. Note that chars must be in latest first
 ;; order.
 (define (char-stream-put cs char-or-chars)
+;;  ;; Put-back old (latest) cur-char, unless EOF.
+;;  (when (not (eof-object? (char-stream-char cs)))
+;;    (unget-char (char-stream-port cs)
+;;                (char-stream-char cs)))
+;;  (let ((cur-char (if (pair? char-or-chars)
+;;                      ;; Put-back all but last and return last as cur-char.
+;;                      (let loop ((chars char-or-chars))
+;;                        (if (pair? (cdr chars))
+;;                            (begin
+;;                              (unget-char (char-stream-port cs) (car chars))
+;;                              (loop (cdr chars)))
+;;                            (car chars)))
+;;                      ;; Put-back char becomes new cur-char.
+;;                      char-or-chars)))
+;;    (char-stream-char-set! cs cur-char))
   ;; Put-back old (latest) cur-char, unless EOF.
-  (when (not (eof-object? (char-stream-char cs)))
-    (unget-char (char-stream-port cs)
-                (char-stream-char cs)))
-  (let ((cur-char (if (pair? char-or-chars)
-                      ;; Put-back all but last and return last as cur-char.
-                      (let loop ((chars char-or-chars))
-                        (if (pair? (cdr chars))
-                            (begin
-                              (unget-char (char-stream-port cs) (car chars))
-                              (loop (cdr chars)))
-                            (car chars)))
-                      ;; Put-back char becomes new cur-char.
-                      char-or-chars)))
-    (set-char-stream-char! cs cur-char)))
+  (let* ((char-list (if (list? char-or-chars) char-or-chars (list char-or-chars)))
+         (putbacks (cons (char-stream-char cs) char-list)))
+    (char-stream-putback-set! cs (append (reverse putbacks) (char-stream-putback cs)))
+    (char-stream-get cs)))
 
 (define (char-stream-file cs)
   (if (eq? 'file (char-stream-type cs))
@@ -373,7 +396,7 @@
          ;;      ^
          ((cur-is? #\+)
           (dbug "OOM")
-          ;; (dbug (datum->string lexers))
+          ;; (dbug (comp-datum->string lexers))
           (get)
           (loop #f
                 (if lookahead
@@ -527,7 +550,7 @@
 
       (begin
 
-        (dbug (ss "Start: token: " token ", lexer: " (datum->string lexer) ", char: " (cur)))
+        (dbug (ss "Start: token: " token ", lexer: " (comp-datum->string lexer) ", char: " (cur)))
 
         (cond
 
@@ -667,55 +690,60 @@
           (let ((opt-return (lambda (opts)
                               (if (pair? opts)
                                   (begin
-                                    (dbug (ss "Option matches: " (datum->string opts)))
+                                    (dbug (ss "Option matches: " (comp-datum->string opts)))
                                     (let* ((best (apply max (map (lambda (ret)
                                                                    (length (second ret)))
                                                                  opts)))
-                                           (ret (find-first (lambda (i)
-                                                              (= (length (second i))
-                                                                 best))
-                                                            (reverse opts))))
+                                           ;;                                           (ret (find-first (lambda (i)
+                                           ;;                                                              (= (length (second i))
+                                           ;;                                                                 best))
+                                           ;;                                                            (reverse opts)))
+                                           (ret (find (lambda (i)
+                                                        (= (length (second i))
+                                                           best))
+                                                      (reverse opts)))
+                                           )
                                       ;; Take the matched token away from char stream.
                                       (get-n (length (second ret)))
                                       ret))
                                   (return #f '())))))
 
-              (let loop-opt ((lexer (cdr lexer))
-                             (opts '()))
+            (let loop-opt ((lexer (cdr lexer))
+                           (opts '()))
 
-                (if (pair? lexer)
+              (if (pair? lexer)
 
-                    ;; Continue.
-                    (let ((ret (lex-interp token
-                                           (car lexer)
-                                           char-stream)))
-                      (cond
+                  ;; Continue.
+                  (let ((ret (lex-interp token
+                                         (car lexer)
+                                         char-stream)))
+                    (cond
 
-                       ((first ret)
-                        (dbug (ss "Options match: " token))
-                        ;;                    (return (first ret) (second ret))
-                        ;; Put back the matched token and current (if not eof).
-                        (put-back (second ret))
-                        (loop-opt (cdr lexer)
-                                  (cons (return (first ret) (second ret))
-                                        opts)))
+                     ((first ret)
+                      (dbug (ss "Options match: " token))
+                      ;;                    (return (first ret) (second ret))
+                      ;; Put back the matched token and current (if not eof).
+                      (put-back (second ret))
+                      (loop-opt (cdr lexer)
+                                (cons (return (first ret) (second ret))
+                                      opts)))
 
-                       ((eof?)
-                        (dbug (ss "Options failure: no data"))
-                        (opt-return opts)
-                        )
+                     ((eof?)
+                      (dbug (ss "Options failure: no data"))
+                      (opt-return opts)
+                      )
 
-                       (else
-                        (dbug (ss "Options mismatch"))
-                        (loop-opt (cdr lexer)
-                                  opts))))
+                     (else
+                      (dbug (ss "Options mismatch"))
+                      (loop-opt (cdr lexer)
+                                opts))))
 
-                    ;; Matching done (failure).
-                    (begin
-                      (if (pair? opts)
-                          (dbug (ss "Options return: some matches"))
-                          (dbug (ss "Options return: no matches")))
-                      (opt-return opts))))))
+                  ;; Matching done (failure).
+                  (begin
+                    (if (pair? opts)
+                        (dbug (ss "Options return: some matches"))
+                        (dbug (ss "Options return: no matches")))
+                    (opt-return opts))))))
 
          ;; (tok ID (seq ...))
          ((eq? 'tok (car lexer))
@@ -741,11 +769,17 @@
 ;; Lexer fsm:
 
 ;; Lexer node for one char match step.
-(define-mu-record lnode
-  rule
-  label
-  term
-  next)
+;;(define-mu-record lnode
+;;  rule
+;;  label
+;;  term
+;;  next)
+
+(define-record-type lnode
+  (fields rule
+          label
+          term
+          (mutable next)))
 
 
 ;; Is "ch" accepted by lnode?
@@ -802,10 +836,10 @@
 
 (define (show-lnode lnode)
   (string-join (list (ss "label: " (lnode-label lnode))
-                     (ss "    rule: " (datum->string (lnode-rule lnode)))
+                     (ss "    rule: " (comp-datum->string (lnode-rule lnode)))
                      (if (lnode-term lnode)
                          (ss "    <term>")
-                         (ss "    next: " (datum->string (lnode-next lnode)))))
+                         (ss "    next: " (comp-datum->string (lnode-next lnode)))))
                "\n"))
 
 (define (show-lnode-list lnode-list)
@@ -899,7 +933,7 @@
     (let* ((out (lnode-create #f (list next)))
            (sub (lnode-create-sub (second ir) (get-label out)))
            (in (lnode-create #f (list (get-label out)))))
-      (set-lnode-next! out (cons (get-label sub)
+      (lnode-next-set! out (cons (get-label sub)
                                  (lnode-next out)))
       in))
 
@@ -910,7 +944,7 @@
     (let* ((out (lnode-create #f (list next)))
            (sub (lnode-create-sub (second ir) (get-label out)))
            (in (lnode-create #f (list (get-label sub)))))
-      (set-lnode-next! out (cons (get-label sub)
+      (lnode-next-set! out (cons (get-label sub)
                                  (lnode-next out)))
       in))
 
@@ -937,16 +971,16 @@
 
   (define (show-lnode lnode)
     (pr "label: " (lnode-label lnode))
-    (pr "    rule: " (datum->string (lnode-rule lnode)))
+    (pr "    rule: " (comp-datum->string (lnode-rule lnode)))
     (if (lnode-term lnode)
         (pr "    <term>")
-        (pr "    next: " (datum->string (lnode-next lnode)))))
+        (pr "    next: " (comp-datum->string (lnode-next lnode)))))
 
   (define (show-lnode-list)
     (for-each show-lnode lnode-list))
 
   (define (try ir)
-    (pr "IR: " (datum->string ir))
+    (pr "IR: " (comp-datum->string ir))
     (set! lnode-index 0)
     (set! lnode-list (list))
     (let ((res (let ((next (lnode-create-terminal)))
@@ -979,14 +1013,23 @@
 
 
 
-(define-mu-record fsm
-  token
-  nodes
-  start
-  state
-  match-count
-  valid-prev
-  valid-cur)
+;;(define-mu-record fsm
+;;  token
+;;  nodes
+;;  start
+;;  state
+;;  match-count
+;;  valid-prev
+;;  valid-cur)
+
+(define-record-type fsm
+  (fields token
+          nodes
+          start
+          (mutable state)
+          (mutable match-count)
+          (mutable valid-prev)
+          (mutable valid-cur)))
 
 
 ;; Return fsm.
@@ -1057,17 +1100,17 @@
   ;; Reset fsm before starting matching with "fsm-step".
   (define (fsm-reset-set fsm-set)
     (for-each (lambda (fsm)
-                (set-fsm-state! fsm (list (fsm-start fsm)))
-                (set-fsm-match-count! fsm 0)
-                (set-fsm-valid-prev! fsm #f)
-                (set-fsm-valid-cur! fsm #f))
+                (fsm-state-set! fsm (list (fsm-start fsm)))
+                (fsm-match-count-set! fsm 0)
+                (fsm-valid-prev-set! fsm #f)
+                (fsm-valid-cur-set! fsm #f))
               fsm-set))
 
   ;; Copy cur state to prev before continuing matching with "fsm-step".
   (define (fsm-store-valid-set fsm-set)
     (for-each (lambda (fsm)
-                (set-fsm-valid-prev! fsm (fsm-valid-cur fsm))
-                (set-fsm-valid-cur! fsm #f))
+                (fsm-valid-prev-set! fsm (fsm-valid-cur fsm))
+                (fsm-valid-cur-set! fsm #f))
               fsm-set))
 
   ;; Return lnode by index.
@@ -1122,7 +1165,7 @@
         (begin
           (dbug (ss "FSM EOF MISMATCH"))
           (dbug (ss "FSM ***** END"))
-          (set-fsm-valid-cur! fsm #f)
+          (fsm-valid-cur-set! fsm #f)
           #f)
 
         (let* (
@@ -1138,7 +1181,7 @@
                 (dbug (ss "FSM accepting: " (ds accepting)))
                 (dbug (ss "FSM MATCH"))
                 (dbug (ss "FSM ***** END"))
-                (set-fsm-state!
+                (fsm-state-set!
                  fsm
                  ;; Step each accepting state one forward to get new
                  ;; state.
@@ -1146,13 +1189,13 @@
                         (map (lambda (index)
                                (lnode-next (fsm-get-lnode fsm index)))
                              accepting)))
-                (set-fsm-match-count! fsm (1+ (fsm-match-count fsm)))
-                (set-fsm-valid-cur! fsm #t)
+                (fsm-match-count-set! fsm (1+ (fsm-match-count fsm)))
+                (fsm-valid-cur-set! fsm #t)
                 #t)
               (begin
                 (dbug (ss "FSM MISMATCH"))
                 (dbug (ss "FSM ***** END"))
-                (set-fsm-valid-cur! fsm #f)
+                (fsm-valid-cur-set! fsm #f)
                 #f)))))
 
 
@@ -1267,13 +1310,19 @@
 ;; ------------------------------------------------------------
 ;; Token stream:
 
+;;(define-record-type token-stream
+;;  (make-token-stream cs lexer token buf)
+;;  token-stream?
+;;  (cs    token-stream-cs)                            ; Char-stream.
+;;  (lexer token-stream-lexer)                         ; Lexer (interp, fsm, ...).
+;;  (token token-stream-token set-token-stream-token!) ; Current token.
+;;  (buf   token-stream-buf set-token-stream-buf!))        ; Buffer for put-back.
+
 (define-record-type token-stream
-  (make-token-stream cs lexer token buf)
-  token-stream?
-  (cs    token-stream-cs)                            ; Char-stream.
-  (lexer token-stream-lexer)                         ; Lexer (interp, fsm, ...).
-  (token token-stream-token set-token-stream-token!) ; Current token.
-  (buf   token-stream-buf set-token-stream-buf!))        ; Buffer for put-back.
+  (fields cs                            ; Char-stream.
+          lexer                         ; Lexer (interp, fsm, ...).
+          (mutable token)               ; Current token.
+          (mutable buf)))               ; Buffer for put-back.
 
 ;; Open token stream for name (file/string) and type
 ;; (file/string). Use lexer for token extraction rules.
@@ -1298,16 +1347,16 @@
 (define (token-stream-get ts)
   (let ((ret (if (pair? (token-stream-buf ts))
                  (let ((ret (car (token-stream-buf ts))))
-                   (set-token-stream-buf! ts (cdr (token-stream-buf ts)))
+                   (token-stream-buf-set! ts (cdr (token-stream-buf ts)))
                    ret)
                  (gulex-lexer-get-token (token-stream-lexer ts)
                                         (token-stream-cs ts)))))
-    (set-token-stream-token! ts ret)
+    (token-stream-token-set! ts ret)
     ret))
 
 ;; Put back token.
 (define (token-stream-put ts token)
-  (set-token-stream-buf! ts (append (token-stream-buf ts) (list token))))
+  (token-stream-buf-set! ts (append (token-stream-buf ts) (list token))))
 
 ;; Get current char-stream line.
 (define (token-stream-name ts)
@@ -1357,7 +1406,7 @@
                     file
                     line)))
     (when gulex-show-token-active
-      (pr "GULEX: Token: " (datum->string ret)))
+      (pr "GULEX: Token: " (comp-datum->string ret)))
     ret))
 
 
