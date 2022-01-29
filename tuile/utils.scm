@@ -6,7 +6,7 @@
   #:use-module (oop goops)
   #:use-module (ice-9 ftw)
   #:use-module (ice-9 rdelim)
-  #:use-module (ice-9 regex)
+;;  #:use-module (ice-9 regex)
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 popen)
   #:use-module ((ice-9 control) #:select (% abort))
@@ -14,6 +14,7 @@
   #:use-module ((srfi srfi-19) #:prefix srfi:)
   #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
+  #:use-module (tuile re)
   #:export
   (
    any?
@@ -808,29 +809,35 @@
 
 ;; Return true if regexp matches str.
 (define (re-match? re str)
-  (regexp-match? (regexp-exec (make-regexp re) str)))
+;;  (regexp-match? (regexp-exec (make-regexp re) str))
+  (error "TI: Use (tuile re)"))
 
 ;; Return regexp match str or false.
 (define (re-match re str)
-  (aif (string-match re str)
-       (match:substring it)
-       #f))
+;;  (aif (string-match re str)
+;;       (match:substring it)
+;;       #f)
+  (error "TI: Use (tuile re)")
+  )
 
 ;; Return regexp match string list or empty list.
 (define (re-matches re str)
-  (map match:substring (list-matches re str)))
+;;  (map match:substring (list-matches re str))
+  (error "TI: Use (tuile re)"))
 
 ;; Substitute regexp in string with replacement once.
 (define (re-sub re str rep)
-  (aif (string-match re str)
-       (regexp-substitute #f it 'pre rep 'post)
-       str))
+;;  (aif (string-match re str)
+;;       (regexp-substitute #f it 'pre rep 'post)
+;;       str)
+  (error "TI: Use (tuile re)"))
 
 ;; Substitute regexp in string with replacement globally.
 (define (re-gsub re str rep)
-  (aif (string-match re str)
-       (regexp-substitute/global #f re str 'pre rep 'post)
-       str))
+;;  (aif (string-match re str)
+;;       (regexp-substitute/global #f re str 'pre rep 'post)
+;;       str)
+  (error "TI: Use (tuile re)"))
 
 
 ;; Append item to list.

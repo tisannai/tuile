@@ -99,7 +99,7 @@
                  (get-char (char-stream-port cs)))))
     (when (and (not (eof-object? ret))
                (char=? ret #\newline))
-      (char-stream-lineno-update! cs 1+))
+      (char-stream-lineno-update! cs comp-1+))
     (char-stream-char-set! cs ret)
     ret))
 
@@ -125,7 +125,7 @@
   (if (and (char-stream-char cs)
            (char=? #\newline (char-stream-char cs)))
       (char-stream-lineno cs)
-      (1+ (char-stream-lineno cs))))
+      (comp-1+ (char-stream-lineno cs))))
 
 
 ;; ------------------------------------------------------------
@@ -187,7 +187,7 @@
       (is? ch (cur)))
 
     (define (peek)
-      (nth (1+ (car cs))))
+      (nth (comp-1+ (car cs))))
 
     (define (step)
       (set-car! cs (+ (car cs) 1)))
@@ -466,7 +466,7 @@
           (if (> i 1)
               (begin
                 (get)
-                (loop (1- i)))
+                (loop (- i 1)))
               (get)))))
 
   ;; Return current char.
@@ -840,7 +840,7 @@
 
   (define (lnode-get-label)
     (let ((label lnode-index))
-      (set! lnode-index (1+ lnode-index))
+      (set! lnode-index (comp-1+ lnode-index))
       label))
 
   (define (lnode-add rule term next)
@@ -1164,7 +1164,7 @@
                         (map (lambda (index)
                                (lnode-next (fsm-get-lnode fsm index)))
                              accepting)))
-                (fsm-match-count-set! fsm (1+ (fsm-match-count fsm)))
+                (fsm-match-count-set! fsm (comp-1+ (fsm-match-count fsm)))
                 (fsm-valid-cur-set! fsm #t)
                 #t)
               (begin
@@ -1374,7 +1374,7 @@
 ;; Return: (<token> <lexeme> <file> <line>)
 (define (gulex-lexer-get-token lexer char-stream)
   (let* ((file (char-stream-file char-stream))
-         (line (1+ (char-stream-line char-stream)))
+         (line (comp-1+ (char-stream-line char-stream)))
          (lex-ret (lexer char-stream))
          (ret (list (first lex-ret)
                     (list->string (second lex-ret))

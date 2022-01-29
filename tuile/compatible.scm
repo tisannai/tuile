@@ -1,6 +1,7 @@
 (define-module (tuile compatible)
   #:use-module ((rnrs records syntactic) #:select (define-record-type))
   #:export (
+            comp-1+
             comp-eval
             comp-hash-make
             comp-hash-ref
@@ -12,10 +13,14 @@
             comp-substring
             comp-datum->string
             comp-error
+            comp-dir-list
+            comp-command-line
             )
   ;; Export rnrs style define-record-type.
   #:re-export (define-record-type)
   )
+
+(define comp-1+ 1+)
 
 (define (comp-eval datum)
   (eval datum (interaction-environment)))
@@ -46,3 +51,9 @@
                            (write datum))))
 
 (define comp-error error)
+
+(define (comp-dir-list dir)
+  (list-tail (scandir dir) 2))
+
+(define (comp-command-line)
+  (cdr (command-line)))
