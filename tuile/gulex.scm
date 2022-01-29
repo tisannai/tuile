@@ -1,12 +1,11 @@
 (define-module (tuile gulex)
   #:use-module (tuile pr)
   ;;  #:use-module ((tuile utils) #:select (datum->string find-first define-mu-record))
-;;  #:use-module ((tuile utils) #:select (datum->string find-first))
+  ;;  #:use-module ((tuile utils) #:select (datum->string find-first))
   #:use-module (srfi srfi-1)
   ;;  #:use-module (srfi srfi-9)
-  #:use-module (srfi srfi-111)
-  #:use-module (ice-9 textual-ports)
-  #:use-module (ice-9 pretty-print)
+  ;;  #:use-module (srfi srfi-111)
+  #:use-module ((ice-9 textual-ports) #:select (get-char))
   #:use-module (tuile compatible)
   #:export
   (
@@ -66,6 +65,7 @@
   (fields name                   ; Name of stream (filename for files)
           type                   ; Stream type (file, string)
           port                   ; Port of stream
+          (mutable lineno)       ; Line number
           (mutable putback)      ; Putback buffer
           (mutable char)))       ; Current (prefetch) char
 
@@ -78,11 +78,15 @@
                                 ((string) (open-input-string name))
                                 (else
                                  (error (ss "char-stream: Invalid stream type: " type))))
+                              1
                               (list)
                               #f)))
     ;; Prefetch first char.
     (char-stream-get cs)
     cs))
+
+(define (char-stream-lineno-update! cs proc)
+  (char-stream-lineno-set! cs (proc (char-stream-lineno cs))))
 
 (define (char-stream-close cs)
   (close-input-port (char-stream-port cs)))
@@ -93,6 +97,9 @@
                    (char-stream-putback-set! cs (cdr (char-stream-putback cs)))
                    ret)
                  (get-char (char-stream-port cs)))))
+    (when (and (not (eof-object? ret))
+               (char=? ret #\newline))
+      (char-stream-lineno-update! cs 1+))
     (char-stream-char-set! cs ret)
     ret))
 
@@ -100,7 +107,9 @@
 ;; order.
 (define (char-stream-put cs char-or-chars)
   (let* ((char-list (if (list? char-or-chars) char-or-chars (list char-or-chars)))
-         (putbacks (cons (char-stream-char cs) char-list)))
+         (putbacks (cons (char-stream-char cs) char-list))
+         (nl-count (fold + 0 (map (lambda (i) (if (char=? i #\newline) 1 0)) putbacks))))
+    (char-stream-lineno-update! cs (lambda (v) (- v nl-count)))
     (char-stream-putback-set! cs (append (reverse putbacks) (char-stream-putback cs)))
     (char-stream-get cs)))
 
@@ -110,13 +119,20 @@
       #f))
 
 (define (char-stream-line cs)
-  (port-line (char-stream-port cs)))
+;;  (port-line (char-stream-port cs))
+  (char-stream-lineno cs)
+  )
 
 (define (char-stream-line-prev cs)
+;;  (if (and (char-stream-char cs)
+;;           (char=? #\newline (char-stream-char cs)))
+;;      (port-line (char-stream-port cs))
+;;      (1+ (port-line (char-stream-port cs))))
   (if (and (char-stream-char cs)
            (char=? #\newline (char-stream-char cs)))
-      (port-line (char-stream-port cs))
-      (1+ (port-line (char-stream-port cs)))))
+      (char-stream-lineno cs)
+      (1+ (char-stream-lineno cs)))
+  )
 
 
 ;; ------------------------------------------------------------
@@ -131,10 +147,13 @@
   (define (parse-regexp group? opt?)
 
     ;; Debug is expensive, hence do dbug with macro.
-    (define-syntax-rule (dbug msg)
-      #t
-      ;; (pr "PARSE: " msg)
-      )
+    (define-syntax dbug
+      (lambda (x)
+        #'#t
+;;          (syntax-case x ()
+;;            ((_ msg)
+;;             #'(pr "PARSE: " msg)))
+          ))
 
     (define special (string->list "*+.[]"))
     (define setchar (string->list "-^"))
@@ -430,10 +449,13 @@
 (define (lex-interp token lexer char-stream)
 
   ;; Debug is expensive, hence do dbug with macro.
-  (define-syntax-rule (dbug msg)
-    #t
-    ;; (pr "LEX: " msg)
-    )
+      (define-syntax dbug
+        (lambda (x)
+          #'#t
+;;          (syntax-case x ()
+;;            ((_ msg)
+;;             #'(pr "PARSE: " msg)))
+          ))
 
   ;; Return value formatter.
   (define (return success? matched)
@@ -743,10 +765,10 @@
 
 ;; Lexer node for one char match step.
 (define-record-type lnode
-  (fields rule
-          label
-          term
-          (mutable next)))
+  (fields rule                          ; Match rule.
+          label                         ; Node label.
+          term                          ; Is term?
+          (mutable next)))              ; Next node.
 
 
 ;; Is "ch" accepted by lnode?
@@ -980,13 +1002,13 @@
 
 
 (define-record-type fsm
-  (fields token
-          nodes
-          start
-          (mutable state)
-          (mutable match-count)
-          (mutable valid-prev)
-          (mutable valid-cur)))
+  (fields token                         ; Token
+          nodes                         ; Node list
+          start                         ; Start node.
+          (mutable state)               ; FSM state.
+          (mutable match-count)         ; Count of matches in set.
+          (mutable valid-prev)          ; Previous valid match set.
+          (mutable valid-cur)))         ; Current match set.
 
 
 ;; Return fsm.
@@ -1033,10 +1055,13 @@
 (define (lexer-fsm fsm-set char-stream)
 
   ;; Debug is expensive, hence do dbug with macro.
-  (define-syntax-rule (dbug msg)
-    #t
-    ;; (pr "LEX: " msg)
-    )
+      (define-syntax dbug
+        (lambda (x)
+          #'#t
+;;          (syntax-case x ()
+;;            ((_ msg)
+;;             #'(pr "PARSE: " msg)))
+          ))
 
   ;; Return value formatter.
   (define (return success? matched)
@@ -1283,7 +1308,7 @@
 
 ;; Open token stream for name (file/string) and type
 ;; (file/string). Use lexer for token extraction rules.
-(define* (token-stream-open name type lexer #:key (skip-token-prefetch #f))
+(define (token-stream-open name type lexer skip-token-prefetch)
   (let* ((cs (char-stream-open name type))
          (ts (make-token-stream cs lexer #f '())))
     ;; Prefetch first token.
@@ -1293,8 +1318,8 @@
 
 ;; Open token stream for name (file/string) and type
 ;; (file/string). Use token-table for token extraction rules.
-(define* (token-stream-open-with-lexer name type lexer #:key (skip-token-prefetch #f))
-  (token-stream-open name type lexer #:skip-token-prefetch skip-token-prefetch))
+(define (token-stream-open-with-lexer name type lexer skip-token-prefetch)
+  (token-stream-open name type lexer skip-token-prefetch))
 
 ;; Close token stream.
 (define (token-stream-close ts)

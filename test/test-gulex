@@ -110,7 +110,7 @@
       (ts (token-stream-open-with-lexer "  guilebron  guile guilo 32123 foo_bar diiduu abcdabcd aa !!!"
                                         'string
                                         (test-lexer gulex-token-table)
-                                        #:skip-token-prefetch #t)))
+                                        #t)))
   (let loop ((ref '(
                     (SPACE   . "  ")
                     (ID      . "guilebron")
