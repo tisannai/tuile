@@ -77,7 +77,7 @@
                                 ((file)   (open-input-file   name))
                                 ((string) (open-input-string name))
                                 (else
-                                 (error (ss "char-stream: Invalid stream type: " type))))
+                                 (comp-error (ss "char-stream: Invalid stream type: " type))))
                               1
                               (list)
                               #f)))
@@ -119,20 +119,13 @@
       #f))
 
 (define (char-stream-line cs)
-;;  (port-line (char-stream-port cs))
-  (char-stream-lineno cs)
-  )
+  (char-stream-lineno cs))
 
 (define (char-stream-line-prev cs)
-;;  (if (and (char-stream-char cs)
-;;           (char=? #\newline (char-stream-char cs)))
-;;      (port-line (char-stream-port cs))
-;;      (1+ (port-line (char-stream-port cs))))
   (if (and (char-stream-char cs)
            (char=? #\newline (char-stream-char cs)))
       (char-stream-lineno cs)
-      (1+ (char-stream-lineno cs)))
-  )
+      (1+ (char-stream-lineno cs))))
 
 
 ;; ------------------------------------------------------------
@@ -149,11 +142,11 @@
     ;; Debug is expensive, hence do dbug with macro.
     (define-syntax dbug
       (lambda (x)
-        #'#t
-;;          (syntax-case x ()
-;;            ((_ msg)
-;;             #'(pr "PARSE: " msg)))
-          ))
+        (syntax-case x ()
+          ((_ msg)
+           #'#t
+           ;; #'(pr "PARSE: " msg)
+           ))))
 
     (define special (string->list "*+.[]"))
     (define setchar (string->list "-^"))
@@ -449,13 +442,13 @@
 (define (lex-interp token lexer char-stream)
 
   ;; Debug is expensive, hence do dbug with macro.
-      (define-syntax dbug
-        (lambda (x)
-          #'#t
-;;          (syntax-case x ()
-;;            ((_ msg)
-;;             #'(pr "PARSE: " msg)))
-          ))
+  (define-syntax dbug
+    (lambda (x)
+      (syntax-case x ()
+        ((_ msg)
+         #'#t
+         ;; #'(pr "PARSE: " msg)
+         ))))
 
   ;; Return value formatter.
   (define (return success? matched)
@@ -1055,13 +1048,13 @@
 (define (lexer-fsm fsm-set char-stream)
 
   ;; Debug is expensive, hence do dbug with macro.
-      (define-syntax dbug
-        (lambda (x)
-          #'#t
-;;          (syntax-case x ()
-;;            ((_ msg)
-;;             #'(pr "PARSE: " msg)))
-          ))
+  (define-syntax dbug
+    (lambda (x)
+      (syntax-case x ()
+        ((_ msg)
+         #'#t
+         ;; #'(pr "PARSE: " msg)
+         ))))
 
   ;; Return value formatter.
   (define (return success? matched)

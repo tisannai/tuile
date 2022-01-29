@@ -11,6 +11,7 @@
             comp-hash-values
             comp-substring
             comp-datum->string
+            comp-error
             )
   ;; Export rnrs style define-record-type.
   #:re-export (define-record-type)
@@ -43,3 +44,5 @@
 (define (comp-datum->string datum)
   (with-output-to-string (lambda ()
                            (write datum))))
+
+(define comp-error error)
