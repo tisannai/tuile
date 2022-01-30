@@ -15,6 +15,7 @@
   #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
   #:use-module (tuile re)
+  #:use-module (tuile compatible)
   #:export
   (
    any?
@@ -48,7 +49,6 @@
    datum->string
    string->procedure
    common-eval
-   assert
    funcall
 
    aif
@@ -64,16 +64,11 @@
    nop
 
    record-type
-   define-im-record
-   define-fp-record
-   define-mu-record
+;;   define-im-record
+;;   define-fp-record
+;;   define-mu-record
 
-   define-this-class
-   define-this-method
-   this-ref
-   this-set!
-
-   re-split
+   re-split-old
    re-match?
    re-match
    re-matches
@@ -312,7 +307,7 @@
                    (cons (list->string (list char (string-ref pat (1+ i))))
                          (loop (+ i 2))))
                   (else
-                   (cons (regexp-quote (make-string 1 char))
+                   (cons (re-quote (make-string 1 char))
                          (loop (1+ i))))))
               '()))
         (list "$")))))
@@ -325,8 +320,10 @@
 ;;     (dir-glob-re "../foo" ".*[.](c|cc)")
 ;;
 (define (dir-glob-re dir pat)
-  (let ((rx (make-regexp pat)))
-    (filter (lambda (x) (regexp-exec rx x)) (dir-list dir))))
+;;  (let ((rx (make-regexp pat)))
+;;    (filter (lambda (x) (regexp-exec rx x)) (dir-list dir)))
+  (let ((rx (re-comp pat)))
+    (filter (lambda (x) (re-match rx x)) (dir-list dir))))
 
 
 ;; Return filename suffix (without the dot).
@@ -336,40 +333,18 @@
 ;; Convert filename to absolute, and canonicalize it (as in Emacs).
 (define (expand-file-name filename)
   (if (eq? (string-ref filename 0) #\~)
-      (string-append (getenv "HOME") (substring filename 1))
+      (string-append (getenv "HOME") (comp-substring filename 1))
       (canonicalize-path filename)))
 
 
-(define (datum->string datum)
-  (with-output-to-string (lambda ()
-                           (write datum))))
+(define datum->string comp-datum->string)
 
 ;; Convert string to procedure.
 (define (string->procedure str)
   (eval (read (open-input-string str)) (interaction-environment)))
 
 ;; Eval datum.
-(define (common-eval datum)
-  (eval datum (interaction-environment)))
-
-;; Assert truthness of expr.
-(define (assert expr)
-  (if expr
-      expr
-      (raise-exception (make-non-continuable-error))))
-
-;; Funcall macro (to complement apply).
-;;
-;; NOTE: One does not have to use this macro in Scheme, since Scheme
-;; is a Lisp-1 language, but it can be used for highlighting a special
-;; function application case.
-;;
-;; Write as a function:
-;;     (define (funcall fn . rest)
-;;       (apply fn rest))
-(define-syntax-rule (funcall fn arg1 ...)
-  (apply fn (list arg1 ...)))
-
+(define common-eval comp-eval)
 
 ;; Anaphoric if macro.
 ;;
@@ -548,7 +523,7 @@
 
 (define (record-type r)
   (if (record? r)
-      (record-type-name (record-type-descriptor r))
+      (record-type-name (record-rtd r))
       #f))
 
 
@@ -565,6 +540,7 @@
 ;;     (hii   foo-hii)
 ;;     )
 ;;
+#;
 (define-syntax define-im-record
   (lambda (x)
     (let ((stx (syntax->datum x)))
@@ -596,6 +572,7 @@
 ;;     (hii   foo-hii set-foo-hii)
 ;;     )
 ;;
+#;
 (define-syntax define-fp-record
   (lambda (x)
     (let ((stx (syntax->datum x)))
@@ -630,6 +607,7 @@
 ;;     (hii   foo-hii set-foo-hii!)
 ;;     )
 ;;
+#;
 (define-syntax define-mu-record
   (lambda (x)
     (let ((stx (syntax->datum x)))
@@ -774,7 +752,8 @@
 ;;     guile> (re-split "[-x]+" "foo--x--bar---what"  'keep)
 ;;     ("foo" "--x--" "bar" "---" "what")
 ;;
-(define (re-split re str . options)
+(define (re-split-old re str . options)
+  #;
   (let ((keep #f) (trim #f))
     (when (member 'keep options)
       (set! options (delete 'keep options))
@@ -804,7 +783,9 @@
           (reverse! (drop-while
                      string-null?
                      (reverse! (drop-while string-null? substrings))))
-          substrings))))
+          substrings)))
+  (error "TI: Use (tuile re)")
+  )
 
 
 ;; Return true if regexp matches str.
