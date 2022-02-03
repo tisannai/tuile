@@ -6,7 +6,7 @@
   #:use-module (oop goops)
   #:use-module (ice-9 ftw)
   #:use-module (ice-9 rdelim)
-;;  #:use-module (ice-9 regex)
+  ;;  #:use-module (ice-9 regex)
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 popen)
   #:use-module ((ice-9 control) #:select (% abort))
@@ -68,12 +68,12 @@
 ;;   define-fp-record
 ;;   define-mu-record
 
-   re-split-old
-   re-match?
-   re-match
-   re-matches
-   re-sub
-   re-gsub
+;;   re-split-old
+;;   re-match?
+;;   re-match
+;;   re-matches
+;;   re-sub
+;;   re-gsub
 
    vector-range
    vector-reverse

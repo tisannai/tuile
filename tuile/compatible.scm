@@ -15,6 +15,7 @@
             comp-error
             comp-dir-list
             comp-command-line
+            comp-sort
             )
   ;; Export rnrs style define-record-type.
   #:re-export (define-record-type)
@@ -57,3 +58,5 @@
 
 (define (comp-command-line)
   (cdr (command-line)))
+
+(define comp-sort stable-sort)

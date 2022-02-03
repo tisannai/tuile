@@ -2,6 +2,7 @@
   #:export (
             re-comp
             re-matchpos
+            re-match?
             re-match
             re-matches
             re-split
@@ -771,6 +772,7 @@
 
 (define re-comp pregexp)
 (define re-matchpos pregexp-match-positions)
+(define re-match? pregexp-match-positions)
 (define re-match (lambda (re str) (let ((m (pregexp-match re str))) (if m (car m) #f))))
 (define re-matches pregexp-match)
 (define re-split pregexp-split)

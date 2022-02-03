@@ -274,7 +274,7 @@
         (cons cnt rest)
         (begin
           (add-opt-value! opt (car rest))
-          (loop (cdr rest) (1+ cnt))))))
+          (loop (cdr rest) (comp-1+ cnt))))))
 
 
 ;; Parse switch.

@@ -2,6 +2,7 @@
 
 (define-module (tuile log)
   #:use-module (tuile pr)
+  #:use-module (tuile compatible)
   #:export
   (
    prl
