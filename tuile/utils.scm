@@ -333,18 +333,18 @@
 ;; Convert filename to absolute, and canonicalize it (as in Emacs).
 (define (expand-file-name filename)
   (if (eq? (string-ref filename 0) #\~)
-      (string-append (getenv "HOME") (comp-substring filename 1))
+      (string-append (getenv "HOME") (comp:substring filename 1))
       (canonicalize-path filename)))
 
 
-(define datum->string comp-datum->string)
+(define datum->string comp:datum->string)
 
 ;; Convert string to procedure.
 (define (string->procedure str)
   (eval (read (open-input-string str)) (interaction-environment)))
 
 ;; Eval datum.
-(define common-eval comp-eval)
+(define common-eval comp:eval)
 
 ;; Anaphoric if macro.
 ;;
