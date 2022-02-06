@@ -1022,10 +1022,10 @@
     (let ((start (lnode-label (car lnode-list))))
       (make-fsm token
                 (list->vector
-                 (sort lnode-list
-                       (lambda (a b)
-                         (< (lnode-label a)
-                            (lnode-label b)))))
+                 (comp-sort lnode-list
+                            (lambda (a b)
+                              (< (lnode-label a)
+                                 (lnode-label b)))))
                 start
                 (list)
                 0

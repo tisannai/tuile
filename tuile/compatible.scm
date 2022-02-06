@@ -16,6 +16,7 @@
             comp-dir-list
             comp-command-line
             comp-sort
+            comp-with-output-to-file
             )
   ;; Export rnrs style define-record-type.
   #:re-export (define-record-type)
@@ -60,3 +61,5 @@
   (cdr (command-line)))
 
 (define comp-sort stable-sort)
+
+(define comp-with-output-to-file with-output-to-file)
