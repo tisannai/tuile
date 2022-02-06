@@ -7,6 +7,8 @@
   #:use-module (srfi srfi-111)
   #:use-module (tuile pr)
   #:use-module (tuile utils)
+  #:use-module (tuile oop)
+  #:use-module (tuile record)
 
   #:export
   (

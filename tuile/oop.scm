@@ -1,15 +1,14 @@
-(define-module (tuile utils)
+(define-module (tuile oop)
+  #:use-module (srfi srfi-88)
+  #:use-module ((srfi srfi-1) #:select (drop-right))
   #:use-module (oop goops)
   #:use-module (tuile re)
-  #:use-module (tuile compatible)
   #:export
   (
-
    define-this-class
    define-this-method
    this-ref
    this-set!
-
    ))
 
 
@@ -118,8 +117,8 @@
 (define-syntax this-set!
   (lambda (x)
     (let* ((stx (syntax->datum x))
-;;           (->str symbol->string)
-;;           (->sym string->symbol)
+           ;; (->str symbol->string)
+           ;; (->sym string->symbol)
            (->syn datum->syntax))
       (with-syntax ((this (->syn x 'this)))
         #`(slot-set! this (quote #,(->syn x (cadr stx))) #,@(->syn x (cddr stx)))))))
