@@ -1,6 +1,7 @@
 (define-module (tuile codeprint)
   #:use-module (tuile utils)
   #:use-module (tuile pr)
+  #:use-module (tuile record)
   #:export
   (
    codeprint-open

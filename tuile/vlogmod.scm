@@ -3,6 +3,7 @@
   #:use-module (tuile utils)
   #:use-module (tuile pr)
   #:use-module (tuile codeprint)
+  #:use-module (tuile record)
   #:use-module (ice-9 optargs)
   #:use-module (oop goops)
   #:use-module (oop goops describe)
