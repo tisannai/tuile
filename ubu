@@ -51,6 +51,17 @@
         (test-gulex)
         (test-vlogmod))
 
+(action chez
+        (for-each (lambda (file-symbol)
+                    (let ((filename (cat (symbol->string file-symbol) ".scm")))
+                      (sh (cat "ti-guile-to-chez -i tuile/" filename " -o ../thez/tuile/" filename))))
+                  '(como
+                    gulex
+                    lookup
+                    pr
+                    re
+                    )))
+
 (action clean
         (sh "rm -f test/*.log"))
 

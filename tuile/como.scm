@@ -92,21 +92,12 @@
 ;;
 ;; Program data.
 ;;
-;;(define-record-type spec
-;;  (make-spec name author year opts)
-;;  spec?
-;;  (name    spec-name)                   ; Program name.
-;;  (author  spec-author)                 ; Program author.
-;;  (year    spec-year)                   ; Program year.
-;;  (opts    spec-opts)                   ; Program options data [list <opt>].
-;;  )
-
-;; rnrs-record.
 (define-record-type spec
-  (fields name
-          author
-          year
-          opts))
+  (fields name                    ; Program name.
+          author                  ; Program author.
+          year                    ; Program year.
+          opts                    ; Program options data [list <opt>].
+          ))
 
 
 ;;
@@ -114,29 +105,16 @@
 ;;
 ;; Collection of all static and dynamic option data.
 ;;
-;;(define-record-type opt
-;;  (make-opt name type sopt desc given value cli info)
-;;  opt?
-;;  (name    opt-name)                    ; Long option [string].
-;;  (type    opt-type)                    ; Type [symbol].
-;;  (sopt    opt-sopt-rec)                ; Short option [string or symbol].
-;;  (desc    opt-desc)                    ; Description.
-;;  (given   opt-given    set-opt-given!) ; Has option been given?
-;;  (value   opt-value    set-opt-value!) ; Option value(s) [list].
-;;  (cli     opt-cli)                     ; Cli formatter  [fn].
-;;  (info    opt-info)                    ; Info formatter [fn].
-;;  )
-
-;; rnrs-record.
 (define-record-type opt
-  (fields name
-          type
-          sopt-rec
-          desc
-          (mutable given)
-          (mutable value)
-          cli
-          info))
+  (fields name                      ; Long option [string].
+          type                      ; Type [symbol].
+          sopt-rec                  ; Short option [string or symbol].
+          desc                      ; Description.
+          (mutable given)           ; Has option been given?
+          (mutable value)           ; Option value(s) [list].
+          cli                       ; Cli formatter  [fn].
+          info                      ; Info formatter [fn].
+          ))
 
 
 (define (opt-sopt rec)
