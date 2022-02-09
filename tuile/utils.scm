@@ -30,6 +30,7 @@
    flatten-0
    flatten-1
    delete-ref
+   list-pick
    list-compact
    clean-list
 
@@ -217,6 +218,7 @@
                 (append res (list (car lst))))))
         res)))
 
+
 ;; Delete nth element from list.
 (define (delete-ref lst nth)
   (let loop ((head '())
@@ -231,10 +233,25 @@
                 (if (pair? tail) (cdr tail) '())))))
 
 
+;; Pick item from lst by providing list of indeces in spec. The
+;; indeces are used to travel through the lst hierarchy.
+;;
+;; Return target (of spec) or unspecified if nothing is found.
+(define (list-pick lst spec)
+  (if (pair? spec)
+      (if (and (pair? lst)
+               (< (car spec) (length lst)))
+          (list-pick (list-ref lst (car spec)) (cdr spec))
+          unspecified)
+      lst))
+
+
 ;; Compact list by removing (by default) unspecified and false values.
 (define (list-compact lst . opt-pred)
-  (let ((pred (if (pair? opt-pred) (car opt-pred) (lambda (item) (not (or (unspecified? item)
-                                                                          (not item)))))))
+  (let ((pred (if (pair? opt-pred)
+                  (car opt-pred)
+                  (lambda (item) (not (or (unspecified? item)
+                                          (not item)))))))
     (filter pred lst)))
 
 
