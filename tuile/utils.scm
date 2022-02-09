@@ -235,14 +235,9 @@
 
 ;; Pick item from lst by providing list of indeces in spec. The
 ;; indeces are used to travel through the lst hierarchy.
-;;
-;; Return target (of spec) or unspecified if nothing is found.
 (define (list-pick lst spec)
   (if (pair? spec)
-      (if (and (pair? lst)
-               (< (car spec) (length lst)))
-          (list-pick (list-ref lst (car spec)) (cdr spec))
-          unspecified)
+      (list-pick (list-ref lst (car spec)) (cdr spec))
       lst))
 
 
