@@ -237,7 +237,8 @@
 ;; indeces are used to travel through the lst hierarchy.
 (define (list-pick lst spec)
   (if (pair? spec)
-      (list-pick (list-ref lst (car spec)) (cdr spec))
+      (list-pick (list-ref lst (car spec))
+                 (cdr spec))
       lst))
 
 

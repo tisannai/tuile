@@ -15,6 +15,7 @@
    +body
    +var
    /output
+   /build
    <input-port>                         ; This is needed for some reason?
    ))
 
@@ -27,17 +28,20 @@
 
 ;; vlogmod - Verilog module creator
 ;;
-;; Create module, add variables (ports, regs, etc.) and body to the
-;; module, and finally display it with "codeprint".
+;; Procedural: Create module, add variables (ports, regs, etc.) and
+;; body to the module, and finally display it with "codeprint".
+;;
+;; Declarational: Describe all module elements and perform module
+;; build.
 ;;
 ;;
-;; Example:
+;; Procedural example:
 ;;
 ;;     (define v (/create "my_mod"))
 ;;     (=header v (list "// This is my module."
 ;;                      "`include \"my_inc.v\""
 ;;                      ""))
-;;     
+;;
 ;;     (+var v 'clock "clk")
 ;;     (+var v 'reset "rstn")
 ;;     (+var v 'input "init")
@@ -47,7 +51,7 @@
 ;;     (+var v 'comb "combi" 10)
 ;;     (+var v 'wire "wirei")
 ;;     (+var v 'tie "tiei" 10 12)
-;;     
+;;
 ;;     (+body v "always @( posedge clk or negedge rstn ) begin" )
 ;;     (+body v "   if ( !rstn) begin")
 ;;     (+body v "      count <= 16'b0;")
@@ -59,9 +63,43 @@
 ;;     (+body v "      end")
 ;;     (+body v "   end")
 ;;     (+body v "end" )
-;;     
+;;
 ;;     (define pp (codeprint-open "<stdout>"))
 ;;     (/output v pp)
+;;
+;;
+;; Declarational example:
+;;
+;;     (/build
+;;      '((file   . "<stdout>")
+;;        (module . "my_mod")
+;;        (header . ("// This is my module."
+;;                   "`include \"my_inc.v\""
+;;                   ""))
+;;        (vars . ((clock "clk")
+;;                 (reset "rstn")
+;;                 (input ("init" "en"))
+;;                 ((output reg) (("count" 3)
+;;                                ("foobar" 2)))
+;;                 (param "my_par" 13)
+;;                 (comb  "combi" 10)
+;;                 (wire  "wirei")
+;;                 (tie   "tiei" 10 12)
+;;                 ))
+;;        (body . ("always @( posedge clk or negedge rstn ) begin"
+;;                 "   if ( !rstn) begin"
+;;                 "      count <= 16'b0;"
+;;                 "   end else begin"
+;;                 "      if ( init ) begin"
+;;                 "         count <= 0;"
+;;                 "      end else if ( en ) begin"
+;;                 "         count <= count + 1;"
+;;                 "      end"
+;;                 "   end"
+;;                 "end"
+;;            ))))
+
+
 
 
 (define-mu-record vlogmod
@@ -277,3 +315,36 @@
 
   (pp 'd 'p)
   (pp 'p "endmodule"))
+
+
+(define (/build spec)
+  (let ((v (aif (assoc-ref spec 'module)
+                (/create it)
+                #f))
+        (pp (aif (assoc-ref spec 'file)
+                 (codeprint-open it)
+                 #f)))
+    (if (and v pp)
+        (begin
+          (for-each
+           (lambda (entry)
+             (case (car entry)
+               ((file) #f)
+               ((module) #f)
+               ((header) (=header v (cdr entry)))
+               ((vars) (for-each (lambda (vardef)
+                                   (let ((tag (car vardef))
+                                         (data (cdr vardef)))
+                                     (for-each (lambda (data)
+                                                 (if (list? data)
+                                                     (apply +var (append (list v tag) data))
+                                                     (apply +var (list v tag data))))
+                                               (if (list? (car data))
+                                                   (car data)
+                                                   (list data)))))
+                                 (cdr entry)))
+               ((body) (+body v (cdr entry)))))
+           spec)
+          (/output v pp)
+          (codeprint-close pp))
+        (error "vlogmod: Specification is missing file or module" spec))))
