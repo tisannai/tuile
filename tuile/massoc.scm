@@ -15,6 +15,7 @@
    massoc-update!
    massoc-repeat!
    massoc-copy
+   massoc-merge!
    ))
 
 
@@ -128,3 +129,11 @@
   (if (massoc-empty? ma)
       (make-massoc)
       (alist-copy ma)))
+
+
+;; Return copy of massoc.
+(define (massoc-merge! ma overlay)
+  (for-each (lambda (pair)
+              (massoc-set! ma (car pair) (cdr pair)))
+            overlay)
+  ma)

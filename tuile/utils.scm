@@ -1270,6 +1270,7 @@
       #`(map symbol->string (quote #,(-> x (cdr stx)))))))
 
 
+;; Create sequence of numbers from start by length.
 (define (sequence start len . rest)
   (let ((step (if (pair? rest) (car rest) 1)))
     (let loop ((num start))
@@ -1277,6 +1278,7 @@
           (cons num (loop (+ num step)))
           '()))))
 
+;; Create sequence of numbers from start to end (exclusive).
 (define (range start end . rest)
   (let ((step (if (pair? rest) (car rest) 1)))
     (let loop ((num start))
