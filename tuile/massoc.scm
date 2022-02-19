@@ -62,7 +62,7 @@
 ;; Reference massoc value.
 (define (massoc-ref ma key)
   (if (massoc-empty? ma)
-      #f
+      (if #f #f) ; unspecified
       (assoc-ref ma key)))
 
 

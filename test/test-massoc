@@ -33,8 +33,7 @@
           (massoc-values ma)))
 
 (test-assert "reference empty massoc"
-  (equal? #f
-          (massoc-ref ma 'any)))
+  (unspecified? (massoc-ref ma 'any)))
 
 
 ;; Add one key-value pair to massoc.
