@@ -160,6 +160,7 @@
     ((opt-multi)  #f)
     ((any)        #t)
     ((opt-any)    #f)
+    ((master)     #f)
     ((default)    #f)
     ))
 
@@ -169,6 +170,11 @@
   (case (opt-type opt)
     ((help) #f)
     (else #t)))
+
+
+;; Check if option is exclusive.
+(define (exclusive-opt? opt)
+  (eq? (opt-type opt) 'master))
 
 
 ;; Check if option has multiple values.
@@ -184,6 +190,7 @@
     ((opt-multi)  #t)
     ((any)        #t)
     ((opt-any)    #t)
+    ((master)     #f)
     ((default)    #t)
     ))
 
@@ -228,11 +235,16 @@
 ;; Check that all required options have been given, exit if required
 ;; option is missing.
 (define (check-required como)
-  (for-each (lambda (opt)
-              (when (and (required-opt? opt)
-                         (not (opt-given? opt)))
-                (parse-error (ss "Missing required options: \"" (opt-name opt) "\""))))
-            (spec-opts como)))
+  (call/cc
+   (lambda (cc)
+     (for-each (lambda (opt)
+                 (when (and (exclusive-opt? opt)
+                            (opt-given? opt))
+                   (cc #f))
+                 (when (and (required-opt? opt)
+                            (not (opt-given? opt)))
+                   (parse-error (ss "Missing required options: \"" (opt-name opt) "\""))))
+               (spec-opts como)))))
 
 
 
@@ -324,6 +336,7 @@
                  ((opt-multi)  (parse-next (parse-multi!  opt rest)))
                  ((any)        (parse-next (parse-any!    opt rest)))
                  ((opt-any)    (parse-next (parse-any!    opt rest)))
+                 ((master)     (parse-next (parse-switch! opt rest)))
                  (else '()))
                (let ((default (find-opt-with como 'default opt-type)))
                  (if default
@@ -388,6 +401,10 @@
   (ss "[" (opt-sopt opt) " <" (opt-name opt) ">*" "]"))
 
 
+(define (opt-cli-master opt)
+  (ss "[" (opt-sopt opt) " !" "]"))
+
+
 (define (opt-cli-default opt)
   "*default*")
 (define (opt-info-default opt)
@@ -446,6 +463,7 @@
           (cons 'opt-multi     (list opt-cli-opt-multi     opt-info-common))
           (cons 'any           (list opt-cli-any           opt-info-common))
           (cons 'opt-any       (list opt-cli-opt-any       opt-info-common))
+          (cons 'master     (list opt-cli-master     opt-info-common))
           (cons 'default       (list opt-cli-default       opt-info-default))
           ))
 
