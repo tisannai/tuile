@@ -10,6 +10,7 @@
   (
    create
    set-layer
+   get-layer-index
    put-ch
    put-str
    put-str-in-dir
@@ -38,6 +39,11 @@
   (unless (massoc-has-key? (canvas-layers cv) li)
     (massoc-set! (canvas-layers cv) li '()))
   (canvas-lindex-set! cv li))
+
+
+;; Return layer index.
+(define (get-layer-index cv)
+  (canvas-lindex cv))
 
 
 ;; Put char to position (on active layer).
