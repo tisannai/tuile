@@ -3,6 +3,7 @@
   #:use-module (tuile massoc)
   #:use-module (tuile utils)
   #:use-module (tuile pr)
+  #:use-module (tuile coord)
   #:use-module (rnrs bytevectors)
   #:use-module (srfi srfi-43)
   #:export
@@ -11,6 +12,7 @@
    set-layer
    put-ch
    put-str
+   put-str-in-dir
    get-lines-vector
    get-lines-list
    ))
@@ -25,36 +27,71 @@
           (mutable ymax)                ; Maximum y within canvas.
           ))
 
+
 ;; Create canvas at layer 0.
 (define (create)
   (make-canvas (create-layer 0) 0 0 0))
 
+
+;; Set active layer.
 (define (set-layer cv li)
   (unless (massoc-has-key? (canvas-layers cv) li)
     (massoc-set! (canvas-layers cv) li '()))
   (canvas-lindex-set! cv li))
 
-(define (put-ch cv pos ch)
-  (let ((x (car pos))
-        (y (cdr pos)))
+
+;; Put char to position (on active layer).
+(define (put-ch cv p ch)
+  (let ((x (px p))
+        (y (py p)))
     (when (> x (canvas-xmax cv)) (canvas-xmax-set! cv x))
     (when (> y (canvas-ymax cv)) (canvas-ymax-set! cv y))
     (massoc-update! (canvas-layers cv)
                     (canvas-lindex cv)
                     (lambda (oldval)
-                      (cons (vector (car pos) (cdr pos) ch)
+                      (cons (vector (car p) (cdr p) ch)
                             oldval)))))
 
-(define (put-str cv pos str)
+
+;; Put string of chars starting from position (on active layer).
+(define (put-str cv p str)
   (let loop ((rest (string->list str))
-             (x (car pos)))
+             (x (px p)))
     (when (pair? rest)
       (put-ch cv
-              (cons x (cdr pos))
+              (pos x (py p))
               (car rest))
       (loop (cdr rest)
             (1+ x)))))
 
+
+;; Put string of chars starting from position (on active layer) to
+;; selected direction.
+;;
+;; dirs: 'up, 'down, 'left, 'right
+;;
+(define (put-str-in-dir cv p str dir)
+
+  (define (step p dir)
+    (define (dec val) (if (> val 0) (1- val) 0))
+    (define inc 1+)
+    (case dir
+      ((up)    (pos (px p) (dec (py p))))
+      ((down)  (pos (px p) (inc (py p))))
+      ((left)  (pos (dec (px p)) (py p)))
+      ((right) (pos (inc (px p)) (py p)))))
+
+  (let loop ((rest (string->list str))
+             (p p))
+    (when (pair? rest)
+      (put-ch cv
+              p
+              (car rest))
+      (loop (cdr rest)
+            (step p dir)))))
+
+
+;; Get canvas content (lines) as vector.
 (define (get-lines-vector cv)
   (let ((lines (apply vector (repeat (lambda (i)
                                        (make-bytevector (1+ (canvas-xmax cv))
@@ -75,6 +112,8 @@
                   (utf8->string line))
                 lines)))
 
+
+;; Get canvas content (lines) as list.
 (define (get-lines-list cv)
   (vector->list (get-lines-vector cv)))
 
@@ -91,8 +130,19 @@
 ;; ------------------------------------------------------------
 ;; Support:
 
+
 (define (canvas-chars cv li)
   (massoc-ref (canvas-layers cv) li))
 
+
 (define (create-layer li)
   (make-massoc (list (cons li '()))))
+
+;;;; x-coord of pos.
+;;(define px car)
+;;
+;;;; y-coord of pos.
+;;(define py cdr)
+;;
+;;;; x and y to pos.
+;;(define pos cons)
