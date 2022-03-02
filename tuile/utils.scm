@@ -765,6 +765,7 @@
 ;;     guile> (re-split "[-x]+" "foo--x--bar---what"  'keep)
 ;;     ("foo" "--x--" "bar" "---" "what")
 ;;
+#;
 (define (re-split-old re str . options)
   #;
   (let ((keep #f) (trim #f))
@@ -802,11 +803,13 @@
 
 
 ;; Return true if regexp matches str.
+#;
 (define (re-match? re str)
 ;;  (regexp-match? (regexp-exec (make-regexp re) str))
   (error "TI: Use (tuile re)"))
 
 ;; Return regexp match str or false.
+#;
 (define (re-match re str)
 ;;  (aif (string-match re str)
 ;;       (match:substring it)
@@ -815,11 +818,13 @@
   )
 
 ;; Return regexp match string list or empty list.
+#;
 (define (re-matches re str)
 ;;  (map match:substring (list-matches re str))
   (error "TI: Use (tuile re)"))
 
 ;; Substitute regexp in string with replacement once.
+#;
 (define (re-sub re str rep)
 ;;  (aif (string-match re str)
 ;;       (regexp-substitute #f it 'pre rep 'post)
@@ -827,6 +832,7 @@
   (error "TI: Use (tuile re)"))
 
 ;; Substitute regexp in string with replacement globally.
+#;
 (define (re-gsub re str rep)
 ;;  (aif (string-match re str)
 ;;       (regexp-substitute/global #f re str 'pre rep 'post)
