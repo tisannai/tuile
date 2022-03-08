@@ -47,25 +47,25 @@
 
 
 ;; Put char to position (on active layer).
-(define (put-ch cv p ch)
-  (let ((x (px p))
-        (y (py p)))
+(define (put-ch cv pos ch)
+  (let ((x (px pos))
+        (y (py pos)))
     (when (> x (canvas-xmax cv)) (canvas-xmax-set! cv x))
     (when (> y (canvas-ymax cv)) (canvas-ymax-set! cv y))
     (massoc-update! (canvas-layers cv)
                     (canvas-lindex cv)
                     (lambda (oldval)
-                      (cons (vector (car p) (cdr p) ch)
+                      (cons (vector (px pos) (py pos) ch)
                             oldval)))))
 
 
 ;; Put string of chars starting from position (on active layer).
-(define (put-str cv p str)
+(define (put-str cv pos str)
   (let loop ((rest (string->list str))
-             (x (px p)))
+             (x (px pos)))
     (when (pair? rest)
       (put-ch cv
-              (pos x (py p))
+              (->p x (py pos))
               (car rest))
       (loop (cdr rest)
             (1+ x)))))
@@ -76,25 +76,26 @@
 ;;
 ;; dirs: 'up, 'down, 'left, 'right
 ;;
-(define (put-str-in-dir cv p str dir)
+(define (put-str-in-dir cv pos str dir-spec)
 
-  (define (step p dir)
+  (define (step pos dir)
     (define (dec val) (if (> val 0) (1- val) 0))
     (define inc 1+)
     (case dir
-      ((up)    (pos (px p) (dec (py p))))
-      ((down)  (pos (px p) (inc (py p))))
-      ((left)  (pos (dec (px p)) (py p)))
-      ((right) (pos (inc (px p)) (py p)))))
+      ((up)    (->p (px pos) (dec (py pos))))
+      ((down)  (->p (px pos) (inc (py pos))))
+      ((left)  (->p (dec (px pos)) (py pos)))
+      ((right) (->p (inc (px pos)) (py pos)))))
 
-  (let loop ((rest (string->list str))
-             (p p))
-    (when (pair? rest)
-      (put-ch cv
-              p
-              (car rest))
-      (loop (cdr rest)
-            (step p dir)))))
+  (let ((dir (->dir dir-spec)))
+    (let loop ((rest (string->list str))
+               (pos pos))
+      (when (pair? rest)
+        (put-ch cv
+                pos
+                (car rest))
+        (loop (cdr rest)
+              (step pos dir))))))
 
 
 ;; Get canvas content (lines) as vector.
@@ -106,7 +107,7 @@
     (let loop-layers ((sorted-li (stable-sort (massoc-keys (canvas-layers cv))
                                               <)))
       (when (pair? sorted-li)
-        (let loop ((chars (canvas-chars cv (car sorted-li))))
+        (let loop ((chars (reverse (canvas-chars cv (car sorted-li)))))
           (when (pair? chars)
             (let ((x (vector-ref (car chars) 0))
                   (y (vector-ref (car chars) 1))
