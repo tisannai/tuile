@@ -3,10 +3,17 @@
   #:use-module ((srfi srfi-9 gnu) #:select (define-immutable-record-type))
   #:export
   (
+   record-type
    define-im-record
    define-fp-record
    define-mu-record
    ))
+
+
+(define (record-type r)
+  (if (record? r)
+      (record-type-name (record-rtd r))
+      #f))
 
 ;; Create immutable record.
 ;;

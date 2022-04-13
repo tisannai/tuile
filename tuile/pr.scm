@@ -96,7 +96,11 @@
 ;; Line print from args.
 (define (pr . args)
   (display (apply ss args))
-  (newline))
+  (newline)
+;;  (display "flush")
+;;  (newline)
+;;  (force-output)
+  )
 
 
 ;; Print from args.

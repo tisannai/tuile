@@ -1,5 +1,6 @@
 (define-module (tuile compatible)
   #:use-module ((rnrs records syntactic) #:select (define-record-type))
+  #:use-module ((ice-9 hash-table) #:select (alist->hash-table))
   #:export (
             comp:eval
             comp:hash-make
@@ -9,6 +10,7 @@
             comp:hash-remove!
             comp:hash-keys
             comp:hash-values
+            comp:hash-copy
             comp:substring
             comp:datum->string
             comp:error
@@ -42,6 +44,9 @@
 
 (define (comp:hash-values hsh)
   (hash-map->list (lambda (k v) v) hsh))
+
+(define (comp:hash-copy hsh)
+  (alist->hash-table (list-copy (hash-map->list cons hsh))))
 
 (define comp:substring substring)
 

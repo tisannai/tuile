@@ -87,7 +87,10 @@
       ((left)  (->p (dec (px pos)) (py pos)))
       ((right) (->p (inc (px pos)) (py pos)))))
 
-  (let ((dir (->dir dir-spec)))
+  (let (
+        (dir (->dir dir-spec))
+        ;;(dir dir-spec)
+        )
     (let loop ((rest (string->list str))
                (pos pos))
       (when (pair? rest)

@@ -32,12 +32,12 @@
    delete-ref
    list-pick
    list-compact
+   map-compact
    clean-list
 
    pi
    ->integer-fraction
-   unspecified
-   uns
+   specified?
 
    command-line-arguments
 
@@ -64,7 +64,7 @@
    from-to-step
    nop
 
-   record-type
+;;   record-type
 ;;   define-im-record
 ;;   define-fp-record
 ;;   define-mu-record
@@ -119,6 +119,7 @@
    make-string-list
    sequence
    range
+   span
    ))
 
 
@@ -251,6 +252,20 @@
     (filter pred lst)))
 
 
+;; Map list by removing (by default) unspecified values.
+(define (map-compact proc lst)
+  (let loop ((rest lst)
+             (ret '()))
+    (if (pair? rest)
+        (let ((res (proc (car rest))))
+          (if (not (unspecified? res))
+              (loop (cdr rest)
+                    (cons res ret))
+              (loop (cdr rest)
+                    ret)))
+        (reverse ret))))
+
+
 (define (clean-list lst)
   (let filter ((rest lst))
     (if (pair? rest)
@@ -272,8 +287,10 @@
       (cons (inexact->exact (round q))
             (inexact->exact (round r))))))
 
-(define unspecified (if #f #t))
-(define uns unspecified)
+;; *unspecified* exists already
+;;(define unspecified (if #f #t))
+;;(define uns unspecified)
+(define (specified? obj) (not (unspecified? obj)))
 
 
 ;; Return command line arguments, excluding the executable.
@@ -532,12 +549,6 @@
 ;; No operation, i.e. pass argument forward.
 (define (nop arg)
   arg)
-
-
-(define (record-type r)
-  (if (record? r)
-      (record-type-name (record-rtd r))
-      #f))
 
 
 ;; Create immutable record.
@@ -1265,6 +1276,7 @@
                    n1
                    n2))))))
 
+
 ;; Create list of string from symbols, i.e. non-quoted text.
 ;;
 ;;     (make-string-list foo bar dii)
@@ -1284,13 +1296,33 @@
           (cons num (loop (+ num step)))
           '()))))
 
+
 ;; Create sequence of numbers from start to end (exclusive).
 (define (range start end . rest)
   (let ((step (if (pair? rest) (car rest) 1)))
-    (let loop ((num start))
-      (if (< num end)
-          (cons num (loop (+ num step)))
-          '()))))
+    (if (< start end)
+        (let loop ((num start))
+          (if (< num end)
+              (cons num (loop (+ num step)))
+              '()))
+        (let loop ((num start))
+          (if (> num end)
+              (cons num (loop (- num step)))
+              '())))))
+
+
+;; Create sequence of numbers from start to end (inclusive).
+(define (span start end . rest)
+  (let ((step (if (pair? rest) (car rest) 1)))
+    (if (< start end)
+        (let loop ((num start))
+          (if (<= num end)
+              (cons num (loop (+ num step)))
+              '()))
+        (let loop ((num start))
+          (if (>= num end)
+              (cons num (loop (- num step)))
+              '())))))
 
 
 ;; Usage:
