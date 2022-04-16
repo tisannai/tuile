@@ -65,7 +65,7 @@
              (x (px pos)))
     (when (pair? rest)
       (put-ch cv
-              (->p x (py pos))
+              (p. x (py pos))
               (car rest))
       (loop (cdr rest)
             (1+ x)))))
@@ -76,29 +76,25 @@
 ;;
 ;; dirs: 'up, 'down, 'left, 'right
 ;;
-(define (put-str-in-dir cv pos str dir-spec)
+(define (put-str-in-dir cv pos str dir)
 
   (define (step pos dir)
     (define (dec val) (if (> val 0) (1- val) 0))
     (define inc 1+)
     (case dir
-      ((up)    (->p (px pos) (dec (py pos))))
-      ((down)  (->p (px pos) (inc (py pos))))
-      ((left)  (->p (dec (px pos)) (py pos)))
-      ((right) (->p (inc (px pos)) (py pos)))))
+      ((up)    (p. (px pos) (dec (py pos))))
+      ((down)  (p. (px pos) (inc (py pos))))
+      ((left)  (p. (dec (px pos)) (py pos)))
+      ((right) (p. (inc (px pos)) (py pos)))))
 
-  (let (
-        (dir (->dir dir-spec))
-        ;;(dir dir-spec)
-        )
-    (let loop ((rest (string->list str))
-               (pos pos))
-      (when (pair? rest)
-        (put-ch cv
-                pos
-                (car rest))
-        (loop (cdr rest)
-              (step pos dir))))))
+  (let loop ((rest (string->list str))
+             (pos pos))
+    (when (pair? rest)
+      (put-ch cv
+              pos
+              (car rest))
+      (loop (cdr rest)
+            (step pos dir)))))
 
 
 ;; Get canvas content (lines) as vector.

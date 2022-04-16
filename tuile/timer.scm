@@ -11,6 +11,7 @@
    timer-time
    timer-close
    timer-reduce
+   timer-value->string
    timer->string
    timer->display))
 
@@ -101,14 +102,15 @@
                   (timer-start-time timer)
                   (list (car (timer-end-time timer))))))
 
+;; Convert timer value to string.
+(define (timer-value->string value)
+  (format #f "~a.~6,,,'0@a" (car value) (cdr value)))
+
 ;; Convert timer to timer value(s).
 (define (timer->string timer)
-  (define (val->str val)
-    (format #f "~a.~a" (car val) (cdr val)))
   (if (= 1 (length (timer-end-time timer)))
-      (val->str (timer-value timer))
-      (map val->str
-           (timer-values timer))))
+      (timer-value->string (timer-value timer))
+      (map timer-value->string (timer-values timer))))
 
 (define (timer-display timer)
   (display (timer-name timer))
