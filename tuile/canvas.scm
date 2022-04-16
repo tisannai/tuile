@@ -23,7 +23,7 @@
 (define-record-type canvas
   (fields (mutable layers)              ; Canvas layers '((0 . '(<chars>))), <char> = #(x y ch).
           (mutable lindex)              ; Layer index (li).
-;;          (mutable chars)               ; Canvas characters #(li x y ch).
+          ;;          (mutable chars)               ; Canvas characters #(li x y ch).
           (mutable xmax)                ; Maximum x within canvas.
           (mutable ymax)                ; Maximum y within canvas.
           ))
@@ -47,7 +47,7 @@
 
 
 ;; Put char to position (on active layer).
-(define (put-ch cv pos ch)
+(define (put-ch cv ch pos)
   (let ((x (px pos))
         (y (py pos)))
     (when (> x (canvas-xmax cv)) (canvas-xmax-set! cv x))
@@ -60,13 +60,13 @@
 
 
 ;; Put string of chars starting from position (on active layer).
-(define (put-str cv pos str)
+(define (put-str cv str pos)
   (let loop ((rest (string->list str))
              (x (px pos)))
     (when (pair? rest)
       (put-ch cv
-              (p. x (py pos))
-              (car rest))
+              (car rest)
+              (p. x (py pos)))
       (loop (cdr rest)
             (1+ x)))))
 
@@ -76,7 +76,7 @@
 ;;
 ;; dirs: 'up, 'down, 'left, 'right
 ;;
-(define (put-str-in-dir cv pos str dir)
+(define (put-str-in-dir cv str pos dir)
 
   (define (step pos dir)
     (define (dec val) (if (> val 0) (1- val) 0))
@@ -91,8 +91,8 @@
              (pos pos))
     (when (pair? rest)
       (put-ch cv
-              pos
-              (car rest))
+              (car rest)
+              pos)
       (loop (cdr rest)
             (step pos dir)))))
 
@@ -127,8 +127,8 @@
 #;
 (begin
   (define cv (create))
-  (put-ch cv '(3 . 1) #\a)
-  (put-ch cv '(10 . 10) #\b)
+  (put-ch cv #\a '(3 . 1))
+  (put-ch cv #\b '(10 . 10))
   ;;(get-lines cv)
   (for-each pr (get-lines-as-string-list cv)))
 

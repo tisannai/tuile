@@ -50,11 +50,8 @@
    r-height
    r-corner
 
-;;   dir.
    dir->orientation
    diridx->dir
-
-;;   mp.
    ))
 
 
@@ -262,12 +259,6 @@
     ((3) (pp01 pp))))
 
 
-;;(define (dir. val)
-;;  (if (symbol? val)
-;;      val
-;;      (list-ref '(right down left up) val)))
-
-
 (define (dir->orientation dir)
   (case dir
     ((left right) 'horizontal)
@@ -276,26 +267,3 @@
 
 (define (diridx->dir idx)
   (list-ref '(right down left up) idx))
-
-
-;; Multipoint.
-#;
-(define (mp. lst)
-  (cond
-   ;; Point based multipoint.
-   ((pair? (car lst))
-    lst)
-   ;; Coord based multipoint. Must have even number of coords.
-   ((and (even? (length lst))
-         (integer? (car lst))
-         (integer? (cadr lst)))
-    (let loop ((lst lst)
-               (pairs '()))
-      (if (pair? lst)
-          (loop (cddr lst)
-                (cons (p. (car lst) (cadr lst))
-                      pairs))
-          (reverse pairs))))
-   (else
-    ;; not supported (yet).
-    '())))
