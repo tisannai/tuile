@@ -30,7 +30,7 @@
    p-p->angle
    xy->points
    points->xy
-   p-p->points
+   p-p->trace
    p-inside?
    p-contained?
 
@@ -43,7 +43,7 @@
    pp10
    pp01
    pp11
-   pp->points
+   pp->trace
 
    r->corners
    r-width
@@ -52,6 +52,11 @@
 
    dir->orientation
    diridx->dir
+
+   points->pieces
+   points->segments
+   points->len
+
    ))
 
 
@@ -182,7 +187,7 @@
               (append (list (cdar rest) (caar rest)) ret))
         (reverse ret))))
 
-(define (p-p->points p0 p1)
+(define (p-p->trace p0 p1)
   (let* ((dist (p-p->distance p0 p1)))
     (case (p-p->dir p0 p1)
       ((left right) (map p. (span (px p0) (px p1)) (make-list dist (py p0))))
@@ -228,8 +233,8 @@
 (define pp11 pp1)                       ; bottom-right
 
 ;; Return all points within point-pair (pp).
-(define (pp->points pp)
-  (p-p->points (pp0 pp) (pp1 pp)))
+(define (pp->trace pp)
+  (p-p->trace (pp0 pp) (pp1 pp)))
 
 ;; Convert two points to 4 corner points.
 (define (r->corners a b)
@@ -267,3 +272,26 @@
 
 (define (diridx->dir idx)
   (list-ref '(right down left up) idx))
+
+
+;; Return segments from points.
+;;
+;;       +---------+        +---------+   +
+;;                 |   =>                 |
+;;                 |                      |
+;;                 +                      +
+;;
+(define (points->segments points)
+  (let loop ((rest (cdr points))
+             (prev (car points))
+             (ret '()))
+    (if (null? rest)
+        (reverse ret)
+        (loop (cdr rest)
+              (car rest)
+              (cons (pp. prev (car rest))
+                    ret)))))
+
+
+(define (points->len points)
+  #t)
