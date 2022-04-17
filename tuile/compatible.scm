@@ -1,6 +1,7 @@
 (define-module (tuile compatible)
   #:use-module ((rnrs records syntactic) #:select (define-record-type))
   #:use-module ((ice-9 hash-table) #:select (alist->hash-table))
+  #:use-module ((ice-9 ftw) #:select (scandir))
   #:export (
             comp:eval
             comp:hash-make

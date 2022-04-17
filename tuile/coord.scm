@@ -128,7 +128,7 @@
        ((and (> xd 0) (= yd 0)) (cons 'right (+ xd 1)))
        ((and (> yd 0) (= xd 0)) (cons 'down  (+ yd 1)))
        ((and (< xd 0) (= yd 0)) (cons 'left  (+ (- xd) 1)))
-       ((and (< yd 0) (= xd 0)) (cons 'up    (+ (- xy) 1)))
+       ((and (< yd 0) (= xd 0)) (cons 'up    (+ (- yd) 1)))
        (else (cons *unspecified* *unspecified*)))))
 
 ;; Distance for horizontally or vertically aligned points.

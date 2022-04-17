@@ -115,5 +115,5 @@
 (define (timer-display timer)
   (display (timer-name timer))
   (display ": ")
-  (display (timer->value timer))
+  (display (timer->string timer))
   (newline))
