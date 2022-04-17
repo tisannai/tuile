@@ -1,5 +1,6 @@
 (define-module (tuile coord)
-  #:use-module ((tuile utils) #:select (span))
+  #:use-module ((tuile utils) #:select (span list-range))
+  #:use-module ((srfi srfi-1) #:select (fold))
   #:export
   (
    p.
@@ -20,17 +21,18 @@
    p-y
    p+dir
    p-dir
-   p-p->dir
-   p-p->len
-   p-p->distance
-   p-p->dir-len
-   p-p->manhattan-distance
-   p-p->h-dir
-   p-p->orientation
-   p-p->angle
+   p-p-dir
+   p-p-len
+   p-p-distance
+   p-p-dir-len
+   p-p-manhattan-distance
+   p-p-hdir
+   p-p-orientation
+   p-p-angle
    xy->points
    points->xy
    p-p->trace
+   p-p-point
    p-inside?
    p-contained?
 
@@ -43,19 +45,24 @@
    pp10
    pp01
    pp11
+   pp-len
    pp->trace
+   pp-point
 
-   r->corners
+   r-corners
    r-width
    r-height
    r-corner
 
-   dir->orientation
+   dir-orientation
    diridx->dir
 
-   points->pieces
-   points->segments
-   points->len
+   path->segments
+   path->trace
+   path-len
+   path-point
+   path-points
+
 
    ))
 
@@ -80,21 +87,23 @@
 (define (p-x p x) (p. (- (px p) x) (py p)))
 (define (p-y p y) (p. (px p) (- (py p) y)))
 
-(define (p+dir p dir)
-  (case dir
-    ((left) (p-x p 1))
-    ((right) (p+x p 1))
-    ((down) (p+y p 1))
-    ((up) (p-y p 1))))
+(define (p+dir p dir . step)
+  (let ((count (if (pair? step) (car step) 1)))
+    (case dir
+      ((left) (p-x p count))
+      ((right) (p+x p count))
+      ((down) (p+y p count))
+      ((up) (p-y p count)))))
 
-(define (p-dir p dir)
-  (case dir
-    ((left) (p+x p 1))
-    ((rigth) (p-x p 1))
-    ((down) (p-y p 1))
-    ((up) (p+y p 1))))
+(define (p-dir p dir . step)
+  (let ((count (if (pair? step) (car step) 1)))
+    (case dir
+      ((left) (p+x p count))
+      ((rigth) (p-x p count))
+      ((down) (p-y p count))
+      ((up) (p+y p count)))))
 
-(define (p-p->dir a b)
+(define (p-p-dir a b)
   (let ((xd (- (px b) (px a)))
         (yd (- (py b) (py a))))
       (cond
@@ -105,14 +114,14 @@
        (else *unspecified*))))
 
 ;; Length (distance) for horizontally or vertically aligned points.
-(define (p-p->len a b)
+(define (p-p-len a b)
   (1+ (abs (if (= (px a) (px b))
                (- (py b) (py a))
                (- (px b) (px a))))))
 
-(define p-p->distance p-p->len)
+(define p-p-distance p-p-len)
 
-(define (p-p->dir-len a b)
+(define (p-p-dir-len a b)
   (let ((xd (- (px b) (px a)))
         (yd (- (py b) (py a))))
       (cond
@@ -123,14 +132,14 @@
        (else (cons *unspecified* *unspecified*)))))
 
 ;; Distance for horizontally or vertically aligned points.
-(define (p-p->manhattan-distance a b)
+(define (p-p-manhattan-distance a b)
   (let ((ax (px a))
         (ay (py a))
         (bx (px b))
         (by (py b)))
     (+ (abs (- ax bx)) (abs (- ay by)))))
 
-(define (p-p->h-dir a b)
+(define (p-p-hdir a b)
   (let ((xd (- (px b) (px a)))
         (yd (- (py b) (py a))))
     (cond
@@ -144,13 +153,13 @@
      ((and (> xd 0) (< yd 0)) 'right)        ;; Right down \v.
      (else *unspecified*) ;; +, a and b are same position.
      )))
-(define (p-p->orientation a b)
-  (let ((dir (p-p->dir a b)))
+(define (p-p-orientation a b)
+  (let ((dir (p-p-dir a b)))
     (case dir
       ((left right) 'horizontal)
       ((down up) 'vertical)
       (else *unspecified*))))
-(define (p-p->angle a b)
+(define (p-p-angle a b)
   (let ((xd (- (px b) (px a)))
         (yd (- (py b) (py a)))
         (p2 (* pi 2)))
@@ -188,10 +197,17 @@
         (reverse ret))))
 
 (define (p-p->trace p0 p1)
-  (let* ((dist (p-p->distance p0 p1)))
-    (case (p-p->dir p0 p1)
+  (let* ((dist (p-p-distance p0 p1)))
+    (case (p-p-dir p0 p1)
       ((left right) (map p. (span (px p0) (px p1)) (make-list dist (py p0))))
       ((up down) (map p. (make-list dist (px p0)) (span (py p0) (py p1)))))))
+
+;; Return nth point between endpoints.
+(define (p-p-point p0 p1 nth)
+  (if (= nth 0)
+      p0
+      (let ((dir (p-p-dir p0 p1)))
+        (p+dir p0 dir nth))))
 
 ;; Check that p is inside boundaries (not on boundaries), defined by
 ;; p0 and p1.
@@ -232,12 +248,19 @@
 (define (pp01 pp) (p. (px (pp0 pp)) (py (pp1 pp)))) ; bottom-left
 (define pp11 pp1)                       ; bottom-right
 
+(define (pp-len pp)
+  (p-p-len (pp0 pp) (pp1 pp)))
+
 ;; Return all points within point-pair (pp).
 (define (pp->trace pp)
   (p-p->trace (pp0 pp) (pp1 pp)))
 
+;; Return all points within point-pair (pp).
+(define (pp-point pp)
+  (p-p-point (pp0 pp) (pp1 pp)))
+
 ;; Convert two points to 4 corner points.
-(define (r->corners a b)
+(define (r-corners a b)
   (let ((x0 (px a))
         (y0 (py a))
         (x1 (px b))
@@ -264,7 +287,7 @@
     ((3) (pp01 pp))))
 
 
-(define (dir->orientation dir)
+(define (dir-orientation dir)
   (case dir
     ((left right) 'horizontal)
     ((down up) 'vertical)))
@@ -274,16 +297,16 @@
   (list-ref '(right down left up) idx))
 
 
-;; Return segments from points.
+;; Return segments of path.
 ;;
 ;;       +---------+        +---------+   +
 ;;                 |   =>                 |
 ;;                 |                      |
 ;;                 +                      +
 ;;
-(define (points->segments points)
-  (let loop ((rest (cdr points))
-             (prev (car points))
+(define (path->segments path)
+  (let loop ((rest (cdr path))
+             (prev (car path))
              (ret '()))
     (if (null? rest)
         (reverse ret)
@@ -293,5 +316,25 @@
                     ret)))))
 
 
-(define (points->len points)
-  #t)
+(define (path->trace path)
+  (let loop ((rest (path->segments path))
+             (ret (list (car path))))
+    (if (null? rest)
+        (reverse ret)
+        (loop (cdr rest)
+              (append (reverse (cdr (pp->trace (car rest))))
+                      ret)))))
+
+
+(define (path-len path)
+  (fold (lambda (seg s) (+ s (1- (pp-len seg))))
+        1
+        (path->segments path)))
+
+
+(define (path-point path nth)
+  (list-ref (path->trace path) nth))
+
+
+(define (path-points path nth count)
+  (list-range (path->trace path) nth count))

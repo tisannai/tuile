@@ -30,6 +30,8 @@
    flatten-0
    flatten-1
    delete-ref
+   list-slice
+   list-range
    list-pick
    list-compact
    map-compact
@@ -232,6 +234,33 @@
               (1+ i))
         (append (reverse head)
                 (if (pair? tail) (cdr tail) '())))))
+
+
+;; Take a slice of the list.
+;;
+;; "list-slice" accepts negative indeces and they are taken as
+;; references from the list end. If "a" and "b" are in reverse order,
+;; the list slice will be reverse order as well.
+;;
+;;     (list-slice (list 1 2 3 4) -3 -2)
+;;
+(define (list-slice lst a b)
+  (let* ((len (length lst))
+         (a (if (< a 0) (+ len a) a))
+         (b (if (< b 0) (+ len b) b))
+         (left (if (<= a b) a b))
+         (count (1+ (if (<= a b) (- b a) (- a b)))))
+    (if (> (+ left count) len)
+        lst
+        (let ((slice (take (drop lst left) count)))
+          (if (> a b)
+              (reverse slice)
+              slice)))))
+
+
+;; Take a slice of the list by start point and length.
+(define (list-range lst a len)
+  (list-slice lst a (1- (+ a len))))
 
 
 ;; Pick item from lst by providing list of indeces in spec. The
