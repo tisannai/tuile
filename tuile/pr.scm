@@ -1,4 +1,5 @@
 (define-module (tuile pr)
+  #:use-module ((ice-9 pretty-print) #:select (pretty-print))
   #:export
   (pr
    prp
@@ -9,6 +10,7 @@
    ss
    ds
    pd
+   pp
    :lj
    :rj
    :ls
@@ -92,6 +94,8 @@
 
 (define (pd datum)
   (pr (ds datum)))
+
+(define pp pretty-print)
 
 ;; Line print from args.
 (define (pr . args)
