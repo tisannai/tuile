@@ -304,7 +304,7 @@
   (display msg)
   (newline)
   (como-usage)
-  (exit))
+  (exit 1))
 
 
 ;; Parse given command line. Update all option descriptors with given
@@ -658,7 +658,7 @@
   (define default #f)
 
   ;; Display all usage info.
-  (define (usage)
+  (define (usage como)
     (let* ((longest-label (fold (lambda (i len)
                                   (let ((sym-len (string-length (->string (car i)))))
                                     (if (> sym-len len)
@@ -731,7 +731,7 @@
 
          ;; Help
          ((string=? "help" (car rest))
-          (usage)
+          (usage #f)
           (exit 1))
 
          ;; Action
