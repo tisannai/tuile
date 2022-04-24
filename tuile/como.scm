@@ -659,15 +659,10 @@
 
   ;; Display all usage info.
   (define (usage como)
-    (let* ((longest-label (fold (lambda (i len)
-                                  (let ((sym-len (string-length (->string (car i)))))
-                                    (if (> sym-len len)
-                                        sym-len
-                                        len)))
-                                0
-                                (append (list (list '*default*))
-                                        actions
-                                        options)))
+    (let* ((longest-label (apply max (map (lambda (spec) (string-length (->string (second spec))))
+                                          (append (list (list '*default* '*default*))
+                                                  actions
+                                                  options))))
            (width (+ longest-label (opt-label-gap)))
            (formatters (list (cons 'revert-action (lambda (f1 f2)       (ss "  * " (ljust width f1) f2)))
                              (cons 'normal-action (lambda (f1 f2)       (ss "    " (ljust width f1) f2)))
