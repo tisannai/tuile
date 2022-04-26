@@ -68,7 +68,10 @@
 
 ;; Return extension of file-string.
 (define (fs-extname fs)
-  (car (last-pair (string-split (fs-filename fs) #\.))))
+  (let ((split (string-split (fs-filename fs) #\.)))
+    (if (> (length split) 1)
+        (car (last-pair split))
+        #f)))
 
 
 ;; Return "full" extension of file-string.

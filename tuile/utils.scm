@@ -48,6 +48,9 @@
    dir-glob-re
    extname
    expand-file-name
+   is-file?
+   is-directory?
+
 
    datum->string
    string->procedure
@@ -395,6 +398,11 @@
       (string-append (getenv "HOME") (comp:substring filename 1))
       (canonicalize-path filename)))
 
+(define (is-file? name)
+  (eq? (stat:type (stat name)) 'regular))
+
+(define (is-directory? name)
+  (eq? (stat:type (stat name)) 'directory))
 
 (define datum->string comp:datum->string)
 
