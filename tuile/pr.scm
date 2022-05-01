@@ -8,6 +8,7 @@
    prd
    prdl
    ss
+   se
    ds
    pd
    pp
@@ -46,22 +47,17 @@
       '()))
 
 
-;; Convert all args to string type.
-;;
-;; to-string . args
-(define (to-string . args)
-  (map (lambda (obj)
-         (if (string? obj)
-             obj
-             (object->string obj)))
-       args))
-
+;; Convert obj to string type.
+(define (to-string obj)
+  (if (string? obj)
+      obj
+      (object->string obj)))
 
 ;; Macro to flatten args and convert all arguments to strings.
 (define-syntax fa
   (syntax-rules ()
     ((_ args)
-     (apply to-string (apply flat-args args)))))
+     (map to-string (apply flat-args args)))))
 
 
 ;; Char or string argument as char.
@@ -86,6 +82,101 @@
 ;; String from args.
 (define (ss . args)
   (apply string-append (fa args)))
+
+
+;; String interpolation (ruby style).
+;;
+;;     (si "Hello #{my-friend}!")
+;;
+(define-syntax se
+
+  (lambda (x)
+
+    ;; Expand interpolation for a string.
+    ;;
+    ;; "Hello #{my-friend}!" -> ("Hello " 'my-friend "!")
+    ;;
+    (define (expand str)
+
+      (define (update-words words word)
+        (if (pair? word)
+            (cons (list->string (reverse word)) words)
+            words))
+
+      (let loop ((chars (string->list str))
+                 (words '())
+                 (word '())
+                 (state 'in-string))
+
+        (if (null? chars)
+
+            ;; Done.
+            (reverse (update-words words word))
+
+            ;; Continue.
+            (let ((ch (car chars)))
+
+              (case state
+
+                ((in-string)
+                 (cond
+
+                  ;; Escape.
+                  ((char=? ch #\\)
+                   (loop (cddr chars)
+                         words
+                         (cons (cadr chars) word)
+                         state))
+
+                  ;; Interpolation (potentially).
+                  ((char=? ch #\#)
+                   (if (char=? (cadr chars)
+                               #\{)
+                       ;; Interpolation.
+                       (loop (cddr chars)
+                             (update-words words word)
+                             '()
+                             'in-interpolation)
+                       (loop (cdr chars)
+                             words
+                             (cons ch word)
+                             state)))
+
+                  (else
+                   (loop (cdr chars)
+                         words
+                         (cons ch word)
+                         state))))
+
+                ((in-interpolation)
+
+                 (cond
+
+                  ;; Escape.
+                  ((char=? ch #\\)
+                   (loop (cddr chars)
+                         words
+                         (cons (cadr chars) word)
+                         state))
+
+                  ;; Terminate interpolation.
+                  ((char=? ch #\})
+                   (let ((expr (read (open-input-string
+                                      (list->string (reverse word))))))
+                     (loop (cdr chars)
+                           (cons expr words)
+                           '()
+                           'in-string)))
+
+                  (else
+                   (loop (cdr chars)
+                         words
+                         (cons ch word)
+                         state)))))))))
+
+    (let ((stx (syntax->datum x)))
+      #`(ss #,@(datum->syntax x (expand (cadr stx)))))))
+
 
 ;; Datum to string.
 (define (ds datum)

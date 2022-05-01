@@ -1,5 +1,6 @@
 (define-module (tuile timer)
   #:use-module (srfi srfi-9)
+  #:use-module (ice-9 format)
   #:export
   (
    timer-create

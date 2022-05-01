@@ -256,8 +256,8 @@
   (p-p->trace (pp0 pp) (pp1 pp)))
 
 ;; Return all points within point-pair (pp).
-(define (pp-point pp)
-  (p-p-point (pp0 pp) (pp1 pp)))
+(define (pp-point pp nth)
+  (p-p-point (pp0 pp) (pp1 pp) nth))
 
 ;; Convert two points to 4 corner points.
 (define (r-corners a b)
