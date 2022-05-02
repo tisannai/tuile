@@ -185,7 +185,59 @@
 
 
 ;; Flatten (and join) argument list as deep as list goes.
+;;
+;; This is a tail-recursive version of flatten. Stack represents what
+;; is left to process. We examine the top of stack. If it simple item,
+;; we add it to result and remove it from stack. If it is a list, we
+;; add head of list and rest of list to the top of stack. We recurse
+;; until stack is empty and all items are in result.
+;;
+;;     stack: (1 ((2) 3) 4)
+;;     res: ()
+;;     stack: (((2) 3) 4)
+;;     res: (1)
+;;     stack: ((2) (3) 4)
+;;     res: (1)
+;;     stack: (2 () (3) 4)
+;;     res: (1)
+;;     stack: (() (3) 4)
+;;     res: (2 1)
+;;     stack: ((3) 4)
+;;     res: (2 1)
+;;     stack: (3 () 4)
+;;     res: (2 1)
+;;     stack: (() 4)
+;;     res: (3 2 1)
+;;     stack: (4)
+;;     res: (3 2 1)
+;;     stack: ()
+;;     res: (4 3 2 1)
+;; (1 2 3 4)
+;;
 (define (flatten . rest)
+  (let loop ((stack rest)
+             (res '()))
+    (cond
+     ((null? stack)
+      ;; We are done, reverse the result.
+      (reverse res))
+     ((null? (car stack))
+      ;; Eat out empty tails.
+      (loop (cdr stack)
+            res))
+     ((pair? (car stack))
+      ;; Convert stack into: (head tail rest-of-stack).
+      (loop (cons (caar stack)
+                  (cons (cdar stack)
+                        (cdr stack)))
+            res))
+     (else
+      ;; Add head to result.
+      (loop (cdr stack)
+            (cons (car stack) res))))))
+
+
+(define (non-tail-flatten . rest)
   (let loop ((lst rest)
              (res '()))
     (cond
