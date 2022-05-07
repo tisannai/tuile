@@ -9,6 +9,7 @@
   #:export
   (
    create
+   create-proxy
    set-layer
    get-layer-index
    put-ch
@@ -23,9 +24,15 @@
 (define-record-type canvas
   (fields (mutable layers)              ; Canvas layers '((0 . '(<chars>))), <char> = #(x y ch).
           (mutable lindex)              ; Layer index (li).
-          ;;          (mutable chars)               ; Canvas characters #(li x y ch).
           (mutable xmax)                ; Maximum x within canvas.
           (mutable ymax)                ; Maximum y within canvas.
+          ))
+
+
+;; Proxy to specified canvas layer.
+(define-record-type proxy
+  (fields canvas
+          lindex
           ))
 
 
@@ -34,26 +41,44 @@
   (make-canvas (create-layer 0) 0 0 0))
 
 
+;; Create proxy for "cv" at layer index "lindex".
+(define (create-proxy cv li)
+  (ensure-layer cv li)
+  (make-proxy cv li))
+
+
+;; Reference canvas directly or indirectly a canvas-proxy.
+(define (r/ cv)
+  (case (record-type cv)
+    ((canvas) cv)
+    ((proxy) (proxy-canvas cv))))
+
+
+(define (ensure-layer cv li)
+  (unless (massoc-has-key? (canvas-layers cv) li)
+    (massoc-set! (canvas-layers cv) li '())))
+
 ;; Set active layer.
 (define (set-layer cv li)
-  (unless (massoc-has-key? (canvas-layers cv) li)
-    (massoc-set! (canvas-layers cv) li '()))
+  (ensure-layer cv li)
   (canvas-lindex-set! cv li))
 
 
 ;; Return layer index.
 (define (get-layer-index cv)
-  (canvas-lindex cv))
+  (case (record-type cv)
+    ((canvas) (canvas-lindex cv))
+    ((proxy) (proxy-lindex cv))))
 
 
 ;; Put char to position (on active layer).
 (define (put-ch cv ch pos)
   (let ((x (px pos))
         (y (py pos)))
-    (when (> x (canvas-xmax cv)) (canvas-xmax-set! cv x))
-    (when (> y (canvas-ymax cv)) (canvas-ymax-set! cv y))
-    (massoc-update! (canvas-layers cv)
-                    (canvas-lindex cv)
+    (when (> x (canvas-xmax (r/ cv))) (canvas-xmax-set! (r/ cv) x))
+    (when (> y (canvas-ymax (r/ cv))) (canvas-ymax-set! (r/ cv) y))
+    (massoc-update! (canvas-layers (r/ cv))
+                    (get-layer-index cv)
                     (lambda (oldval)
                       (cons (vector (px pos) (py pos) ch)
                             oldval)))))
@@ -100,13 +125,13 @@
 ;; Get canvas content (lines) as vector.
 (define (get-lines-vector cv)
   (let ((lines (apply vector (repeat (lambda (i)
-                                       (make-bytevector (1+ (canvas-xmax cv))
+                                       (make-bytevector (1+ (canvas-xmax (r/ cv)))
                                                         (char->integer #\ )))
-                                     (1+ (canvas-ymax cv))))))
-    (let loop-layers ((sorted-li (stable-sort (massoc-keys (canvas-layers cv))
+                                     (1+ (canvas-ymax (r/ cv)))))))
+    (let loop-layers ((sorted-li (stable-sort (massoc-keys (canvas-layers (r/ cv)))
                                               <)))
       (when (pair? sorted-li)
-        (let loop ((chars (reverse (canvas-chars cv (car sorted-li)))))
+        (let loop ((chars (reverse (canvas-chars (r/ cv) (car sorted-li)))))
           (when (pair? chars)
             (let ((x (vector-ref (car chars) 0))
                   (y (vector-ref (car chars) 1))
@@ -121,7 +146,7 @@
 
 ;; Get canvas content (lines) as list.
 (define (get-lines-list cv)
-  (vector->list (get-lines-vector cv)))
+  (vector->list (get-lines-vector (r/ cv))))
 
 
 #;
@@ -138,7 +163,7 @@
 
 
 (define (canvas-chars cv li)
-  (massoc-ref (canvas-layers cv) li))
+  (massoc-ref (canvas-layers (r/ cv)) li))
 
 
 (define (create-layer li)

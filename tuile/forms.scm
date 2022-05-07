@@ -59,9 +59,14 @@
 
 ;; Draw polyline through points.
 ;;
+;; NOTE: @ is a special character that corresponds to first segment
+;;       direction character.
+;;
 ;;     (poly cv ":-|+>" (xy->points 20 10 24 10 24 6 30 6))
 ;;
-(define (poly cv spec . points)
+;;     (poly cv "@-|+>" (xy->points 20 10 24 10 24 6 30 6))
+;;
+(define (poly cv spec points)
 
   (define (draw-segment cv pa pb ch-beg ch-hor ch-ver ch-end)
     (let ((dir-len (p-p-dir-len pa pb)))
@@ -76,21 +81,28 @@
                          pa
                          (car dir-len))))
 
-  (let-values (((ch-beg ch-hor ch-ver ch-cnr ch-end) (apply values (string->list spec))))
-    (let loop ((state 'first)
-               (prev (car points))
-               (points (cdr points)))
-      (when (pair? points)
-        (draw-segment cv
-                      prev
-                      (car points)
-                      (if (eq? state 'first) ch-beg ch-cnr)
-                      ch-hor
-                      ch-ver
-                      (if (pair? (cdr points)) ch-cnr ch-end))
-        (loop 'middle
-              (car points)
-              (cdr points))))))
+  (let-values (((ch-beg-sym ch-hor ch-ver ch-cnr ch-end) (apply values (string->list spec))))
+    (let* ((start-dir (path-start-dir points))
+           (ch-beg (if (char=? ch-beg-sym #\@)
+                       (if (or (eq? start-dir 'left)
+                               (eq? start-dir 'right))
+                           ch-hor
+                           ch-ver)
+                       ch-beg-sym)))
+      (let loop ((state 'first)
+                 (prev (car points))
+                 (points (cdr points)))
+        (when (pair? points)
+          (draw-segment cv
+                        prev
+                        (car points)
+                        (if (eq? state 'first) ch-beg ch-cnr)
+                        ch-hor
+                        ch-ver
+                        (if (pair? (cdr points)) ch-cnr ch-end))
+          (loop 'middle
+                (car points)
+                (cdr points)))))))
 
 
 ;; Show drawing from canvas.

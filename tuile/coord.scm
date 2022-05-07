@@ -1,6 +1,6 @@
 (define-module (tuile coord)
   #:use-module ((tuile utils) #:select (span list-range))
-  #:use-module ((srfi srfi-1) #:select (fold))
+  #:use-module ((srfi srfi-1) #:select (fold first second))
   #:export
   (
    p.
@@ -46,6 +46,7 @@
    pp01
    pp11
    pp-len
+   pp-dir
    pp->trace
    pp-point
 
@@ -55,6 +56,7 @@
    r-corner
 
    dir-orientation
+   dir-opposite
    diridx->dir
 
    path->segments
@@ -62,7 +64,7 @@
    path-len
    path-point
    path-points
-
+   path-start-dir
 
    ))
 
@@ -248,6 +250,9 @@
 (define (pp01 pp) (p. (px (pp0 pp)) (py (pp1 pp)))) ; bottom-left
 (define pp11 pp1)                       ; bottom-right
 
+(define (pp-dir pp)
+  (p-p-dir (pp0 pp) (pp1 pp)))
+
 (define (pp-len pp)
   (p-p-len (pp0 pp) (pp1 pp)))
 
@@ -291,6 +296,14 @@
   (case dir
     ((left right) 'horizontal)
     ((down up) 'vertical)))
+
+
+(define (dir-opposite dir)
+  (case dir
+    ((left) 'right)
+    ((right) 'left)
+    ((up)    'down)
+    ((down)  'up)))
 
 
 (define (diridx->dir idx)
@@ -338,3 +351,8 @@
 
 (define (path-points path nth count)
   (list-range (path->trace path) nth count))
+
+
+(define (path-start-dir path)
+  (pp-dir (pp. (first path)
+               (second path))))

@@ -7,5 +7,6 @@
    record-type
    ))
 
+;; Return record-type as symbol.
 (define (record-type rec)
   (record-type-name (record-type-descriptor rec)))

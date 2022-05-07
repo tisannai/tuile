@@ -495,6 +495,16 @@ p
     (('hello (who))
      who)))
 
+(let ((rest '(12 3 (foo bar dii))))
+  (match rest
+    (((? number? x) (? number? y))
+     (values x y #f))
+    (((? number? x) (? number? y) (opts ...))
+     (values x y opts))
+    (((opts ...))
+     (values #f #f opts))
+    (else (values #f #f #f))))
+
 ;; # Pattern matching:
 ;; ------------------------------------------------------------
 
@@ -783,4 +793,21 @@ p
 
 
 ;; # Module:
+;; ------------------------------------------------------------
+
+
+;; ------------------------------------------------------------
+;; # Eval:
+
+(define (eval-with-x prog a b)
+  (let (
+        ;; Variable "a" inserted into a mutable list.
+        (at-a (eval (list 'let (list (list 'x a)) prog) (interaction-environment)))
+        ;; Variable "b" inserted into quasiquoted list.
+        (at-b (eval `(let ((x ,b)) ,prog) (interaction-environment))))
+    (- at-b at-a)))
+
+(pr (eval-with-x '(expt 2 x) 3 5))
+
+;; # Eval:
 ;; ------------------------------------------------------------
