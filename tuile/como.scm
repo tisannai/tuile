@@ -607,6 +607,9 @@
 ;;                     [default   dir       "Directory."       "."]
 ;;                     ))
 ;;
+;;
+;; If option default value is "false" or "true" the option is of switch type.
+;;
 ;; Options (as optional association list):
 ;;
 ;;     revert      Action (as symbol) to revert to if none is defined
@@ -630,14 +633,37 @@
         obj
         (object->string obj)))
 
+  ;; Is value of switch type?
+  (define (is-switch-value? opt)
+    (if (string? opt)
+        (or (string=? opt "true")
+            (string=? opt "false"))
+        #f))
+
+  ;; Convert switch-string to switch-value.
+  (define (switch-str->value val)
+    (cond
+     ((string=? val "false") #f)
+     ((string=? val "true") #t)
+     (else #f)))
+
+  ;; Is option of switch type?
+  (define (is-switch-type? var)
+    (member var switches))
 
   ;; Initialize variables to specified value or #f.
   (define (como-vars-init defs)
     (for-each (lambda (def)
                 (comp:hash-set! como-vars (->string (second def))
-                           (if (> (length def) 3)
-                               (last def) ; Has default, use it.
-                               #f)))
+                                (if (> (length def) 3)
+                                    ;; Has default, use it.
+                                    (if (is-switch-value? (last def))
+                                        (begin
+                                          (set! switches (cons (->string (second def)) switches))
+                                          (switch-str->value (last def)))
+                                        (last def))
+                                    ;; No default.
+                                    #f)))
               defs)
     (when default
       (comp:hash-set! como-vars "default" '())))
@@ -653,9 +679,11 @@
                  (eq? entry (cadr i))))
           action-list))
 
-  (define actions '())
-  (define options '())
-  (define default #f)
+  (define actions  '())
+  (define options  '())
+  (define default  #f)
+
+  (define switches '())
 
   ;; Display all usage info.
   (define (usage como)
@@ -720,6 +748,7 @@
 
   ;; Collect user actions.
   (let ((used-actions '()))
+
     (let parse-next ((rest (cdr (cli-content))))
       (when (pair? rest)
         (cond
@@ -741,13 +770,19 @@
           (if (str-match? (car rest) "=")
 
               (let ((parts (str-split-with (car rest) "=")))
-                (como-var-set! (first parts) (second parts))
+                (como-var-set! (first parts)
+                               (if (is-switch-type? (first parts))
+                                   (switch-str->value (second parts))
+                                   (second parts)))
                 (parse-next (cdr rest)))
 
               (if (pair? (cdr rest))
                   (let ((var (first rest))
                         (val (second rest)))
-                    (como-var-set! var val)
+                    (como-var-set! var
+                                   (if (is-switch-type? var)
+                                       (switch-str->value val)
+                                       val))
                     (parse-next (cddr rest)))
                   (parse-error (ss "Variable \"" (car rest) "\" is missing value")))))
 

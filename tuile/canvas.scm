@@ -17,6 +17,7 @@
    put-str-in-dir
    get-lines-vector
    get-lines-list
+   dimensions
    ))
 
 
@@ -148,6 +149,9 @@
 (define (get-lines-list cv)
   (vector->list (get-lines-vector (r/ cv))))
 
+(define (dimensions cv)
+  (p. (canvas-xmax cv)
+      (canvas-ymax cv)))
 
 #;
 (begin
