@@ -14,6 +14,7 @@
   #:use-module ((srfi srfi-19) #:prefix srfi:)
   #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
+  #:use-module ((ice-9 match) #:select (match))
   #:use-module (tuile re)
   #:use-module (tuile compatible)
   #:export
@@ -34,6 +35,7 @@
    list-range
    list-pick
    list-compact
+   list-randomize
    map-compact
    clean-list
 
@@ -121,6 +123,9 @@
 
    with-exception-terminate
    string-clip
+   string-escape
+   string-unscape
+   string-split-unscape
    make-string-list
    sequence
    range
@@ -334,6 +339,28 @@
                   (lambda (item) (not (or (unspecified? item)
                                           (not item)))))))
     (filter pred lst)))
+
+
+;; Randomize the list ordering.
+;;
+;; If optional argument is given as #f the random state from platform
+;; is applied for seeding. If non-#f argument is given, the given
+;; value is used for seeding.
+(define (list-randomize lst . rest)
+
+  (when (pair? rest)
+    (if (car rest)
+        (set! *random-state* (seed->random-state (car rest)))
+        (set! *random-state* (random-state-from-platform))))
+
+  (let* ((vec (list->vector lst))
+         (size (vector-length vec)))
+    (let loop ((cnt 0))
+      (if (< cnt size)
+          (begin
+            (vector-swap! vec cnt (random size))
+            (loop (1+ cnt)))
+          (vector->list vec)))))
 
 
 ;; Map list by removing (by default) unspecified values.
@@ -1337,6 +1364,9 @@
 
 
 ;; Return substring with possibly negative indeces.
+;;
+;;     (string-clip "foobar" 1 -2)
+;;
 (define (string-clip str . rest)
   (define (normalize index)
     (if (< index 0)
@@ -1364,6 +1394,64 @@
         (substring str
                    n1
                    n2))))))
+
+;; Escape character "ch" from "str". Use optional argument as escape
+;; character (default: #\\).
+(define (string-escape str ch . rest)
+  (let ((escape-char (if (pair? rest) (car rest) #\\)))
+    (let loop ((chars (string->list str))
+               (ret '()))
+      (if (pair? chars)
+          (if (or (char=? (car chars) ch)
+                  (char=? (car chars) escape-char))
+              (loop (cdr chars)
+                    (append (list (car chars) escape-char)
+                            ret))
+              (loop (cdr chars)
+                    (cons (car chars)
+                          ret)))
+          (list->string (reverse ret))))))
+
+
+;; Remove escape character from "str". Use optional argument as escape
+;; character (default: #\\).
+(define (string-unscape str . rest)
+  (let ((escape-char (if (pair? rest) (car rest) #\\)))
+    (let loop ((chars (string->list str))
+               (ret '()))
+      (if (pair? chars)
+          (if (char=? (car chars) escape-char)
+              (loop (cdr chars)
+                    ret)
+              (loop (cdr chars)
+                    (cons (car chars)
+                          ret)))
+          (list->string (reverse ret))))))
+
+
+;; Split string ("str") using "ch", but at the same time unscape the
+;; splitted string fields.
+(define (string-split-unscape str ch . rest)
+  (let ((escape-char (if (pair? rest) (car rest) #\\))
+        (->word (lambda (word) (list->string (reverse word)))))
+      (let loop ((chars (string->list str))
+                 (word '())
+                 (ret '()))
+        (if (pair? chars)
+            (cond
+             ((char=? (car chars) escape-char)
+              (loop (cddr chars)
+                    (cons (cadr chars) word)
+                    ret))
+             ((char=? (car chars) ch)
+              (loop (cdr chars)
+                    '()
+                    (cons (->word word) ret)))
+             (else
+              (loop (cdr chars)
+                    (cons (car chars) word)
+                    ret)))
+            (reverse (cons (->word word) ret))))))
 
 
 ;; Create list of string from symbols, i.e. non-quoted text.
