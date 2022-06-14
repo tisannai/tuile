@@ -80,13 +80,17 @@
 ;; Search needed for file based root.
 (define search-needed #t)
 
+;; Return current directory parts in reverse order.
+(define (->parts) (reverse (cdr (string-split (getcwd) #\/))))
+
+;; Construct absolute path from reversed directory parts.
+(define (->path parts) (string-append "/"
+                                        (string-join (reverse parts) "/")))
+
 
 ;; Return root directory or false.
 (define (prjdir-root-if)
 
-  (define (->parts) (reverse (cdr (string-split (getcwd) #\/))))
-  (define (->path parts) (string-append "/"
-                                        (string-join (reverse parts) "/")))
   (define (home-file) (string-concatenate (list (getenv "HOME")
                                                 "/"
                                                 ".prjdir")))
