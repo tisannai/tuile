@@ -74,28 +74,35 @@
    ))
 
 
-(define file-root #f)
+;; Cached project root.
+(define cached-root #f)
+
+;; Search needed for file based root.
 (define search-needed #t)
 
+
+;; Return root directory or false.
 (define (prjdir-root-if)
+
+  (define (->parts) (reverse (cdr (string-split (getcwd) #\/))))
+  (define (->path parts) (string-append "/"
+                                        (string-join (reverse parts) "/")))
+
   (cond
 
-   (file-root file-root)
-   
+   (cached-root cached-root)
+
    (search-needed
-    (set! file-root
-      (let ((->path (lambda (parts)
-                          (string-append "/"
-                                         (string-join (reverse parts) "/")))))
-        (set! file-root #f)
-        (let loop ((parts (reverse (cdr (string-split (getcwd) #\/)))))
-          (if (pair? parts) 
-              (if (file-exists? (->path (cons ".prjdir" parts)))
-                  (->path parts)
-                  (loop (cdr parts)))
-              #f))))
+    (set! cached-root
+      (set! cached-root #f)
+      (let loop ((parts (->parts)))
+        (if (pair? parts)
+            (if (file-exists? (->path (cons ".prjdir" parts)))
+                (->path parts)
+                (loop (cdr parts)))
+            #f)))
     (set! search-needed #f)
-    file-root)
+    cached-root)
 
    ((getenv "PRJDIR_USER_RE")
     (let* ((pwd (getcwd))
@@ -114,13 +121,14 @@
                                             ".prjdir"))))
       (if (file-exists? file)
           (begin
-            (set! file-root (call-with-input-file file (lambda (port) (get-line port))))
-            file-root)
+            (set! cached-root (call-with-input-file file (lambda (port) (get-line port))))
+            cached-root)
           #f)))
 
    (else #f)))
 
 
+;; Return root directory or fail (with exception).
 (define (prjdir-root)
   (let ((root (prjdir-root-if)))
     (if root
@@ -128,6 +136,8 @@
         (raise-exception 'prjdir-error))))
 
 
+;; Expand filepath with project root, if needed. Optionally a domain
+;; is inserted, if any.
 (define (prjdir-expand filepath . rest)
   (let ((domain (if (pair? rest) (car rest) #f)))
     (cond
@@ -136,15 +146,31 @@
      ((char=? (string-ref filepath 0) #\/)
       filepath)
 
+     ;; Relative path (./).
      ((string=? (substring filepath 0 2) "./")
       (string-concatenate (list (getcwd) "/" (substring filepath 2))))
 
+     ;; Relative path (../).
+     ((string=? (substring filepath 0 3) "../")
+      (let loop ((ap (->parts))
+                 (rp (string-split filepath #\/)))
+        (if (string=? (car rp) "..")
+            (loop (cdr ap) (cdr rp))
+            (->path (append (reverse rp) ap)))))
+
+     ;;     ;; Plain file.
+     ;;     ((= (length (string-split filepath #\/) 1))
+     ;;      (string-concatenate (list (getcwd) "/" filepath)))
+
+     ;; Project path.
      (else
       (let ((root (prjdir-root)))
         (if domain
             (string-concatenate (list root "/" domain "/" filepath))
             (string-concatenate (list root "/" filepath))))))))
 
+
+;; Clear caching related state.
 (define (prjdir-clear)
-  (set! file-root #f)
+  (set! cached-root #f)
   (set! search-needed #t))
