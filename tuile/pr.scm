@@ -8,7 +8,7 @@
    prd
    prdl
    ss
-   se
+   si
    ds
    pd
    pp
@@ -88,13 +88,13 @@
 ;;
 ;;     (si "Hello #{my-friend}!")
 ;;
-(define-syntax se
+(define-syntax si
 
   (lambda (x)
 
     ;; Expand interpolation for a string.
     ;;
-    ;; "Hello #{my-friend}!" -> ("Hello " 'my-friend "!")
+    ;; "Hello #{my-friend}!" -> ("Hello " my-friend "!")
     ;;
     (define (expand str)
 
