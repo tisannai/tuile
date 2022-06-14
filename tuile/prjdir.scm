@@ -87,6 +87,9 @@
   (define (->parts) (reverse (cdr (string-split (getcwd) #\/))))
   (define (->path parts) (string-append "/"
                                         (string-join (reverse parts) "/")))
+  (define (home-file) (string-concatenate (list (getenv "HOME")
+                                                "/"
+                                                ".prjdir")))
 
   (cond
 
@@ -94,7 +97,6 @@
 
    (search-needed
     (set! cached-root
-      (set! cached-root #f)
       (let loop ((parts (->parts)))
         (if (pair? parts)
             (if (file-exists? (->path (cons ".prjdir" parts)))
@@ -116,14 +118,9 @@
         (getenv "PRJDIR_USER_PATH")
         #f))
 
-   ((let ((file (string-concatenate (list (getenv "HOME")
-                                            "/"
-                                            ".prjdir"))))
-      (if (file-exists? file)
-          (begin
-            (set! cached-root (call-with-input-file file (lambda (port) (get-line port))))
-            cached-root)
-          #f)))
+   ((file-exists? (home-file))
+    (set! cached-root (call-with-input-file (home-file) (lambda (port) (get-line port))))
+    cached-root)
 
    (else #f)))
 
