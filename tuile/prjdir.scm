@@ -15,7 +15,8 @@
 ;; The most flexible way of defining the project root is to place an
 ;; empty file (".prjdir") to the project root directory. This supports
 ;; having multiple project roots and project root gets selected always
-;; by the current directory.
+;; by the current directory. PRJDIR_FILE environment variable can be
+;; used to define the root file name if default is not usable.
 ;;
 ;; Another file based way is to place the ".prjdir" file to HOME
 ;; directory and define the project root as the file content. Note that
@@ -24,26 +25,24 @@
 ;; root.
 ;;
 ;; Project directory root may be defined also with the help of
-;; PRJDIR_USER_RE or PRJDIR_USER_PATH environment variables.
+;; PRJDIR_ROOT or PRJDIR_RE environment variables.
 ;;
-;; If PRJDIR_USER_RE is defined, the part of current directory that
-;; matches PRJDIR_USER_RE is used as project root. Hence, expansion is
+;; If PRJDIR_RE is defined, the part of current directory that
+;; matches PRJDIR_RE is used as project root. Hence, expansion is
 ;; dynamic and depends on what is the current working directory. This
 ;; expansion only works when the user is within the project directory
 ;; hierarchy.
 ;;
-;; If PRJDIR_USER_PATH is defined, the root directory is taken as
-;; PRJDIR_USER_PATH value. PRJDIR_USER_PATH is additionally a "backup"
-;; for PRJDIR_USER_RE detection. If PRJDIR_USER_RE fails but
-;; PRJDIR_USER_PATH is defined, then root is defined by
-;; PRJDIR_USER_PATH.
+;; If PRJDIR_ROOT is defined, the root directory is taken as
+;; PRJDIR_ROOT value. PRJDIR_ROOT is used as "backup" for other means.
+;;
 ;;
 ;; The lookup priority for definitions:
 ;;
 ;; 1. .../.prjdir
-;; 2. <PRJDIR_USER_RE>
-;; 3. <PRJDIR_USER_PATH>
-;; 4. <HOME>/.prjdir
+;; 2. <PRJDIR_RE>
+;; 3. <HOME>/.prjdir
+;; 4. <PRJDIR_ROOT>
 ;;
 ;; If empty file based root definition is used, the result will be
 ;; cached. Hence the first lookup takes some time, but the latter
@@ -67,11 +66,25 @@
   #:use-module ((ice-9 textual-ports) #:select (get-line))
   #:export
   (
+   prjdir-filename
    prjdir-root
    prjdir-root-if
    prjdir-expand
    prjdir-clear
    ))
+
+
+;; Project file name (memorized).
+(define prjdir-filename
+  (let ((file #f))
+    (lambda ()
+      (if file
+          file
+          (if (getenv "PRJDIR_FILENAME")
+              (begin
+                (set! file (getenv "PRJDIR_FILENAME"))
+                file)
+              ".prjdir")))))
 
 
 ;; Cached project root.
@@ -85,15 +98,21 @@
 
 ;; Construct absolute path from reversed directory parts.
 (define (->path parts) (string-append "/"
-                                        (string-join (reverse parts) "/")))
+                                      (string-join (reverse parts) "/")))
+
+(define (home-file) (string-append (getenv "HOME")
+                                   "/"
+                                   (prjdir-filename)))
+
+
+(define (extract-path-from-file file)
+  (if (= (stat:size (stat file)) 0)
+      (dirname file)
+      (call-with-input-file file (lambda (port) (get-line port)))))
 
 
 ;; Return root directory or false.
 (define (prjdir-root-if)
-
-  (define (home-file) (string-concatenate (list (getenv "HOME")
-                                                "/"
-                                                ".prjdir")))
 
   (cond
 
@@ -103,28 +122,26 @@
     (set! cached-root
       (let loop ((parts (->parts)))
         (if (pair? parts)
-            (if (file-exists? (->path (cons ".prjdir" parts)))
-                (->path parts)
-                (loop (cdr parts)))
+            (let ((file (->path (cons (prjdir-filename) parts))))
+              (if (file-exists? file)
+                  (extract-path-from-file file)
+                  (loop (cdr parts))))
             #f)))
     (set! search-needed #f)
     cached-root)
 
-   ((getenv "PRJDIR_USER_RE")
+   ((getenv "PRJDIR_RE")
     (let* ((pwd (getcwd))
-           (m (re-match? (getenv "PRJDIR_USER_RE") pwd)))
+           (m (re-match? (getenv "PRJDIR_RE") pwd)))
       (if m
           (substring pwd (car m) (cdr m))
           #f)))
 
-   ((getenv "PRJDIR_USER_PATH")
-    (if (string-contains (getcwd) (getenv "PRJDIR_USER_PATH"))
-        (getenv "PRJDIR_USER_PATH")
-        #f))
-
    ((file-exists? (home-file))
-    (set! cached-root (call-with-input-file (home-file) (lambda (port) (get-line port))))
+    (set! cached-root (extract-path-from-file (home-file)))
     cached-root)
+
+   ((getenv "PRJDIR_ROOT") (getenv "PRJDIR_ROOT"))
 
    (else #f)))
 
@@ -149,7 +166,7 @@
 
      ;; Relative path (./).
      ((string=? (substring filepath 0 2) "./")
-      (string-concatenate (list (getcwd) "/" (substring filepath 2))))
+      (string-append (getcwd) "/" (substring filepath 2)))
 
      ;; Relative path (../).
      ((string=? (substring filepath 0 3) "../")
@@ -161,14 +178,14 @@
 
      ;;     ;; Plain file.
      ;;     ((= (length (string-split filepath #\/) 1))
-     ;;      (string-concatenate (list (getcwd) "/" filepath)))
+     ;;      (string-append (getcwd) "/" filepath))
 
      ;; Project path.
      (else
       (let ((root (prjdir-root)))
         (if domain
-            (string-concatenate (list root "/" domain "/" filepath))
-            (string-concatenate (list root "/" filepath))))))))
+            (string-append (list root "/" domain "/" filepath))
+            (string-append (list root "/" filepath))))))))
 
 
 ;; Clear caching related state.
