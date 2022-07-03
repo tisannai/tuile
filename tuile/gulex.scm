@@ -1,10 +1,8 @@
+;; Efficient lexer library.
+
 (define-module (tuile gulex)
   #:use-module (tuile pr)
-  ;;  #:use-module ((tuile utils) #:select (datum->string find-first define-mu-record))
-  ;;  #:use-module ((tuile utils) #:select (datum->string find-first))
   #:use-module (srfi srfi-1)
-  ;;  #:use-module (srfi srfi-9)
-  ;;  #:use-module (srfi srfi-111)
   #:use-module ((ice-9 textual-ports) #:select (get-char))
   #:use-module (tuile compatible)
   #:export
@@ -17,6 +15,7 @@
    char-stream-file
    char-stream-line
    char-stream-line-prev
+
    token-stream
    token-stream-open
    token-stream-open-with-lexer
@@ -27,6 +26,7 @@
    token-stream-name
    token-stream-line
    token-stream-line-prev
+
    gulex-parse-token-table
    token-table->lexer-ir
    lexer-table->lexer-ir

@@ -7,7 +7,11 @@
 
 (ubu-default "install")
 (action install
- (sh "cp -r tuile" usr-install-path))
+        (let ((files (get-files "tuile/*.scm")))
+          (sh-ser (ubu-for-updates files
+                                   (map (lambda (i) (cat usr-install-path "/tuile/" i))
+                                        (map file-name files))
+                                   (lambda (s t) (gap "cp" s t))))))
 
 (action test-pr
         (with-output
