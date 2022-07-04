@@ -3,18 +3,21 @@
 (define-module (tuile gulex)
   #:use-module (tuile pr)
   #:use-module (srfi srfi-1)
-  #:use-module ((ice-9 textual-ports) #:select (get-char))
+  #:use-module ((ice-9 textual-ports) #:select (get-string-all))
   #:use-module (tuile compatible)
   #:export
   (
    char-stream
    char-stream-open
    char-stream-close
+   char-stream-at-eof?
+   char-stream-is-eof?
+   char-stream-char
    char-stream-get
    char-stream-put
    char-stream-file
    char-stream-line
-   char-stream-line-prev
+;;   char-stream-line-prev
 
    token-stream
    token-stream-open
@@ -25,7 +28,7 @@
    token-stream-put
    token-stream-name
    token-stream-line
-   token-stream-line-prev
+;;   token-stream-line-prev
 
    gulex-parse-token-table
    token-table->lexer-ir
@@ -62,70 +65,87 @@
 ;; Char stream:
 
 (define-record-type char-stream
-  (fields name                   ; Name of stream (filename for files)
-          type                   ; Stream type (file, string)
-          port                   ; Port of stream
-          (mutable lineno)       ; Line number
-          (mutable putback)      ; Putback buffer
-          (mutable char)))       ; Current (prefetch) char
+  (fields name                 ; Name of stream (filename for files).
+          type                 ; Stream type (file, string).
+          text                 ; String of file chars.
+          (mutable index)      ; Current char index.
+          (mutable lineno)     ; Line number info, pair: index, lineno
+          ;;          port                   ; Port of stream
+          ;;          (mutable lineno)       ; Line number
+          ;;          (mutable putback)      ; Putback buffer
+          ;;          (mutable char)
+          ))       ; Current (prefetch) char
 
 
-(define (char-stream-open name type)
-  (let ((cs (make-char-stream name
+(define (char-stream-open name-or-text type)
+  (case type
+    ((file) (make-char-stream name-or-text
                               type
-                              (case type
-                                ((file)   (open-input-file   name))
-                                ((string) (open-input-string name))
-                                (else
-                                 (comp:error (ss "char-stream: Invalid stream type: " type))))
-                              1
-                              (list)
-                              #f)))
-    ;; Prefetch first char.
-    (char-stream-get cs)
-    cs))
-
-(define (char-stream-lineno-update! cs proc)
-  (char-stream-lineno-set! cs (proc (char-stream-lineno cs))))
+                              (call-with-input-file name-or-text
+                                (lambda (port) (get-string-all port)))
+                              0
+                              0))
+    ((string) (make-char-stream "<unknown>"
+                                type
+                                name-or-text
+                                0
+                                0))
+    (else
+     (comp:error (ss "char-stream: Invalid stream type: " type)))))
 
 (define (char-stream-close cs)
-  (close-input-port (char-stream-port cs)))
+  #t)
+
+;; EOF marker (symbol, i.e. a non-char).
+(define char-stream-eof-char 'eof)
+
+(define (char-stream-at-eof? cs)
+  (>= (char-stream-index cs)
+      (string-length (char-stream-text cs))))
+
+(define (char-stream-is-eof? sym)
+  (and (symbol? sym) (eq? sym char-stream-eof-char)))
+
+(define (char-stream-char cs)
+  (if (char-stream-at-eof? cs)
+      char-stream-eof-char
+      (string-ref (char-stream-text cs)
+                  (char-stream-index cs))))
+
+(define (char-stream-change-linenum! cs change)
+  (char-stream-lineno-set! cs (+ (char-stream-lineno cs) change)))
+
+(define (char-stream-change-index! cs change)
+  (char-stream-index-set! cs (+ (char-stream-index cs) change)))
 
 (define (char-stream-get cs)
-  (let ((ret (if (pair? (char-stream-putback cs))
-                 (let ((ret (car (char-stream-putback cs))))
-                   (char-stream-putback-set! cs (cdr (char-stream-putback cs)))
-                   ret)
-                 (get-char (char-stream-port cs)))))
-    (when (and (not (eof-object? ret))
-               (char=? ret #\newline))
-      (char-stream-lineno-update! cs 1+))
-    (char-stream-char-set! cs ret)
+  (let ((ret (char-stream-char cs)))
+    (when ret
+      (when (char=? ret #\newline)
+        (char-stream-change-linenum! cs 1))
+      (char-stream-change-index! cs 1))
     ret))
 
 ;; Put back one or more chars. Note that chars must be in latest first
 ;; order.
 (define (char-stream-put cs char-or-chars)
-  (let* ((char-list (if (list? char-or-chars) char-or-chars (list char-or-chars)))
-         (putbacks (cons (char-stream-char cs) char-list))
-         (nl-count (fold + 0 (map (lambda (i) (if (char=? i #\newline) 1 0)) putbacks))))
-    (char-stream-lineno-update! cs (lambda (v) (- v nl-count)))
-    (char-stream-putback-set! cs (append (reverse putbacks) (char-stream-putback cs)))
-    (char-stream-get cs)))
+  (let* ((chars (if (list? char-or-chars) char-or-chars (list char-or-chars)))
+         (nl-count (fold + 0 (map (lambda (i) (if (char=? i #\newline) 1 0)) chars))))
+    (char-stream-change-index! cs (- (length chars)))
+    (char-stream-change-linenum! cs (- nl-count))
+    (char-stream-char cs)))
 
 (define (char-stream-file cs)
-  (if (eq? 'file (char-stream-type cs))
-      (char-stream-name cs)
-      #f))
+  (char-stream-name cs))
 
 (define (char-stream-line cs)
   (char-stream-lineno cs))
 
-(define (char-stream-line-prev cs)
-  (if (and (char-stream-char cs)
-           (char=? #\newline (char-stream-char cs)))
-      (char-stream-lineno cs)
-      (1+ (char-stream-lineno cs))))
+;;(define (char-stream-line-prev cs)
+;;  (if (and (char-stream-char cs)
+;;           (char=? #\newline (char-stream-char cs)))
+;;      (char-stream-lineno cs)
+;;      (1+ (char-stream-lineno cs))))
 
 
 ;; ------------------------------------------------------------
@@ -475,7 +495,7 @@
 
   ;; Is EOF reached?
   (define (eof?)
-    (eof-object? (char-stream-char char-stream)))
+    (char-stream-at-eof? char-stream))
 
   ;; Put back m, but make the first current "char".
   ;; Return: empty list.
@@ -764,54 +784,6 @@
           (mutable next)))              ; Next node.
 
 
-;; Is "ch" accepted by lnode?
-(define (lnode-accept? lnode ch)
-
-  (define (accept? ch lexer)
-
-    (if (char? lexer)
-
-        (char=? lexer ch)
-
-        ;; Non-char.
-        (case (car lexer)
-
-          ;; (sel #\a #\b #\c)
-          ((sel)
-           (let loop ((lexer (cdr lexer)))
-             (if (pair? lexer)
-                 (if (if (char? (car lexer))
-                         (char=? (car lexer) ch)
-                         (accept? ch (car lexer)))
-                     #t
-                     (loop (cdr lexer)))
-
-                 #f)))
-
-          ;; (any)
-          ((any)
-           (not (char=? ch #\newline)))
-
-          ;; (inv (sel #\a #\b #\c))
-          ((inv)
-           (not (accept? ch (second lexer))))
-
-          ;; (ran #\a #\c)
-          ((ran)
-           ;; (pr "ran: " (second lexer) ", " (third lexer))
-           (and (>= (char->integer ch)
-                    (char->integer (second lexer)))
-                (<= (char->integer ch)
-                    (char->integer (third lexer))))))))
-
-  (cond
-   ((eof-object? ch)
-    #f)
-   ((lnode-rule lnode)
-    (accept? ch (lnode-rule lnode)))
-   (else
-    #f)))
-
 
 ;; ------------------------------------------------------------
 ;; Test code:
@@ -1070,7 +1042,12 @@
 
   ;; Is EOF reached?
   (define (eof?)
-    (eof-object? (char-stream-char char-stream)))
+    ;;    (eof-object? (char-stream-char char-stream))
+    (char-stream-at-eof? char-stream))
+
+  ;; Is char EOF marker?
+  (define (eof-char? ch)
+    (char-stream-is-eof? ch))
 
   ;; Reset fsm before starting matching with "fsm-step".
   (define (fsm-reset-set fsm-set)
@@ -1121,6 +1098,55 @@
 
     ;; Check if fsm accepts at "index" the "ch".
     (define (fsm-accept? fsm index ch)
+
+      ;; Is "ch" accepted by lnode?
+      (define (lnode-accept? lnode ch)
+
+        (define (accept? ch lexer)
+
+          (if (char? lexer)
+
+              (char=? lexer ch)
+
+              ;; Non-char.
+              (case (car lexer)
+
+                ;; (sel #\a #\b #\c)
+                ((sel)
+                 (let loop ((lexer (cdr lexer)))
+                   (if (pair? lexer)
+                       (if (if (char? (car lexer))
+                               (char=? (car lexer) ch)
+                               (accept? ch (car lexer)))
+                           #t
+                           (loop (cdr lexer)))
+
+                       #f)))
+
+                ;; (any)
+                ((any)
+                 (not (char=? ch #\newline)))
+
+                ;; (inv (sel #\a #\b #\c))
+                ((inv)
+                 (not (accept? ch (second lexer))))
+
+                ;; (ran #\a #\c)
+                ((ran)
+                 ;; (pr "ran: " (second lexer) ", " (third lexer))
+                 (and (>= (char->integer ch)
+                          (char->integer (second lexer)))
+                      (<= (char->integer ch)
+                          (char->integer (third lexer))))))))
+
+        (cond
+         ((char-stream-is-eof? ch)
+          #f)
+         ((lnode-rule lnode)
+          (accept? ch (lnode-rule lnode)))
+         (else
+          #f)))
+
       (if (lnode-accept? (fsm-get-lnode fsm index)
                          ch)
           index
@@ -1134,7 +1160,7 @@
     (dbug (ss "FSM valid-cur: " (fsm-valid-cur fsm)))
     (dbug (ss "FSM fanout: " (ds (fsm-fanout fsm (fsm-state fsm)))))
 
-    (if (eof-object? ch)
+    (if (char-stream-is-eof? ch)
 
         ;; EOF is never accepted.
         (begin
@@ -1301,18 +1327,17 @@
 
 ;; Open token stream for name (file/string) and type
 ;; (file/string). Use lexer for token extraction rules.
-(define (token-stream-open name type lexer skip-token-prefetch)
+(define (token-stream-open name type lexer)
   (let* ((cs (char-stream-open name type))
          (ts (make-token-stream cs lexer #f '())))
     ;; Prefetch first token.
-    (when (not skip-token-prefetch)
-      (token-stream-get ts))
+    (token-stream-get ts)
     ts))
 
 ;; Open token stream for name (file/string) and type
 ;; (file/string). Use token-table for token extraction rules.
-(define (token-stream-open-with-lexer name type lexer skip-token-prefetch)
-  (token-stream-open name type lexer skip-token-prefetch))
+(define (token-stream-open-with-lexer name type lexer)
+  (token-stream-open name type lexer))
 
 ;; Close token stream.
 (define (token-stream-close ts)
@@ -1342,8 +1367,8 @@
   (char-stream-line (token-stream-cs ts)))
 
 ;; Get previous char-stream line.
-(define (token-stream-line-prev ts)
-  (char-stream-line-prev (token-stream-cs ts)))
+;;(define (token-stream-line-prev ts)
+;;  (char-stream-line-prev (token-stream-cs ts)))
 
 
 ;; ------------------------------------------------------------
