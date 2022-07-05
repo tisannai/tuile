@@ -1,4 +1,21 @@
-;; Efficient lexer library.
+;; Gulex - Efficient lexer library.
+
+;; Gulex is a lexer library with layered structure. The layers (from
+;; bottom up):
+;;
+;; * char-stream: Provide single characters for token layer.
+;;
+;; * token-stream: Provide tokens for parser layer.
+;;
+;; Gulex is lexer which has (currently) two incarnations: interpreter
+;; and FSM. Interpreter is easier to debug and understand, and FSM is
+;; more performant.
+;;
+;; Gulex is registered to the token-stream as the "token
+;; creator". Gulex is provided with the Gulex Token Table, which
+;; defines Regexp to Token mappings.
+;;
+;; For usage and further documentation: see `gulex`, the Gulex CLI tool README.md.
 
 (define-module (tuile gulex)
   #:use-module (tuile pr)
@@ -17,34 +34,37 @@
    char-stream-put
    char-stream-file
    char-stream-line
-;;   char-stream-line-prev
 
    token-stream
    token-stream-open
-   token-stream-open-with-lexer
    token-stream-close
    token-stream-token
+   token-stream-get-lexer
    token-stream-get
    token-stream-put
-   token-stream-name
+   token-stream-file
    token-stream-line
-;;   token-stream-line-prev
+   token-stream-show-token
+
+   token-type
+   token-value
+   token-file
+   token-line
 
    gulex-parse-token-table
-   token-table->lexer-ir
-   lexer-table->lexer-ir
    gulex-create-lexer-interp
    gulex-create-lexer-fsm
-   gulex-lexer-get-token
-   gulex-show-token
-   gulex-token-type
-   gulex-token-value
-   gulex-token-file
-   gulex-token-line
+   gulex-token-table->lexer-ir
+;;   lexer-table->lexer-ir
+
+   ;;   gulex-lexer-get-token
+   ;;   gulex-show-token
+   ;;   gulex-token-type
+   ;;   gulex-token-value
+   ;;   gulex-token-file
+   ;;   gulex-token-line
    ))
 
-
-;; For usage: see `gulex`, the Gulex CLI tool README.md.
 
 ;; Proper C block comment regex:
 ;;   /\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/
@@ -65,16 +85,12 @@
 ;; Char stream:
 
 (define-record-type char-stream
-  (fields name                 ; Name of stream (filename for files).
-          type                 ; Stream type (file, string).
-          text                 ; String of file chars.
+  (fields file                 ; Filename of stream.
+          type                 ; Stream type (file, text).
+          text                 ; String of file/text chars.
           (mutable index)      ; Current char index.
           (mutable lineno)     ; Line number info, pair: index, lineno
-          ;;          port                   ; Port of stream
-          ;;          (mutable lineno)       ; Line number
-          ;;          (mutable putback)      ; Putback buffer
-          ;;          (mutable char)
-          ))       ; Current (prefetch) char
+          ))
 
 
 (define (char-stream-open name-or-text type)
@@ -85,11 +101,11 @@
                                 (lambda (port) (get-string-all port)))
                               0
                               0))
-    ((string) (make-char-stream "<unknown>"
-                                type
-                                name-or-text
-                                0
-                                0))
+    ((text) (make-char-stream "<unknown>"
+                              type
+                              name-or-text
+                              0
+                              0))
     (else
      (comp:error (ss "char-stream: Invalid stream type: " type)))))
 
@@ -135,17 +151,126 @@
     (char-stream-change-linenum! cs (- nl-count))
     (char-stream-char cs)))
 
-(define (char-stream-file cs)
-  (char-stream-name cs))
-
 (define (char-stream-line cs)
   (char-stream-lineno cs))
 
-;;(define (char-stream-line-prev cs)
-;;  (if (and (char-stream-char cs)
-;;           (char=? #\newline (char-stream-char cs)))
-;;      (char-stream-lineno cs)
-;;      (1+ (char-stream-lineno cs))))
+
+
+
+;; ------------------------------------------------------------
+;; Token stream:
+
+;;(define-record-type token-stream
+;;  (make-token-stream cs lexer token buf)
+;;  token-stream?
+;;  (cs    token-stream-cs)                            ; Char-stream.
+;;  (lexer token-stream-lexer)                         ; Lexer (interp, fsm, ...).
+;;  (token token-stream-token set-token-stream-token!) ; Current token.
+;;  (buf   token-stream-buf set-token-stream-buf!))        ; Buffer for put-back.
+
+(define-record-type token-stream
+  (fields cs                            ; Char-stream.
+          lexer                         ; Lexer (interp, fsm, ...).
+          (mutable token)               ; Current token.
+          (mutable buf)))               ; Buffer for put-back.
+
+;; Open token stream for name-or-text (file/string) and type
+;; (file/string). Use lexer for token extraction rules.
+(define (token-stream-open name-or-text type lexer)
+  (let* ((cs (char-stream-open name-or-text type))
+         (ts (make-token-stream cs lexer #f '())))
+    ;; Prefetch first token.
+    (token-stream-get ts)
+    ts))
+
+;;;; Open token stream for name (file/string) and type
+;;;; (file/string). Use token-table for token extraction rules.
+;;(define (token-stream-open-with-lexer name type lexer)
+;;  (token-stream-open name type lexer))
+
+;; Close token stream.
+(define (token-stream-close ts)
+  (char-stream-close (token-stream-cs ts)))
+
+;; Get token from lexer.
+;;
+(define (token-stream-get-lexer ts)
+  (let* ((char-stream (token-stream-cs ts))
+         (lexer (token-stream-lexer ts))
+         (file (char-stream-file char-stream))
+         (line (1+ (char-stream-line char-stream)))
+         (lex-ret (lexer char-stream))
+         (ret (list (first lex-ret)
+                    (list->string (second lex-ret))
+                    file
+                    line)))
+    (when token-stream-show-token-active
+      (pr "Token Stream: " (comp:datum->string ret)))
+    ret))
+
+;; Return: (<token> <lexeme> <file> <line>)
+#;
+(define (gulex-lexer-get-token lexer char-stream)
+  (let* ((file (char-stream-file char-stream))
+         (line (1+ (char-stream-line char-stream)))
+         (lex-ret (lexer char-stream))
+         (ret (list (first lex-ret)
+                    (list->string (second lex-ret))
+                    file
+                    line)))
+    (when gulex-show-token-active
+      (pr "GULEX: Token: " (comp:datum->string ret)))
+    ret))
+
+
+;; Get next token.
+;;
+;; Return:
+;;
+;;     (<token> <lexeme> <file> <line>)
+;;
+(define (token-stream-get ts)
+  (let ((ret (if (pair? (token-stream-buf ts))
+                 (let ((ret (car (token-stream-buf ts))))
+                   (token-stream-buf-set! ts (cdr (token-stream-buf ts)))
+                   ret)
+;;                 (gulex-lexer-get-token (token-stream-lexer ts)
+;;                                        (token-stream-cs ts))
+                 (token-stream-get-lexer ts)
+                 )))
+    (token-stream-token-set! ts ret)
+    ret))
+
+;; Put back token.
+(define (token-stream-put ts token)
+  (token-stream-buf-set! ts (append (token-stream-buf ts) (list token))))
+
+;; Get current char-stream line.
+(define (token-stream-file ts)
+  (char-stream-file (token-stream-cs ts)))
+
+;; Get current char-stream line.
+(define (token-stream-line ts)
+  (char-stream-line (token-stream-cs ts)))
+
+(define token-stream-show-token-active #f)
+
+;; Turn on token display with
+;;     (token-stream-show-token)
+;;     (token-stream-show-token #t)
+;; Turn off token display with
+;;     (token-stream-show-token #f)
+(define (token-stream-show-token . rest)
+  (set! token-stream-show-token-active (if (pair? rest)
+                                    (car rest)
+                                    #t)))
+
+
+(define token-type  first)
+(define token-value second)
+(define token-file  third)
+(define token-line  fourth)
+
 
 
 ;; ------------------------------------------------------------
@@ -442,8 +567,20 @@
        table))
 
 
-;; Return lexer-ir: ((token lexer-def) ...)
-(define (token-table->lexer-ir table)
+;; Convert Token Table to Lexer IR.
+;;
+;; Return lexer-ir: (opt (tok <token> <lexer-def>) ...)
+(define (gulex-token-table->lexer-ir table)
+
+  ;; Convert:
+  ;;     ((<token> <lexer-def>) ...)
+  ;; TO
+  ;;     (opt (tok <token> <lexer-def>) ...)
+  (define (lexer-table->lexer-ir lexer-table)
+    (cons 'opt (map (lambda (p)
+                      (cons 'tok p))
+                    lexer-table)))
+
   (lexer-table->lexer-ir (gulex-parse-token-table table)))
 
 
@@ -767,7 +904,7 @@
 
 
 (define (gulex-create-lexer-interp gulex-token-table)
-  (let ((lexer-ir (token-table->lexer-ir gulex-token-table)))
+  (let ((lexer-ir (gulex-token-table->lexer-ir gulex-token-table)))
     (lambda (char-stream)
       (lex-interp #f lexer-ir char-stream))))
 
@@ -1298,7 +1435,7 @@
 
 
 (define (gulex-create-lexer-fsm gulex-token-table)
-  (let* ((lexer-ir (token-table->lexer-ir gulex-token-table))
+  (let* ((lexer-ir (gulex-token-table->lexer-ir gulex-token-table))
          (fsm-set (map (lambda (token-ir)
                          (lexer-ir->fsm (second token-ir) (third token-ir)))
                        (cdr lexer-ir))))
@@ -1307,96 +1444,12 @@
 
 
 
-
-;; ------------------------------------------------------------
-;; Token stream:
-
-;;(define-record-type token-stream
-;;  (make-token-stream cs lexer token buf)
-;;  token-stream?
-;;  (cs    token-stream-cs)                            ; Char-stream.
-;;  (lexer token-stream-lexer)                         ; Lexer (interp, fsm, ...).
-;;  (token token-stream-token set-token-stream-token!) ; Current token.
-;;  (buf   token-stream-buf set-token-stream-buf!))        ; Buffer for put-back.
-
-(define-record-type token-stream
-  (fields cs                            ; Char-stream.
-          lexer                         ; Lexer (interp, fsm, ...).
-          (mutable token)               ; Current token.
-          (mutable buf)))               ; Buffer for put-back.
-
-;; Open token stream for name (file/string) and type
-;; (file/string). Use lexer for token extraction rules.
-(define (token-stream-open name type lexer)
-  (let* ((cs (char-stream-open name type))
-         (ts (make-token-stream cs lexer #f '())))
-    ;; Prefetch first token.
-    (token-stream-get ts)
-    ts))
-
-;; Open token stream for name (file/string) and type
-;; (file/string). Use token-table for token extraction rules.
-(define (token-stream-open-with-lexer name type lexer)
-  (token-stream-open name type lexer))
-
-;; Close token stream.
-(define (token-stream-close ts)
-  (char-stream-close (token-stream-cs ts)))
-
-;; Get next token.
-(define (token-stream-get ts)
-  (let ((ret (if (pair? (token-stream-buf ts))
-                 (let ((ret (car (token-stream-buf ts))))
-                   (token-stream-buf-set! ts (cdr (token-stream-buf ts)))
-                   ret)
-                 (gulex-lexer-get-token (token-stream-lexer ts)
-                                        (token-stream-cs ts)))))
-    (token-stream-token-set! ts ret)
-    ret))
-
-;; Put back token.
-(define (token-stream-put ts token)
-  (token-stream-buf-set! ts (append (token-stream-buf ts) (list token))))
-
-;; Get current char-stream line.
-(define (token-stream-name ts)
-  (char-stream-name (token-stream-cs ts)))
-
-;; Get current char-stream line.
-(define (token-stream-line ts)
-  (char-stream-line (token-stream-cs ts)))
-
-;; Get previous char-stream line.
-;;(define (token-stream-line-prev ts)
-;;  (char-stream-line-prev (token-stream-cs ts)))
-
-
 ;; ------------------------------------------------------------
 ;; Common:
 
-;; Convert:
-;;     ((<token> <lexer-def>) ...)
-;; TO
-;;     (opt (tok <token> <lexer-def>) ...)
-(define (lexer-table->lexer-ir lexer-table)
-  (cons 'opt (map (lambda (p)
-                    (cons 'tok p))
-                  lexer-table)))
-
-
-(define gulex-show-token-active #f)
-
-;; Turn on token display with
-;;     (gulex-show-token)
-;;     (gulex-show-token #t)
-;; Turn off token display with
-;;     (gulex-show-token #f)
-(define (gulex-show-token . rest)
-  (set! gulex-show-token-active (if (pair? rest)
-                                    (car rest)
-                                    #t)))
 
 ;; Return: (<token> <lexeme> <file> <line>)
+#;
 (define (gulex-lexer-get-token lexer char-stream)
   (let* ((file (char-stream-file char-stream))
          (line (1+ (char-stream-line char-stream)))
