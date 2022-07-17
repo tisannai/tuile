@@ -86,23 +86,6 @@
           ))
 
 
-#;
-(define (char-stream-open name-or-text type)
-(case type
-((file) (make-char-stream name-or-text
-type
-(call-with-input-file name-or-text
-(lambda (port) (get-string-all port)))
-0
-0))
-((text) (make-char-stream "<unknown>"
-type
-name-or-text
-0
-0))
-(else
-(comp:error (ss "char-stream: Invalid stream type: " type)))))
-
 (define (char-stream-open filename)
   (if (file-exists? filename)
       (make-char-stream filename
