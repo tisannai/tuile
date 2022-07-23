@@ -23,10 +23,7 @@
 ;;
 ;; reldir-dotted: relative directory of file with "." or ".." prefix.
 ;;
-;; dir: resolved directory of file, i.e. for absolute file path the
-;;      dir itself and for relative file path the extended dir.
-;;
-;; path: dir with filename included.
+;; path: absolute dir with filename included.
 
 (define-module (tuile fn)
   #:use-module ((srfi srfi-1) #:select (first second fold take drop take-right drop-right))
@@ -58,6 +55,8 @@
             fn->abs
             fs->fn
             fn->fs
+
+            fl
             ))
 
 
@@ -205,17 +204,6 @@
          ((string=? (car tail) ".") (loop (cdr tail) base))
          (else (cons #t (append (reverse tail) base)))))))
 
-
-;; Return proper/clean list of fn in order.
-#;
-(define (fn->list fn)
-  (let join ((ret '())
-             (tail fn))
-    (if (pair? tail)
-        (join (cons (car tail) ret) (cdr tail))
-        ret)))
-
-
 ;; File-string to fn.
 (define (fs->fn fs)
 
@@ -260,36 +248,6 @@
                           (cons (->part part) ret)
                           ret))))))
 
-#;
-(define (fs->fn fs)
-
-  ;; (->fn ("foo" "bar" "dii.txt") '())
-  ;;   ->
-  ;; '("dii.txt" "bar" "foo")
-  (define (->fn lst ret)
-    (if (pair? lst)
-        (->fn (cdr lst) (cons (car lst) ret))
-        ret))
-
-  (let ((parts (string-split fs #\/)))
-    (cond
-
-     ((= 1 (length parts))
-      (cons (car parts) #f))
-
-     ((string=? "" (car parts))
-      (->fn (cdr parts) '()))
-
-     ((string=? ".." (car parts))
-      (->fn parts #f))
-
-     ((string=? "." (car parts))
-      (->fn (cdr parts) #f))
-
-     (else
-      (->fn parts #f)))))
-
-
 ;; fn to file-string.
 (define (fn->fs fn)
   (if (fn-is-abs? fn)
@@ -300,30 +258,41 @@
 
 ;; File-language processor.
 ;;
+;; Examples:
+;;
 ;;     (fl "/foo/bar/jii.haa" "df") -> "/foo/bar/jii.haa"
 ;;     (fl "/foo/bar/jii.haa" "db") -> "/foo/bar/jii"
 ;;     (fl "/foo/bar/jii.haa" ("da" "my-file.txt")) -> "/foo/bar/my-file.txt"
 ;;
-;; <     - begin
-;; >     - end
-;; f     - filename
-;; b     - basename
-;; e     - extname
-;; d     - dir (absolute)
-;; r     - reldir
-;; i     - index
-;; s     - slice
-;; [0-9] - index (from end)
-;; [0-9] - range (from end or begin)
-;; a     - argument
-;; h     - home path
+;; One-character commands:
 ;;
-
+;;     f          - filename
+;;     b          - basename
+;;     e          - extname
+;;     d          - dir (absolute)
+;;     r          - reldir
+;;     [0-9]      - slice (from end by count)
+;;     [0-9][0-9] - slice (between indeces, higher is exclusive)
+;;     <          - index begin
+;;     >          - index end
+;;     a          - argument
+;;     h          - home path
+;;
+;; Indeces are plain number (e.g. "3") or a multi-digit number
+;; (e.g. ".123").
+;;
+;; Slice is given from end if first index is bigger than second.
+;; Slice is given from beginning if first index is smaller than
+;; second.
+;;
+;; The "a" command accepts arguments, which are listed in the tail
+;; part of command.
+;;
 (define (fl fs . expr-list)
 
   ;; Parse expr to list of commands.
   ;;
-  ;;     ( '(ref-begin . 1) 'filename )
+  ;;     ( '(index-begin . 1) 'filename )
   ;;
   (define (parse expr)
 
@@ -343,6 +312,7 @@
                   (cons (car chars) digits))
             (cons chars (string->number (list->string (reverse digits)))))))
 
+    ;; Return: (<chars> . <number>)
     (define (parse-number chars)
 
       ;; Return: (<chars> . <number>)
@@ -368,6 +338,7 @@
           (parse-short-ref chars)
           (parse-long-ref chars)))
 
+    ;; Return: (<chars> . (<numbers>))
     (define (parse-numbers chars)
       (let loop ((chars chars)
                  (numbers '()))
@@ -379,6 +350,7 @@
             (cons chars
                   (reverse numbers)))))
 
+    ;; Body: parse
     (let ((chars (string->list (if (pair? expr)
                                    (car expr)
                                    expr)))
@@ -431,10 +403,12 @@
             ret))))
 
 
+  ;; Make part a root directory.
   (define (rootify part)
     (string-append "/" part))
 
 
+  ;; Slice command.
   (define (command-slice fn args)
 
     (define (normalize-index index)
@@ -463,6 +437,7 @@
                 ret)))))
 
 
+  ;; Body: fl
   (let* ((fn (fs->fn fs))
          (res (map
                (lambda (expr)
@@ -475,13 +450,14 @@
                        (if (pair? (car commands))
 
                            ;; Command with argument.
+                           ;;     (<command> . <arg-or-args>)
                            (let ((command (caar commands))
                                  (args (cdar commands)))
 
                              (case command
 
                                ((slice) (loop (cdr commands)
-                                              (append (command-slice fn args)
+                                              (append (command-slice (fn->abs fn) args)
                                                       ret)))
 
                                ((index-end) (loop (cdr commands)
@@ -504,6 +480,7 @@
                                                  (cons args ret)))))
 
                            ;; Direct command.
+                           ;;     <command>
                            (case (car commands)
 
                              ((filename) (loop (cdr commands)
@@ -530,18 +507,3 @@
     (if (= (length res) 1)
         (car res)
         res)))
-
-(use-modules (tuile pr))
-;;(pr (fl "../foo/bar/hii.txt" "db"))
-;;(pr (fl "../foo/bar/hii.txt" '("dba" "txt")))
-;;(pr (fl "../foo/bar/hii.txt" '("dba" "foo" "bar")))
-;;(pr (fl "../foo/bar/hii.txt" '("dbaa" "foo" "bar")))
-;;(pr (fl "../foo/bar/hii.txt" '("hbaa" "foo" "bar")))
-;;(pr (fl "/foo/bar/hii.txt" "db"))
-(pr (fl "/foo/bar/hii.txt" "4"))
-(pr (fl "/foo/bar/hii.txt" "3"))
-(pr (fl "/foo/bar/hii.txt" "10"))
-(pr (fl "/foo/bar/hii.txt" ">0"))
-(pr (fl "/foo/bar/hii.txt" ">1"))
-(pr (fl "/foo/bar/hii.txt" "<0"))
-(pr (fl "/foo/bar/hii.txt" "<1"))

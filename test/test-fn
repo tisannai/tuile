@@ -8,7 +8,7 @@
 (use-modules (tuile fn))
 (use-modules (srfi srfi-9))
 
-(use-modules ((srfi srfi-1) #:select (drop-right)))
+(use-modules ((srfi srfi-1) #:select (drop-right first second)))
 
 (define-record-type tc
   (make-tc name func prefixes bodies reference)
@@ -23,6 +23,9 @@
 
 (define (getcwd-one-up)
   (string-join (drop-right (string-split (getcwd) #\/) 1) "/"))
+
+(define (getcwd-first)
+  (string-append "/" (second (string-split (getcwd) #\/))))
 
 (define tc-list
   (list
@@ -221,6 +224,115 @@
             #t)
 
    ;; Implicitly tested: fn-body, fn-file, fn-dir, fn->abs, fs->fn, fn->fs
+
+
+   (make-tc "fl filename"
+            (lambda (fs) (fl fs "f"))
+            (list "/" "./" "../" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            "dii.txt")
+
+   (make-tc "fl basename"
+            (lambda (fs) (fl fs "b"))
+            (list "/" "./" "../" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt")
+            "dii")
+
+   (make-tc "fl extname"
+            (lambda (fs) (fl fs "e"))
+            (list "/" "./" "../" "")
+            (list "dii.txt" "foo/dii.txt" "foo/bar/dii.txt"
+                  "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            "txt")
+
+   (make-tc "fl dir"
+            (lambda (fs) (fl fs "d"))
+            (list "./" "")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (map (lambda (i) (if (string=? i "") (getcwd)
+                                 (string-append (getcwd) "/" i)))
+                 (list "" "foo" "foo/bar")))
+
+   (make-tc "fl dir"
+            (lambda (fs) (fl fs "d"))
+            (list "../")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list (string-append (getcwd-one-up) "")
+                  (string-append (getcwd-one-up) "/" "foo")
+                  (string-append (getcwd-one-up) "/" "foo/bar")))
+
+   (make-tc "fl dir"
+            (lambda (fs) (fl fs "d"))
+            (list "/")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "/" "/foo" "/foo/bar"))
+
+   (make-tc "fl reldir"
+            (lambda (fs) (fl fs "r"))
+            (list "./" "")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "" "foo" "foo/bar"))
+
+   (make-tc "fl reldir"
+            (lambda (fs) (fl fs "r"))
+            (list "../")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list ".." "../foo" "../foo/bar"))
+
+   (make-tc "fl reldir"
+            (lambda (fs) (fl fs "r"))
+            (list "/")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "/" "/foo" "/foo/bar"))
+
+   (make-tc "fl slice by count 1"
+            (lambda (fs) (fl fs "1"))
+            (list "./" "../" "")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "dii.extra.txt" "dii.extra.txt" "dii.extra.txt"))
+
+   (make-tc "fl slice by count 1"
+            (lambda (fs) (fl fs "1"))
+            (list "/")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "/dii.extra.txt" "dii.extra.txt" "dii.extra.txt"))
+
+   (make-tc "fl slice by count 2"
+            (lambda (fs) (fl fs "2"))
+            (list "./" "../" "")
+            (list "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "foo/dii.extra.txt" "bar/dii.extra.txt"))
+
+   (make-tc "fl slice by count 2"
+            (lambda (fs) (fl fs "2"))
+            (list "/")
+            (list "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "/foo/dii.extra.txt" "bar/dii.extra.txt"))
+
+   (make-tc "fl slice by range end"
+            (lambda (fs) (fl fs "10"))
+            (list "./" "../" "")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "dii.extra.txt" "dii.extra.txt" "dii.extra.txt"))
+
+   (make-tc "fl slice by range end"
+            (lambda (fs) (fl fs "20"))
+            (list "/")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "/dii.extra.txt" "/foo/dii.extra.txt" "bar/dii.extra.txt"))
+
+   (make-tc "fl slice by range begin"
+            (lambda (fs) (fl fs "01"))
+            (list "./" "../" "")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list (getcwd-first) (getcwd-first) (getcwd-first)))
+
+   (make-tc "fl slice by range begin"
+            (lambda (fs) (fl fs "02"))
+            (list "/")
+            (list "dii.extra.txt" "foo/dii.extra.txt" "foo/bar/dii.extra.txt")
+            (list "/dii.extra.txt" "/foo/dii.extra.txt" "/foo/bar"))
+
 
    ))
 
