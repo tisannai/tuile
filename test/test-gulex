@@ -29,23 +29,34 @@
    ))
 
 
-;;(define test-lexer gulex-create-lexer-interp)
-(define test-lexer gulex-create-lexer-fsm)
+(define test-lexer gulex-create-lexer-interp)
+;;(define test-lexer gulex-create-lexer-fsm)
 
-(define lexer-interp (test-lexer gulex-token-table))
+(define lexer (test-lexer gulex-token-table))
+
+;;(define (get-token-for string)
+;;  (let* ((cs (char-stream-open-with-text string))
+;;         (ret (token-type (gulex-lexer-get-token lexer-interp cs))))
+;;    (pd ret)
+;;    (char-stream-close cs)
+;;    ret))
+;;
+;;(define (get-string-for string)
+;;  (let* ((cs (char-stream-open-with-text string))
+;;         (ret (token-value (gulex-lexer-get-token lexer-interp cs))))
+;;    (char-stream-close cs)
+;;    ret))
 
 (define (get-token-for string)
-  (let* ((cs (char-stream-open string 'string))
-         (ret (gulex-token-type (gulex-lexer-get-token lexer-interp cs)))
-         )
-    (char-stream-close cs)
+  (let* ((ts (token-stream-open-with-text string lexer))
+         (ret (token-type (token-stream-token ts))))
+    (token-stream-close ts)
     ret))
 
 (define (get-string-for string)
-  (let* ((cs (char-stream-open string 'string))
-         (ret (gulex-token-value (gulex-lexer-get-token lexer-interp cs)))
-         )
-    (char-stream-close cs)
+  (let* ((ts (token-stream-open-with-text string lexer))
+         (ret (token-value (token-stream-token ts))))
+    (token-stream-close ts)
     ret))
 
 (define st? string=?)
@@ -107,11 +118,10 @@
 
 
 (let (
-      (ts (token-stream-open-with-lexer "  guilebron  guile guilo 32123 foo_bar diiduu abcdabcd aa !!!"
-                                        'string
-                                        (test-lexer gulex-token-table)
-                                        #t)))
-  (let loop ((ref '(
+      (ts (token-stream-open-with-text "  guilebron  guile guilo 32123 foo_bar diiduu abcdabcd aa !!!"
+                                       (test-lexer gulex-token-table))))
+  (let loop ((ret (token-stream-token ts))
+             (ref '(
                     (SPACE   . "  ")
                     (ID      . "guilebron")
                     (SPACE   . "  ")
@@ -133,17 +143,17 @@
                     (UNKNOWN . "!")
                     (UNKNOWN . "!")
                     )))
-    (let ((ret (token-stream-get ts)))
-      (cond ((eq? (gulex-token-type ret)
-                  'eof)
-             #t)
+    (cond ((eq? (token-type ret)
+                'eof)
+           #t)
 
-            (else
-             ;; (pr "ret: " (datum->string ret))
-             ;; (pr "ref: " (datum->string (car ref)))
-             (test-assert (cdar ref) (equal? (cons (gulex-token-type ret)
-                                                   (gulex-token-value ret))
-                                             (car ref)))
-             (loop (cdr ref)))))))
+          (else
+           ;; (pr "ret: " (datum->string ret))
+           ;; (pr "ref: " (datum->string (car ref)))
+           (test-assert (cdar ref) (equal? (cons (token-type ret)
+                                                 (token-value ret))
+                                           (car ref)))
+           (loop (token-stream-get ts)
+                 (cdr ref))))))
 
 (test-end)
