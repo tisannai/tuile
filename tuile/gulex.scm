@@ -374,6 +374,7 @@
                      ((is? #\- (peek))
                       (let ((t1 (get)))
                         (if (is? #\] (peek))
+                            ;; Literal "-" in char range.
                             (cons t1 (cons (get) (loop)))
                             (begin
                               (use #\-)
@@ -391,35 +392,7 @@
                       (when (is? #\\ (cur))
                         (get))
                       (cons (get)
-                            (loop)))))
-
-
-;;                  (let loop ()
-;;
-;;                    (cond
-;;
-;;                     ;; [a-z...]
-;;                     ;;   ^
-;;                     ((is? #\- (peek))
-;;                      (let ((t1 (get)))
-;;                        (use #\-)
-;;                        (cons (list 'ran t1 (use-if normal?))
-;;                              (loop))))
-;;
-;;                     ;; [abc]
-;;                     ;;     ^
-;;                     ((is? #\] (cur))
-;;                      '())
-;;
-;;                     ;; [ab...]
-;;                     ;;  ^
-;;                     (else
-;;                      (when (is? #\\ (cur))
-;;                        (get))
-;;                      (cons (get)
-;;                            (loop)))))
-
-                  )))
+                            (loop))))))))
 
       ;; Parse selection.
       ;; [...]
