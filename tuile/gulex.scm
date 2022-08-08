@@ -39,6 +39,7 @@
    token-stream-open
    token-stream-open-with-text
    token-stream-close
+   token-stream-use-stream
    token-stream-token
    token-stream-lexer-get
    token-stream-get
@@ -154,7 +155,7 @@
 ;; Token stream:
 
 (define-record-type token-stream
-  (fields cs                            ; Char-stream.
+  (fields (mutable cs)                  ; Char-stream.
           lexer                         ; Lexer (interp, fsm, ...).
           (mutable token)               ; Current token.
           (mutable buf)))               ; Buffer for put-back.
@@ -181,6 +182,14 @@
 ;; Close token stream.
 (define (token-stream-close ts)
   (char-stream-close (token-stream-cs ts)))
+
+;; Change char-stream.
+(define (token-stream-use-stream ts cs)
+  (char-stream-close (token-stream-cs ts))
+  (token-stream-cs-set! ts cs)
+  ;; Prefetch first token.
+  (token-stream-get ts)
+  ts)
 
 ;; Get token from lexer.
 (define (token-stream-lexer-get ts)
@@ -352,17 +361,25 @@
             ;; [ab...]
             ;;  ^
             (cons 'sel
+
                   (let loop ()
 
                     (cond
 
                      ;; [a-z...]
                      ;;   ^
+                     ;; OR
+                     ;; [...-]
+                     ;;     ^
                      ((is? #\- (peek))
                       (let ((t1 (get)))
-                        (use #\-)
-                        (cons (list 'ran t1 (use-if normal?))
-                              (loop))))
+                        (if (is? #\] (peek))
+                            ;; Literal "-" in char range.
+                            (cons t1 (cons (get) (loop)))
+                            (begin
+                              (use #\-)
+                              (cons (list 'ran t1 (use-if normal?))
+                                    (loop))))))
 
                      ;; [abc]
                      ;;     ^
