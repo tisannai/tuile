@@ -791,6 +791,12 @@ p
 
 (use-modules (bar))
 
+;; Guile internals example: module reflection.
+
+(define pr (resolve-module '(tuile pr)))
+;; Print all module bindings, i.e. obarray keys.
+(pd (hash-map->list (lambda (k v) k) (module-obarray dbg)))
+
 
 ;; # Module:
 ;; ------------------------------------------------------------
