@@ -1,4 +1,5 @@
 (define-module (tuile bits)
+  #:use-module ((rnrs records syntactic) #:select (define-record-type))
   #:use-module (tuile utils)
   #:use-module (tuile pr)
   #:export
@@ -33,7 +34,9 @@
 ;; ------------------------------------------------------------
 ;; Creation and modification:
 
-(define-mu-record bits value width)
+(define-record-type bits
+  (fields (mutable value)
+          (mutable width)))
 
 (define (bits-error msg)
   (display (ss "bits error: " msg "\n") (current-error-port))
@@ -68,13 +71,6 @@
   (bits-new (bits-value b)
             (bits-width b)))
 
-(define bn bits-new)
-(define bt bits-new-tc)
-(define bd bits-dup)
-(define bv bits-value)
-(define bs bits-value-tc)
-(define bw bits-width)
-
 (define (bits-value-tc b)
   (- (- (expt 2 (bits-width b))
         (bits-value b))))
@@ -82,8 +78,8 @@
 (define (bits-resize bits count)
   (let ((width (+ (bits-width bits) count)))
     (when (> width 1)
-      (set-bits-width! bits width)
-      (set-bits-value! bits (bits-value-wrap (bits-value bits) width)))))
+      (bits-width-set! bits width)
+      (bits-value-set! bits (bits-value-wrap (bits-value bits) width)))))
 
 (define (bits^ b)
   (bits-new-tc (- (bits-value b)) (bits-width b)))
@@ -119,6 +115,19 @@
 
 (define (bits->bin-string bits)
   (:rj (bits-width bits) "0" (number->string (bits-value bits) 2)))
+
+
+
+;; ------------------------------------------------------------
+;; Aliases:
+
+
+(define bn bits-new)
+(define bt bits-new-tc)
+(define bd bits-dup)
+(define bv bits-value)
+(define bs bits-value-tc)
+(define bw bits-width)
 
 
 
