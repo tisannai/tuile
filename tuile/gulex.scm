@@ -191,6 +191,8 @@
   (token-stream-get ts)
   ts)
 
+;; CONTINUE: Add push-stream and pop-stream.
+
 ;; Get token from lexer.
 (define (token-stream-lexer-get ts)
   (let* ((char-stream (token-stream-cs ts))

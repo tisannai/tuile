@@ -11,6 +11,7 @@
    si
    ds
    pd
+   pde
    pp
    :lj
    :rj
@@ -185,6 +186,10 @@
 
 (define (pd datum)
   (pr (ds datum)))
+
+(define (pde . datums)
+  (for-each pd datums)
+  (exit 0))
 
 (define pp pretty-print)
 

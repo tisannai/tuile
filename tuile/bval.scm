@@ -5,17 +5,21 @@
   #:use-module ((srfi srfi-11) #:select (let-values))
   #:use-module (tuile utils)
   #:use-module (tuile pr)
+  #:use-module (tuile re)
   #:export
   (
    ))
 
 
-;;(use-modules ((rnrs records syntactic) #:select (define-record-type)))
-;;(use-modules (ice-9 match))
-;;(use-modules ((srfi srfi-1) #:select (first second fold)))
-;;(use-modules ((srfi srfi-11) #:select (let-values)))
-;;(use-modules (tuile utils))
-;;(use-modules (tuile pr))
+(when #f
+  (use-modules ((rnrs records syntactic) #:select (define-record-type)))
+  (use-modules (ice-9 match))
+  (use-modules ((srfi srfi-1) #:select (first second fold)))
+  (use-modules ((srfi srfi-11) #:select (let-values)))
+  (use-modules (tuile utils))
+  (use-modules (tuile pr))
+  (use-modules (tuile re))
+  )
 
 ;; ------------------------------------------------------------
 ;; Creation and modification:
@@ -24,7 +28,7 @@
   (fields value                        ; Integer or fixed.
           size                         ; Number of bits, pair for fix.
           signed                       ; Signed/unsigned.
-          format                       ; fix, bin, hex, dec.
+          format                       ; bin, hex, dec.
           ))
 
 (define (bval-error msg)
@@ -39,8 +43,15 @@
     ((fix) (car (bval-size bval)))
     (else (bval-size bval))))
 
+(define (bval-int-width bval)
+  (case (bval-type bval)
+    ((fix) (cdr (bval-size bval)))
+    (else #f)))
+
 (define (bval-fixed? bval)
-  (inexact? (bval-value bval)))
+  (case (bval-type bval)
+    ((fix) #t)
+    (else #f)))
 
 (define (bval-int-value bval)
   (case (bval-type bval)
@@ -63,7 +74,7 @@
                  (cons 0.0
                        (/ (- (expt 2.0 width) 1)
                           (expt 2 frac))))))
-    (else 
+    (else
      ;; non-fix
      (let ((width (bval-width bval)))
        (if (bval-signed bval)
@@ -77,8 +88,8 @@
          (<= value (cdr range)))))
 
 (define (bval-new value size . rest)
-  (let* ((size-is-fix (pair? size))
-         (default-format (if size-is-fix 'fix 'dec))
+  (let* ((fixed? (pair? size))
+         (default-format 'dec)
          (import-fixed-value (lambda (value size)
                                (let ((frac (expt 2 (- (car size) (cdr size)))))
                                  (if (exact? value)
@@ -92,9 +103,7 @@
       (when (and (not signed) (< value 0))
         (bval-error "Unsigned value must be 0 or more."))
       (cond
-       ((eq? format 'fix)
-        (when (not (pair? size))
-          (bval-error (ss "Size of fix must be a pair")))
+       (fixed?
         (when (> (cdr size) (car size))
           (bval-error (ss "Integer portion of fix must be smaller than width")))
         (when (and signed
@@ -105,10 +114,10 @@
        ((<= size 0)
         (bval-error "Size must be greater than 0.")))
       (case format
-        ((fix bin hex dec)
+        ((bin hex dec)
          (let ((temp (make-bval 0 size signed format)))
            (if (bval-value-fits? temp value)
-               (if (eq? format 'fix)
+               (if fixed?
                    (make-bval (import-fixed-value value size) size signed format)
                    (make-bval value size signed format))
                (bval-error (ss "Value overflow for " (bval-width temp) " bits, for value: \"" value "\"")))))
@@ -138,49 +147,75 @@
                   (else (bval-format bval)))))
 
     (case format
-      ((fix) (ss (bval-width bval)
-                 (if (bval-signed bval) "s" "u")
-                 (cdr (bval-size bval))
-                 "q"
-                 (number->string (bval-value bval))))
-      ((bin) (ss (bval-width bval)
-                 (if (bval-signed bval) "sb" "ub")
-                 (let ((body (pad (bin-format bval) (bval-width bval))))
-                   (if (bval-fixed? bval)
-                       (let ((int (cdr (bval-size bval))))
-                         (ss (substring body 0 int) "." (substring body int)))
-                       body))))
+      ((bin) (if (bval-fixed? bval)
+                 (ss (bval-width bval)
+                     (if (bval-signed bval) "s" "u")
+                     (bval-int-width bval)
+                     (let ((body (pad (bin-format bval) (bval-width bval)))
+                           (int (cdr (bval-size bval))))
+                       (ss (substring body 0 int) "." (substring body int))))
+                 (ss (bval-width bval)
+                     (if (bval-signed bval) "sb" "ub")
+                     (pad (bin-format bval) (bval-width bval)))))
       ((hex) (if (bval-fixed? bval)
-                 (bval-error "Can't format fixed into hex string.")
+                 (bval-error "Can't format fix-point number into hex string.")
                  (ss (bval-width bval)
                      (if (bval-signed bval) "sh" "uh")
                      (pad (number->string (bval-value bval) 16)
                           (hex-nibbles (bval-width bval))))))
-      ((dec) (number->string (bval-value bval))))))
+      ((dec) (if (bval-fixed? bval)
+                 (ss (bval-width bval)
+                     (if (bval-signed bval) "s" "u")
+                     (bval-int-width bval)
+                     (number->string (bval-value bval) 10))
+                 (number->string (bval-value bval)))))))
 
-;; 12sb1010 or b1010 (for 4-bit wide)
+;; 12sb1010            - 12-bit wide signed binary, value = d10
+;; b1010               - 4-bit wide (implicit) unsigned binary, value = d10
+;; 16shabcd            - 16-bit wide unsigned hexadecimal, value = d-21555
+;; habcd               - 16-bit wide (implicit) unsigned hexadecimal, value = d43981
+;; d100                - 8-bit wide (implicit) signed decimal, value = d100
+;; sd100               - 8-bit wide (implicit) signed decimal, value = d100
+;; ud100               - 7-bit wide (implicit) unsigned decimal, value = d100
+;; sd-100              - 8-bit wide (implicit) signed decimal, value = d-100
+;; 10d100              - 10-bit wide signed decimal, value = d100
+;; 10sd-100            - 10-bit wide signed decimal, value = d-100
+;; 10d-100             - 10-bit wide signed decimal, value = d-100
+;; 6s2d1.5625          - 6-bit wide signed fixed (Q2.4), value = d1.5625
+;; 6s2b01.1001         - 6-bit wide signed fixed (Q2.4), value = d1.5625
 (define (bv spec)
 
   (define re-bin "^([0-9]+)?(s|u)?b([01][01_]*)$")
   (define re-hex "^([0-9]+)?(s|u)?h([0-9a-fA-F][0-9a-fA-F_]*)$")
   (define re-dec "^([0-9]+)?(s|u)?d([-]?[0-9][0-9_]*)$")
+  (define re-fix-dec "^([0-9]+)(s|u)([0-9]+)d([-]?[0-9][0-9_]*\\.[0-9][0-9_]*)$")
+  (define re-fix-bin "^([0-9]+)(s|u)([0-9]+)b([01][01_]*\\.[01_]*)$")
 
   (define (cleanup str) (string-filter (lambda (c) (not (char=? c #\_))) str))
+  (define (cleanup-fix str) (string-filter (lambda (c) (not (or (char=? c #\_) (char=? c #\.)))) str))
 
-  (define (import-value value width signed)
-    (if (and signed
-             (>= value (expt 2 (- width 1))))
-        ;; Twos complement.
-        (- (- (expt 2 width) value))
-        ;; Direct.
-        value))
+  ;; Perform two's complement conversion and overflow check.
+  (define (import-binary-value value width signed)
+    (if signed
+        (let ((raw-value (if (>= value (expt 2 (- width 1)))
+                             (if (<= value (expt 2 width))
+                                 (- (- (expt 2 width) value))
+                                 (bval-error (ss "Value range overflow")))
+                             value))
+              (range (bval-new 0 width signed 'bin)))
+          (if (bval-value-fits? range raw-value)
+              raw-value
+              (bval-error (ss "Value range overflow"))))
+        (let ((range (bval-new 0 width signed 'bin)))
+          (if (bval-value-fits? range value)
+              value
+              (bval-error (ss "Value range overflow"))))))
 
   (define (min-width value signed)
     (define (bit-cnt value) (if (<= (abs value) 2) 1 (inexact->exact (ceiling (/ (log (abs value)) (log 2))))))
     (if signed
         (1+ (bit-cnt value))
         (bit-cnt value)))
-
 
   (cond
 
@@ -189,23 +224,60 @@
       (let ((body (cleanup body)))
         (let* ((width (if width (string->number width) (string-length body)))
                (signed (if sign (string=? sign "s") #f))
-               (value (import-value (string->number body 2) width signed)))
+               (value (import-binary-value (string->number body 2) width signed)))
           (bval-new value width signed 'bin)))))
 
    ((re-matches re-hex spec)
     (let-values (((full width sign body) (apply values (re-matches re-hex spec))))
       (let ((body (cleanup body)))
-        (let* ((width (if width (string->number width) (string-length body)))
+        (let* ((width (if width (string->number width) (* 4 (string-length body))))
                (signed (if sign (string=? sign "s") #f))
-               (value (import-value (string->number body 16) width signed)))
+               (value (import-binary-value (string->number body 16) width signed)))
           (bval-new value width signed 'hex)))))
 
    ((re-matches re-dec spec)
     (let-values (((full width sign body) (apply values (re-matches re-dec spec))))
       (let ((body (cleanup body)))
         (let* ((value (string->number body 10))
-               (signed (if sign (string=? sign "s") (< value 0)))
-               (width (if width (string->number width) (min-width value signed))))
+               (signed (if sign (string=? sign "s") #t))
+               (width (if width (string->number width 10) (min-width value signed))))
           (bval-new value width signed 'dec)))))
 
-   ))
+   ((re-matches re-fix-dec spec)
+    (let-values (((full width sign int-width body) (apply values (re-matches re-fix-dec spec))))
+      (let ((body (cleanup body)))
+        (let* ((value (string->number body 10))
+               (signed (string=? sign "s"))
+               (width (cons (string->number width) (string->number int-width))))
+          (bval-new value width signed 'dec)))))
+
+   ((re-matches re-fix-bin spec)
+    (let-values (((full width sign int-width body) (apply values (re-matches re-fix-dec spec))))
+      (let ((body (cleanup-fix body)))
+        (let* ((width (if (= (string->number width) (string-length body))
+                          (string->number width)
+                          (bval-error (ss "Width and number literal mismatch"))))
+               (int-width (string->number int-width))
+               (signed (string=? sign "s"))
+               (value (import-binary-value (string->number body 2) width signed))
+               (scaled-value (/ (exact->inexact value) (- width int-width))))
+          (bval-new scaled-value (cons width int-width) signed 'bin)))))
+
+   (else (bval-error (ss "Invalid bval format: \"" spec "\"")))))
+
+
+(define (bv= bval)
+  (bval-value bval))
+
+(define (bv->fix bval int-width)
+  (bval-new (/ (exact->inexact (bval-value bval)) (expt 2 (- width int-width)))
+            (cons (bval-width bval) int-width)
+            (bval-signed bval)
+            (bval-format bval)))
+
+;;(define (bv+ a b)
+;;  (case (bval-type a)
+;;    ((fix) (cond
+;;            ))
+;;   )
+;;  )
