@@ -166,6 +166,12 @@
                         (bval-int-value bval))
                     2))
 
+  (define (hex-format bval)
+    (number->string (if (< (bval-int-value bval) 0)
+                        (+ (expt 2 (bval-width bval)) (bval-int-value bval))
+                        (bval-int-value bval))
+                    16))
+
   (let ((format (match rest
                   ((format) format)
                   (else (bval-format bval)))))
@@ -176,16 +182,19 @@
                      (if (bval-signed bval) "s" "u")
                      (bval-width-int bval)
                      "b"
-                     (let ((int-digit-limit (if (bval-signed bval) 1 0))
+                     (let ((int-digit-limit (if (bval-signed bval) 0 0))
                            (explicit-sign (if (bval-signed bval)
                                               (if (< (bval-value bval) 0) #\- #\+)
                                               #\*))
                            (body (pad (bin-format bval) (bval-width bval)))
                            (int (bval-width-int bval)))
-                       (if (< (bval-width-int bval) int-digit-limit)
+                       (if (<= int int-digit-limit)
                            (ss (string explicit-sign)
                                "."
-                               (make-string (1- (- int)) explicit-sign)
+                               (let ((cnt (- (- int) int-digit-limit)))
+                                 (if (>= cnt 0)
+                                     (make-string (- int) explicit-sign)
+                                     ""))
                                body)
                            (ss (substring body 0 int)
                                "."
@@ -197,7 +206,7 @@
                  (bval-error "Can't format fix-point number into hex string.")
                  (ss (bval-width bval)
                      (if (bval-signed bval) "sh" "uh")
-                     (pad (number->string (bval-value bval) 16)
+                     (pad (hex-format bval) ; (number->string (bval-value bval) 16)
                           (hex-nibbles (bval-width bval))))))
       ((dec) (if (bval-fixed? bval)
                  (ss (bval-width bval)
@@ -404,6 +413,3 @@
 
 
 (define bv->str bval->string)
-
-;;(define a (bval-new 0.00001 (cons 20 -3) #t 'bin))
-;;(pr (bval->string a))
