@@ -23,6 +23,9 @@
 
    bv*
    bv+
+   bv-
+
+   bv->str
    ))
 
 
@@ -78,8 +81,7 @@
 
 (define (bval-int-value bval)
   (case (bval-type bval)
-    ((fix) (let ((frac (- (bval-size-width (bval-size bval))
-                          (bval-size-int (bval-size bval)))))
+    ((fix) (let ((frac (bval-width-frac bval)))
              (inexact->exact (* (bval-value bval) (expt 2 frac)))))
     (else (bval-value bval))))
 
@@ -173,9 +175,21 @@
                  (ss (bval-width bval)
                      (if (bval-signed bval) "s" "u")
                      (bval-width-int bval)
-                     (let ((body (pad (bin-format bval) (bval-width bval)))
+                     "b"
+                     (let ((int-digit-limit (if (bval-signed bval) 1 0))
+                           (explicit-sign (if (bval-signed bval)
+                                              (if (< (bval-value bval) 0) #\- #\+)
+                                              #\*))
+                           (body (pad (bin-format bval) (bval-width bval)))
                            (int (bval-width-int bval)))
-                       (ss (substring body 0 int) "." (substring body int))))
+                       (if (< (bval-width-int bval) int-digit-limit)
+                           (ss (string explicit-sign)
+                               "."
+                               (make-string (1- (- int)) explicit-sign)
+                               body)
+                           (ss (substring body 0 int)
+                               "."
+                               (substring body int)))))
                  (ss (bval-width bval)
                      (if (bval-signed bval) "sb" "ub")
                      (pad (bin-format bval) (bval-width bval)))))
@@ -189,6 +203,7 @@
                  (ss (bval-width bval)
                      (if (bval-signed bval) "s" "u")
                      (bval-width-int bval)
+                     "d"
                      (number->string (bval-value bval) 10))
                  (number->string (bval-value bval)))))))
 
@@ -292,7 +307,7 @@
   (bval-value bval))
 
 (define (bv->fix bval int-width)
-  (bval-new (/ (exact->inexact (bval-value bval)) (expt 2 (- width int-width)))
+  (bval-new (/ (exact->inexact (bval-value bval)) (expt 2 (- (bval-width bval) int-width)))
             (cons (bval-width bval) int-width)
             (bval-signed bval)
             (bval-format bval)))
@@ -370,3 +385,25 @@
                         (bval-signed a)
                         (bval-format a))))
       (bval-error (ss "Operand type mismatch for \"bv+\""))))
+
+(define (bv- a b)
+  (if (bv-eq-topology? a b)
+      (case (bval-type a)
+        ((fix) (bval-new (- (bval-value a)
+                            (bval-value b))
+                         (cons (1+ (bval-width a))
+                               (1+ (bval-width-int a)))
+                         (bval-signed a)
+                         (bval-format a)))
+        (else (bval-new (- (bval-value a)
+                           (bval-value b))
+                        (1+ (bval-width a))
+                        (bval-signed a)
+                        (bval-format a))))
+      (bval-error (ss "Operand type mismatch for \"bv-\""))))
+
+
+(define bv->str bval->string)
+
+;;(define a (bval-new 0.00001 (cons 20 -3) #t 'bin))
+;;(pr (bval->string a))
