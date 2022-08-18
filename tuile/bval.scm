@@ -8,6 +8,21 @@
   #:use-module (tuile re)
   #:export
   (
+   bval-new
+   bv
+   bv=
+   bv->fix
+
+   bv-eq?
+   bv-eq-type?
+   bv-eq-topology?
+
+   bv-sext
+   bv-sext+
+   bv-ext
+
+   bv*
+   bv+
    ))
 
 
@@ -38,14 +53,22 @@
 (define (bval-type bval)
   (if (pair? (bval-size bval)) 'fix 'int))
 
+(define bval-size-width car)
+(define bval-size-int cdr)
+
 (define (bval-width bval)
   (case (bval-type bval)
-    ((fix) (car (bval-size bval)))
+    ((fix) (bval-size-width (bval-size bval)))
     (else (bval-size bval))))
 
-(define (bval-int-width bval)
+(define (bval-width-int bval)
   (case (bval-type bval)
-    ((fix) (cdr (bval-size bval)))
+    ((fix) (bval-size-int (bval-size bval)))
+    (else #f)))
+
+(define (bval-width-frac bval)
+  (case (bval-type bval)
+    ((fix) (- (bval-size-width (bval-size bval)) (bval-size-int (bval-size bval))))
     (else #f)))
 
 (define (bval-fixed? bval)
@@ -55,16 +78,15 @@
 
 (define (bval-int-value bval)
   (case (bval-type bval)
-    ((fix) (let ((frac (- (car (bval-size bval))
-                          (cdr (bval-size bval)))))
+    ((fix) (let ((frac (- (bval-size-width (bval-size bval))
+                          (bval-size-int (bval-size bval)))))
              (inexact->exact (* (bval-value bval) (expt 2 frac)))))
     (else (bval-value bval))))
 
 (define (bval-range bval)
   (case (bval-type bval)
-    ((fix) (let* ((size (bval-size bval))
-                  (width (car size))
-                  (frac (- width (cdr size))))
+    ((fix) (let* ((width (bval-width bval))
+                  (frac (bval-width-frac bval)))
              ;; fix
              (if (bval-signed bval)
                  (cons (/ (- (expt 2.0 (1- width)))
@@ -91,7 +113,7 @@
   (let* ((fixed? (pair? size))
          (default-format 'dec)
          (import-fixed-value (lambda (value size)
-                               (let ((frac (expt 2 (- (car size) (cdr size)))))
+                               (let ((frac (expt 2 (- (bval-size-width size) (bval-size-int size)))))
                                  (if (exact? value)
                                      (exact->inexact value)
                                      (/ (floor (+ (* value frac) 0.5))
@@ -104,10 +126,10 @@
         (bval-error "Unsigned value must be 0 or more."))
       (cond
        (fixed?
-        (when (> (cdr size) (car size))
+        (when (> (bval-size-int size) (bval-size-width size))
           (bval-error (ss "Integer portion of fix must be smaller than width")))
         (when (and signed
-                   (< (car size) 2))
+                   (< (bval-size-width size) 2))
           (bval-error (ss "Width of signed fix must be at least two"))))
        ((not (exact? value))
         (bval-error (ss "Value on non-fix number must be an integer")))
@@ -150,9 +172,9 @@
       ((bin) (if (bval-fixed? bval)
                  (ss (bval-width bval)
                      (if (bval-signed bval) "s" "u")
-                     (bval-int-width bval)
+                     (bval-width-int bval)
                      (let ((body (pad (bin-format bval) (bval-width bval)))
-                           (int (cdr (bval-size bval))))
+                           (int (bval-width-int bval)))
                        (ss (substring body 0 int) "." (substring body int))))
                  (ss (bval-width bval)
                      (if (bval-signed bval) "sb" "ub")
@@ -166,7 +188,7 @@
       ((dec) (if (bval-fixed? bval)
                  (ss (bval-width bval)
                      (if (bval-signed bval) "s" "u")
-                     (bval-int-width bval)
+                     (bval-width-int bval)
                      (number->string (bval-value bval) 10))
                  (number->string (bval-value bval)))))))
 
@@ -252,7 +274,7 @@
           (bval-new value width signed 'dec)))))
 
    ((re-matches re-fix-bin spec)
-    (let-values (((full width sign int-width body) (apply values (re-matches re-fix-dec spec))))
+    (let-values (((full width sign int-width body) (apply values (re-matches re-fix-bin spec))))
       (let ((body (cleanup-fix body)))
         (let* ((width (if (= (string->number width) (string-length body))
                           (string->number width)
@@ -260,7 +282,7 @@
                (int-width (string->number int-width))
                (signed (string=? sign "s"))
                (value (import-binary-value (string->number body 2) width signed))
-               (scaled-value (/ (exact->inexact value) (- width int-width))))
+               (scaled-value (/ (exact->inexact value) (expt 2 (- width int-width)))))
           (bval-new scaled-value (cons width int-width) signed 'bin)))))
 
    (else (bval-error (ss "Invalid bval format: \"" spec "\"")))))
@@ -275,9 +297,76 @@
             (bval-signed bval)
             (bval-format bval)))
 
-;;(define (bv+ a b)
-;;  (case (bval-type a)
-;;    ((fix) (cond
-;;            ))
-;;   )
-;;  )
+(define (bv-eq? a b)
+  (equal? a b))
+
+(define (bv-eq-type? a b)
+  (eq? (bval-type a) (bval-type b)))
+
+(define (bv-eq-topology? a b)
+  (and (equal? (bval-size a)
+               (bval-size b))
+       (eq? (bval-signed a)
+            (bval-signed b))))
+
+(define (bv-sext a new-width)
+  (if (>= new-width (bval-width a))
+      (case (bval-type a)
+        ((fix) (bval-new (bval-value a)
+                         (cons new-width
+                               (+ (bval-width-int a) (- new-width (bval-width a))))
+                         (bval-signed a)
+                         (bval-format a)))
+        (else (bval-new (bval-value a)
+                        new-width
+                        (bval-signed a)
+                        (bval-format a))))
+      (bval-error (ss "Updated width must be greater or equal to original width"))))
+
+(define (bv-sext+ a width-inc)
+  (bv-sext a (+ (bval-width a) width-inc)))
+
+;; Extend fix-type to new size. NA for int-type.
+(define (bv-ext a size)
+  (if (eq? (bval-type a) 'fix)
+      (if (and (pair? size)
+               (>= (bval-size-width size) (bval-width a))
+               (>= (bval-size-int size) (bval-width-int a)))
+          (bval-new (bval-value a)
+                    size
+                    (bval-signed a)
+                    (bval-format a))
+          (bval-error (ss "Invalid size specification for \"bv-ext\"")))
+      (bval-error (ss "Operation (\"bv-ext\") can only performed for fixed value"))))
+
+(define (bv* a b)
+  (if (bv-eq-type? a b)
+      (case (bval-type a)
+        ((fix) (bval-new (* (bval-value a)
+                            (bval-value b))
+                         (cons (+ (bval-width a) (bval-width b))
+                               (+ (bval-width-int a) (bval-width-int b)))
+                         (bval-signed a)
+                         (bval-format a)))
+        (else (bval-new (* (bval-value a)
+                           (bval-value b))
+                        (+ (bval-width a) (bval-width b))
+                        (bval-signed a)
+                        (bval-format a))))
+      (bval-error (ss "Operand type mismatch for \"bv*\""))))
+
+(define (bv+ a b)
+  (if (bv-eq-topology? a b)
+      (case (bval-type a)
+        ((fix) (bval-new (+ (bval-value a)
+                            (bval-value b))
+                         (cons (1+ (bval-width a))
+                               (1+ (bval-width-int a)))
+                         (bval-signed a)
+                         (bval-format a)))
+        (else (bval-new (+ (bval-value a)
+                           (bval-value b))
+                        (1+ (bval-width a))
+                        (bval-signed a)
+                        (bval-format a))))
+      (bval-error (ss "Operand type mismatch for \"bv+\""))))

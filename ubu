@@ -45,6 +45,10 @@
         (with-output
          (sh "cd test; test-vlogmod")))
 
+(action test-bval
+        (with-output
+         (sh "cd test; test-bval")))
+
 (action test-all
         (test-pr)
         (test-como)
@@ -53,7 +57,8 @@
         (test-fmt)
         (test-graph)
         (test-gulex)
-        (test-vlogmod))
+        (test-vlogmod)
+        (test-bval))
 
 (action chez
         (for-each (lambda (file-symbol)

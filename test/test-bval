@@ -1,0 +1,93 @@
+#!/usr/bin/guile -s
+!#
+
+(use-modules (srfi srfi-64))
+(use-modules (tuile pr))
+
+(add-to-load-path "..")
+(use-modules (tuile bval))
+
+
+(test-begin "bval")
+
+
+;; ------------------------------------------------------------
+;; bv:
+
+(when #f
+  (test-assert "<name>"
+    (equal? (bv "12sb1010")
+            (bval-new 10 12 #t 'bin)))
+
+  (test-assert "<name>"
+    (equal? (bv "b1010")
+            (bval-new 10 4 #f 'bin)))
+
+  (test-assert "<name>"
+    (equal? (bv "16shabcd")
+            (bval-new -21555 16 #t 'hex)))
+
+  (test-assert "<name>"
+    (equal? (bv "habcd")
+            (bval-new #xabcd 16 #f 'hex)))
+
+  (test-assert "<name>"
+    (equal? (bv "d100")
+            (bval-new 100 8 #t 'dec)))
+
+  (test-assert "<name>"
+    (equal? (bv "sd100")
+            (bval-new 100 8 #t 'dec)))
+
+  (test-assert "<name>"
+    (equal? (bv "ud100")
+            (bval-new 100 7 #f 'dec)))
+
+  (test-assert "<name>"
+    (equal? (bv "sd-100")
+            (bval-new -100 8 #t 'dec)))
+
+  (test-assert "<name>"
+    (equal? (bv "10d100")
+            (bval-new 100 10 #t 'dec)))
+
+  (test-assert "<name>"
+    (equal? (bv "10sd-100")
+            (bval-new -100 10 #t 'dec)))
+
+  (test-assert "<name>"
+    (equal? (bv "10d-100")
+            (bval-new -100 10 #t 'dec)))
+
+  (test-assert "<name>"
+    (equal? (bv "6s2d1.5625")
+            (bval-new 1.5625 (cons 6 2) #t 'dec)))
+
+  (test-assert "<name>"
+    (equal? (bv "6s2b01.1001")
+            (bval-new 1.5625 (cons 6 2) #t 'bin)))
+
+  )
+
+
+;;(test-assert "<name>"
+;;  (equal? (bv "")
+;;          (bval-new 10 12 #t 'bin)))
+
+;; bv:
+;; ------------------------------------------------------------
+
+
+(test-assert "<name>"
+  (equal? (bv* (bv "6s2d1.5625") (bv "6s2d1.5625"))
+          (bval-new 2.44140625 (cons 12 4) #t 'dec)
+          ;;          (bval-new 2.0 (cons 12 4) #t 'dec)
+          ))
+
+(test-assert "<name>"
+  (equal? (bv+ (bv "6s2d1.5625") (bv "6s2d1.5625"))
+          (bval-new 3.125 (cons 7 3) #t 'dec)))
+
+
+
+(test-end)
