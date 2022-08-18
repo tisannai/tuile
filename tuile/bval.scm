@@ -216,6 +216,9 @@
                      (number->string (bval-value bval) 10))
                  (number->string (bval-value bval)))))))
 
+(define bv->str bval->string)
+
+
 ;; 12sb1010            - 12-bit wide signed binary, value = d10
 ;; b1010               - 4-bit wide (implicit) unsigned binary, value = d10
 ;; 16shabcd            - 16-bit wide unsigned hexadecimal, value = d-21555
@@ -258,10 +261,16 @@
               (bval-error (ss "Value range overflow"))))))
 
   (define (min-width value signed)
-    (define (bit-cnt value) (if (<= (abs value) 2) 1 (inexact->exact (ceiling (/ (log (abs value)) (log 2))))))
-    (if signed
-        (1+ (bit-cnt value))
-        (bit-cnt value)))
+    (cond
+     ((and (>= value 0) (not signed))
+      ;; Unsigned
+      (inexact->exact (ceiling (/ (log (1+ value)) (log 2)))))
+     ((and (>= value 0) signed)
+      ;; Signed >= 0
+      (1+ (inexact->exact (ceiling (/ (log (1+ value)) (log 2))))))
+     ((and (< value 0) signed)
+      ;; Signed < 0
+      (1+ (inexact->exact (ceiling (/ (log (abs value)) (log 2))))))))
 
   (cond
 
@@ -361,7 +370,7 @@
                     (bval-signed a)
                     (bval-format a))
           (bval-error (ss "Invalid size specification for \"bv-ext\"")))
-      (bval-error (ss "Operation (\"bv-ext\") can only performed for fixed value"))))
+      (bval-error (ss "Operation (\"bv-ext\") can only be performed for a fixed value"))))
 
 (define (bv* a b)
   (if (bv-eq-type? a b)
@@ -411,5 +420,41 @@
                         (bval-format a))))
       (bval-error (ss "Operand type mismatch for \"bv-\""))))
 
+(define (bv<< a shift)
+  (case (bval-type a)
+    ((fix) (bval-error (ss "Operation (\"bv<<\") can only be performed for a non-fixed value")))
+    (else (bval-new (remainder (* (bval-value a) (expt 2 shift)) (bval-width bval))
+                    (bval-width a)
+                    #f
+                    (bval-format a)))))
 
-(define bv->str bval->string)
+(define (bv>> a shift)
+  (case (bval-type a)
+    ((fix) (bval-error (ss "Operation (\"bv>>\") can only be performed for a non-fixed value")))
+    (else (bval-new (quotient (bval-value a) (expt 2 shift))
+                    (bval-width a)
+                    #f
+                    (bval-format a)))))
+
+(define (bv<<< a shift)
+  (case (bval-type a)
+    ((fix) (let ((shifted (* (bval-value a) (expt 2 shift))))
+             (bval-new (if (bval-value-fits? a shifted)
+                           shifted
+                           (let ((range (bval-range a)))
+                             (if (>= (bval-value a) 0)
+                                 (cdr range)
+                                 (car range))))
+                       (bval-size a)
+                       (bval-signed a)
+                       (bval-format a))))
+    (else (let ((shifted (* (bval-value a) (expt 2 shift))))
+            (bval-new (if (bval-value-fits? a shifted)
+                          shifted
+                          (let ((range (bval-range a)))
+                            (if (>= (bval-value a) 0)
+                                (cdr range)
+                                (car range))))
+                      (bval-size a)
+                      (bval-signed a)
+                      (bval-format a))))))
