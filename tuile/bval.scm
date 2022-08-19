@@ -9,6 +9,7 @@
   #:export
   (
    bval-new
+   bv->str
    bv
    bv=
    bv->fix
@@ -25,11 +26,18 @@
    bv+
    bv-
 
-   bv->str
+   bv<<
+   bv>>
+   bv<<<
+   bv>>>
    ))
 
 
 (when #f
+  (primitive-load "tuile/bval.scm")
+  )
+
+(when #t
   (use-modules ((rnrs records syntactic) #:select (define-record-type)))
   (use-modules (ice-9 match))
   (use-modules ((srfi srfi-1) #:select (first second fold)))
@@ -111,15 +119,26 @@
     (and (>= value (car range))
          (<= value (cdr range)))))
 
+
+(define (bval-import-fixed-value value size)
+  (let ((frac (expt 2 (- (bval-size-width size) (bval-size-int size)))))
+    (if (exact? value)
+        (exact->inexact value)
+        (/ (floor (+ (* value frac) 0.5))
+           frac))))
+
+
+(define (bval-import-fixed-value-without-round value size)
+  (let ((frac (expt 2 (- (bval-size-width size) (bval-size-int size)))))
+    (if (exact? value)
+        (exact->inexact value)
+        (/ (floor (+ (* value frac)))
+           frac))))
+
+
 (define (bval-new value size . rest)
   (let* ((fixed? (pair? size))
-         (default-format 'dec)
-         (import-fixed-value (lambda (value size)
-                               (let ((frac (expt 2 (- (bval-size-width size) (bval-size-int size)))))
-                                 (if (exact? value)
-                                     (exact->inexact value)
-                                     (/ (floor (+ (* value frac) 0.5))
-                                        frac))))))
+         (default-format 'dec))
     (let-values (((signed format) (match rest
                                     ((signed format) (values signed format))
                                     ((signed) (values signed default-format))
@@ -142,7 +161,7 @@
          (let ((temp (make-bval 0 size signed format)))
            (if (bval-value-fits? temp value)
                (if fixed?
-                   (make-bval (import-fixed-value value size) size signed format)
+                   (make-bval (bval-import-fixed-value value size) size signed format)
                    (make-bval value size signed format))
                (bval-error (ss "Value overflow for " (bval-width temp) " bits, for value: \"" value "\"")))))
         (else (bval-error (ss "Invalid bval format: \"" format "\"")))))))
@@ -449,6 +468,23 @@
                        (bval-signed a)
                        (bval-format a))))
     (else (let ((shifted (* (bval-value a) (expt 2 shift))))
+            (bval-new (if (bval-value-fits? a shifted)
+                          shifted
+                          (let ((range (bval-range a)))
+                            (if (>= (bval-value a) 0)
+                                (cdr range)
+                                (car range))))
+                      (bval-size a)
+                      (bval-signed a)
+                      (bval-format a))))))
+
+(define (bv>>> a shift)
+  (case (bval-type a)
+    ((fix) (bval-new (bval-import-fixed-value-without-round (/ (bval-value a) (expt 2 shift)) (bval-size a))
+                     (bval-size a)
+                     (bval-signed a)
+                     (bval-format a)))
+    (else (let ((shifted (quotient (bval-value a) (expt 2 shift))))
             (bval-new (if (bval-value-fits? a shifted)
                           shifted
                           (let ((range (bval-range a)))

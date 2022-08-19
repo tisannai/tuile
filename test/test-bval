@@ -192,4 +192,194 @@
 ;; ------------------------------------------------------------
 
 
+;; ------------------------------------------------------------
+;; arithmetic shift left:
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6u2b00.0010") 0)
+          (bval-new 0.125 (cons 6 2) #f 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6u2b00.0010") 1)
+          (bval-new 0.25 (cons 6 2) #f 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6u2b00.0010") 2)
+          (bval-new 0.5 (cons 6 2) #f 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6u2b00.0010") 3)
+          (bval-new 1.0 (cons 6 2) #f 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6u2b00.0010") 4)
+          (bval-new 2.0 (cons 6 2) #f 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6u2b00.0010") 5)
+          (bval-new 3.9375 (cons 6 2) #f 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6u2b00.0010") 6)
+          (bval-new 3.9375 (cons 6 2) #f 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6s2b00.0010") 0)
+          (bval-new 0.125 (cons 6 2) #t 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6s2b00.0010") 1)
+          (bval-new 0.25 (cons 6 2) #t 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6s2b00.0010") 2)
+          (bval-new 0.5 (cons 6 2) #t 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6s2b00.0010") 3)
+          (bval-new 1.0 (cons 6 2) #t 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6s2b00.0010") 4)
+          (bval-new 1.9375 (cons 6 2) #t 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "6s2b00.0010") 5)
+          (bval-new 1.9375 (cons 6 2) #t 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "5ud3") 0)
+          (bval-new 3 5 #f 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "5ud3") 1)
+          (bval-new 6 5 #f 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "5ud3") 2)
+          (bval-new 12 5 #f 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "5ud3") 3)
+          (bval-new 24 5 #f 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "5ud3") 4)
+          (bval-new 31 5 #f 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "5ud3") 5)
+          (bval-new 31 5 #f 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "5sd3") 0)
+          (bval-new 3 5 #t 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "5sd3") 1)
+          (bval-new 6 5 #t 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "5sd3") 2)
+          (bval-new 12 5 #t 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "5sd3") 3)
+          (bval-new 15 5 #t 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv<<< (bv "5sd3") 4)
+          (bval-new 15 5 #t 'dec)))
+
+;; arithmetic shift left:
+;; ------------------------------------------------------------
+
+
+;; ------------------------------------------------------------
+;; arithmetic shift right:
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "6u2b01.0010") 2)
+          (bval-new 0.25 (cons 6 2) #f 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "6u2b00.0010") 0)
+          (bval-new 0.125 (cons 6 2) #f 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "6u2b00.0010") 1)
+          (bval-new 0.0625 (cons 6 2) #f 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "6u2b00.0010") 2)
+          (bval-new 0.0 (cons 6 2) #f 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "6u2b00.0010") 3)
+          (bval-new 0.0 (cons 6 2) #f 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "6s2b01.0010") 2)
+          (bval-new 0.25 (cons 6 2) #t 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "6s2b00.0010") 0)
+          (bval-new 0.125 (cons 6 2) #t 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "6s2b00.0010") 1)
+          (bval-new 0.0625 (cons 6 2) #t 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "6s2b00.0010") 2)
+          (bval-new 0.0 (cons 6 2) #t 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "6s2b00.0010") 3)
+          (bval-new 0.0 (cons 6 2) #t 'bin)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "5ud13") 2)
+          (bval-new 3 5 #f 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "5ud3") 0)
+          (bval-new 3 5 #f 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "5ud3") 1)
+          (bval-new 1 5 #f 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "5ud3") 2)
+          (bval-new 0 5 #f 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "5ud3") 3)
+          (bval-new 0 5 #f 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "5sd13") 2)
+          (bval-new 3 5 #t 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "5sd3") 0)
+          (bval-new 3 5 #t 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "5sd3") 1)
+          (bval-new 1 5 #t 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "5sd3") 2)
+          (bval-new 0 5 #t 'dec)))
+
+(test-assert "<name>"
+  (equal? (bv>>> (bv "5sd3") 3)
+          (bval-new 0 5 #t 'dec)))
+
+;; arithmetic shift left:
+;; ------------------------------------------------------------
+
+
 (test-end)
