@@ -21,6 +21,8 @@
    bv-sext
    bv-sext+
    bv-ext
+   bv-resize
+   bv-reformat
 
    bv*
    bv+
@@ -256,8 +258,8 @@
   (define re-bin "^([0-9]+)?(s|u)?b([01][01_]*)$")
   (define re-hex "^([0-9]+)?(s|u)?h([0-9a-fA-F][0-9a-fA-F_]*)$")
   (define re-dec "^([0-9]+)?(s|u)?d([-]?[0-9][0-9_]*)$")
-  (define re-fix-dec "^([0-9]+)(s|u)([0-9]+)d([-]?[0-9][0-9_]*\\.[0-9][0-9_]*)$")
-  (define re-fix-bin "^([0-9]+)(s|u)([0-9]+)b([01][01_]*\\.[01_]*)$")
+  (define re-fix-dec "^([0-9]+)(s|u)([-]?[0-9]+)d([-]?[0-9][0-9_]*\\.[0-9][0-9_]*)$")
+  (define re-fix-bin "^([0-9]+)(s|u)([-]?[0-9]+)b([01][01_]*\\.[01_]*)$")
 
   (define (cleanup str) (string-filter (lambda (c) (not (char=? c #\_))) str))
   (define (cleanup-fix str) (string-filter (lambda (c) (not (or (char=? c #\_) (char=? c #\.)))) str))
@@ -391,6 +393,23 @@
           (bval-error (ss "Invalid size specification for \"bv-ext\"")))
       (bval-error (ss "Operation (\"bv-ext\") can only be performed for a fixed value"))))
 
+(define (bv-resize a size)
+  (case (bval-type a)
+    ((fix) (bval-new (bval-import-fixed-value (bval-value a) size)
+                     size
+                     (bval-signed a)
+                     (bval-format a)))
+    (else (bval-new (bval-value a)
+                    size
+                    (bval-signed a)
+                    (bval-format a)))))
+
+(define (bv-reformat a format)
+  (bval-new (bval-value a)
+            (bval-size a)
+            (bval-signed a)
+            format))
+
 (define (bv* a b)
   (if (bv-eq-type? a b)
       (case (bval-type a)
@@ -494,3 +513,6 @@
                       (bval-size a)
                       (bval-signed a)
                       (bval-format a))))))
+
+
+;;(bv "14s-6d0.009195402298850575")
