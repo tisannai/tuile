@@ -8,6 +8,7 @@
    prd
    prdl
    ss
+   sp
    si
    ds
    pd
@@ -83,6 +84,10 @@
 ;; String from args.
 (define (ss . args)
   (apply string-append (fa args)))
+
+(define (sp datum)
+  (with-output-to-string (lambda ()
+                           (pretty-print datum))))
 
 
 ;; String interpolation (ruby style).
