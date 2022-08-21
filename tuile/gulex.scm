@@ -40,10 +40,11 @@
    token-stream-open-with-text
    token-stream-close
    token-stream-use-stream
+   token-stream-push-file
    token-stream-token
    token-stream-lexer-get
    token-stream-get
-   token-stream-put
+;;   token-stream-put
    token-stream-file
    token-stream-line
    token-stream-show-token
@@ -155,9 +156,10 @@
 ;; Token stream:
 
 (define-record-type token-stream
-  (fields (mutable cs)                  ; Char-stream.
+  (fields (mutable cs)                  ; Char-stream (stack, top at head).
           lexer                         ; Lexer (interp, fsm, ...).
           (mutable token)               ; Current token.
+          (mutable stack)               ; Char-stream and cur-token stack: ( (cs . token) ...).
           (mutable buf)))               ; Buffer for put-back.
 
 ;; Open token stream for filename or text (mutually exclusive). Use
@@ -166,7 +168,7 @@
   (let* ((cs (if filename
                  (char-stream-open filename)
                  (char-stream-open-with-text text)))
-         (ts (make-token-stream cs lexer #f '())))
+         (ts (make-token-stream cs lexer #f '() '())))
     ;; Prefetch first token.
     (token-stream-get ts)
     ts))
@@ -191,7 +193,18 @@
   (token-stream-get ts)
   ts)
 
-;; CONTINUE: Add push-stream and pop-stream.
+(define (token-stream-push-file ts filename)
+  ;; TODO: error if there is stuff in "buf".
+
+  ;; Push current state to stack: (char-stream . token).
+  (token-stream-stack-set! ts (cons (cons (token-stream-cs ts)
+                                          (token-stream-token ts))
+                                    (token-stream-stack ts)))
+
+  ;; Set new file as current char stream.
+  (token-stream-cs-set! ts (char-stream-open filename))
+  (token-stream-get ts)
+  ts)
 
 ;; Get token from lexer.
 (define (token-stream-lexer-get ts)
@@ -208,24 +221,52 @@
       (pr "Token Stream: " (comp:datum->string ret)))
     ret))
 
-;; Get next token.
+;; Get next token (from lexer or from buf).
 ;;
 ;; Return:
 ;;
 ;;     (<token> <lexeme> <file> <line>)
 ;;
 (define (token-stream-get ts)
-  (let ((ret (if (pair? (token-stream-buf ts))
-                 (let ((ret (car (token-stream-buf ts))))
-                   (token-stream-buf-set! ts (cdr (token-stream-buf ts)))
-                   ret)
-                 (token-stream-lexer-get ts))))
-    (token-stream-token-set! ts ret)
-    ret))
+  ;; Try to get token from current file, but if eof is encountered and
+  ;; there are still char-streams on the stack, just pop the stack and
+  ;; continue with the next char-stream of the stack.
+  (let loop ((token (token-stream-lexer-get ts)))
+
+    (if (char-stream-at-eof? (token-stream-cs ts))
+        (if (pair? (token-stream-stack ts))
+            ;; Stack non-empty, i.e. we continue with the older file.
+            (let ((top (car (token-stream-stack ts))))
+              (token-stream-stack-set! ts (cdr (token-stream-stack ts)))
+              (token-stream-cs-set! ts (car top))
+              (token-stream-token-set! ts (cdr top))
+              (loop (token-stream-token ts)))
+            (begin
+              (token-stream-token-set! ts token)
+              token))
+        (begin
+          (token-stream-token-set! ts token)
+          token)))
+
+
+  ;; Old version with token putback.
+  ;;  (let ((ret (if (pair? (token-stream-buf ts))
+  ;;                 (let ((ret (car (token-stream-buf ts))))
+  ;;                   (token-stream-buf-set! ts (cdr (token-stream-buf ts)))
+  ;;                   ret)
+  ;;                 (token-stream-lexer-get ts))))
+  ;;    (token-stream-token-set! ts ret)
+  ;;    ret)
+
+  )
 
 ;; Put back token.
-(define (token-stream-put ts token)
-  (token-stream-buf-set! ts (append (token-stream-buf ts) (list token))))
+;;
+;; TODO: The current version of "put" does not work, since we have
+;; current token lookahead and this is not accounted for here.
+;;
+;;(define (token-stream-put ts token)
+;;  (token-stream-buf-set! ts (append (token-stream-buf ts) (list token))))
 
 ;; Get current char-stream line.
 (define (token-stream-file ts)
