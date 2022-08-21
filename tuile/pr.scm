@@ -13,6 +13,7 @@
    ds
    pd
    pde
+   ppe
    pp
    :lj
    :rj
@@ -197,6 +198,10 @@
   (exit 0))
 
 (define pp pretty-print)
+
+(define (ppe . datums)
+  (for-each (lambda (datum) (pp datum)) datums)
+  (exit 0))
 
 ;; Line print from args.
 (define (pr . args)
