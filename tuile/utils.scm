@@ -27,6 +27,11 @@
    len-3?
    most
    best
+   lref-0
+   lref-1
+   lref-2
+   lref-3
+   lref-4
    flatten
    flatten-0
    flatten-1
@@ -88,6 +93,7 @@
    vector-insert
    vector-delete
 
+   alist
    assoc-has-key?
    assoc-update!
    assoc-repeat!
@@ -188,6 +194,23 @@
                       wins))
             wins))))
 
+
+;; Create function definitions (by x amount) using list-ref as:
+;;
+;;     (define (lref-0 lst) (list-ref lst 0))
+;;     (define (lref-1 lst) (list-ref lst 1))
+;;     ...
+;;
+(define-syntax expand-list-ref-index-functions
+  (lambda (x)
+    (define (get-list-ref-function index)
+      (list 'define
+            (list (string->symbol (string-append "lref-" (number->string index))) 'lst)
+            (list 'list-ref 'lst index)))
+    (let* ((-> datum->syntax))
+      #`(begin #,@(-> x (map get-list-ref-function (iota (cadr (syntax->datum x)))))))))
+
+(expand-list-ref-index-functions 5)
 
 ;; Flatten (and join) argument list as deep as list goes.
 ;;
@@ -1011,6 +1034,21 @@
   (vector-append (vector-range vec 0 pos)
                  (vector-range vec (+ pos count) (vector-length vec))))
 
+
+;; Create assoc list from elements in a flat list. The list must
+;; contain key-value pairs, i.e. the number of arguments must be even.
+(define (alist . pairs)
+  (if (let ((len (length pairs)))
+        (and (> len 0)
+             (even? len)))
+      (let loop ((pairs pairs)
+                 (ret '()))
+        (if (pair? pairs)
+            (loop (cddr pairs)
+                  (cons (cons (car pairs) (cadr pairs))
+                        ret))
+            (reverse ret)))
+      '()))
 
 ;; Assoc list has key?
 (define (assoc-has-key? assoc key)
