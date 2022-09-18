@@ -172,27 +172,15 @@
 
 ;; Get variable value (within scope env) by varloc.
 (define (varloc-scope-get varloc)
-  ;;  (vector-ref (scope-vars (varloc-scope varloc)) (varloc-index varloc))
-;;  (scope-get-var-at-index (varloc-scope varloc)
-;;                          (varloc-index varloc))
   (scope-get-var-at-index (varloc-find-scope-level varloc)
-                          (varloc-index varloc))
-  )
+                          (varloc-index varloc)))
 
 
 ;; Set variable value (within scope env) by varloc.
 (define (varloc-scope-set varloc value)
-  ;; TODO: Travel scope levels. NOT NEEDED, since set is only for definitions.
-  ;;  (vector-set! (scope-vars (varloc-scope varloc)) (varloc-index varloc) value)
-;;  (scope-set-var-at-index (varloc-scope varloc)
-;;                          (varloc-index varloc)
-;;                          value
-;;                          )
   (scope-set-var-at-index (varloc-find-scope-level varloc)
                           (varloc-index varloc)
-                          value
-                          )
-  )
+                          value))
 
 
 ;; Find stack entry by level and index. Go down in stack by
@@ -752,23 +740,7 @@
       ((arith-op-single) (elab-atom (cdr (astnode-value atom))))
 
       ((obj-reference)
-       ;; Differentiate between: array-index-ref, array-range-ref,
-       ;; dictionary-ref
-       (let ((val (astnode-value atom)))
-         (case (caar val)
-           ((array)
-            (case (length val)
-              ((2) (astnode-type-set! atom 'array-index-ref) 0)
-              ((3) (astnode-type-set! atom 'array-range-ref) 0)
-              (else (con-error-info (astnode-token atom) (ss "Incorrect number of arguments, expected: 1-2"))
-                    1)))
-           ((dictionary)
-            (case (length val)
-              ((2) (astnode-type-set! atom 'dictionary-ref) 0)
-              (else (con-error-info (astnode-token atom) (ss "Incorrect number of arguments, expected: 1"))
-                    1)))
-           (else (con-error-info (astnode-token atom) (ss "Invalid container for \"ref\""))
-                 1))))
+       (elab-atoms (astnode-value atom)))
 
       ((obj-assign)
        ;; NOTE: Parsed argument count check.
@@ -949,16 +921,7 @@
            (tcheck-atom (varloc-scope-get (astnode-value atom))))
 
           ((fundef)
-           (make-tcheck-self atom)
-           #;
-           (let ((fundef (astnode-value atom)))
-             (pde
-              (fundef-body fundef)
-              )
-             (let ((error-count (fold (lambda (tcheck accu) (+ accu (tcheck-count tcheck)))
-                                      0
-                                      (map tcheck-atom (fundef-body fundef)))))
-               (make-tcheck error-count 'fundef))))
+           (make-tcheck-self atom))
 
           ((compare)
            ;; TODO: Check that for CGT and CLT arguments are numbers.
@@ -998,10 +961,6 @@
                  (args (cdr (astnode-value atom))))
              (case prim
                ((KEY-MUL KEY-ADD KEY-SUB)
-;;                (pde
-;;                 (first args)
-;;                 (astnode-value (first args))
-;;                 )
                 (make-tcheck (check-many (astnode-token atom)
                                          (keywordsym->string prim)
                                          (map tcheck-atom args)
@@ -1019,33 +978,40 @@
                                     'numeric)
                              'numeric)))))
 
-          ((array-index-ref)
+          ;;     (ref (dic (1 2) ("foo" foo)) "foo")
+          ;;     (ref (arr 1 2 3) 1)
+          ;;     (ref (arr 1 2 3) 1 2)
+          ((obj-reference)
            (let ((tcheck-container (tcheck-atom (first (astnode-value atom))))
-                 (tcheck-index (check (astnode-token atom)
-                                      "arr"
-                                      (tcheck-atom (second (astnode-value atom)))
-                                      'integer)))
-             (if (= tcheck-index 0)
-                 (list (first tcheck-container) (third tcheck-container))
-                 (make-tcheck tcheck-index 'ignore))))
-
-          ((array-range-ref)
-           (let ((tcheck-container (tcheck-atom (first (astnode-value atom))))
-                 (tcheck-index-1 (check (astnode-token atom)
-                                        "arr"
-                                        (tcheck-atom (second (astnode-value atom)))
-                                        'integer))
-                 (tcheck-index-2 (check (astnode-token atom)
-                                        "arr"
-                                        (tcheck-atom (third (astnode-value atom)))
-                                        'integer)))
-             (if (= (+ tcheck-index-1 tcheck-index-2) 0)
-                 (list (first tcheck-container) (third tcheck-container))
-                 (make-tcheck (+ tcheck-index-1 tcheck-index-2) 'ignore))))
-
-          ((dictionary-ref)
-           (let ((tcheck-container (tcheck-atom (first (astnode-value atom)))))
-             (list (first tcheck-container) (third tcheck-container))))
+                 (val (astnode-value atom)))
+             (case (second tcheck-container)
+               ((array)
+                (case (length val)
+                  ((2) (let ((tcheck-index (check (astnode-token atom)
+                                                  "arr"
+                                                  (tcheck-atom (second (astnode-value atom)))
+                                                  'integer)))
+                         (astnode-type-set! atom 'array-index-ref)
+                         (if (= tcheck-index 0)
+                             (list (first tcheck-container) (third tcheck-container))
+                             (make-tcheck tcheck-index 'ignore))))
+                  ((3) (let ((tcheck-index-1 (check (astnode-token atom)
+                                                    "arr"
+                                                    (tcheck-atom (second (astnode-value atom)))
+                                                    'integer))
+                             (tcheck-index-2 (check (astnode-token atom)
+                                                    "arr"
+                                                    (tcheck-atom (third (astnode-value atom)))
+                                                    'integer)))
+                         (astnode-type-set! atom 'array-range-ref)
+                         (if (= (+ tcheck-index-1 tcheck-index-2) 0)
+                             (list (first tcheck-container) (third tcheck-container))
+                             (make-tcheck (+ tcheck-index-1 tcheck-index-2) 'ignore))))
+                  (else (con-error-info (astnode-token atom) (ss "Incorrect number of arguments, expected: 1-2"))
+                        1)))
+               ((dictionary)
+                (astnode-type-set! atom 'dictionary-ref)
+                (list (first tcheck-container) (third tcheck-container))))))
 
           ((prim-call)
            (let ((prim (car (astnode-value atom)))
@@ -1094,7 +1060,9 @@
                                     (third tcheck-container)))
                   (err-count (+ set-check val-check)))
              (if (= err-count 0)
-                 (list (first tcheck-container) (third tcheck-container))
+                 (begin
+                   ;; (pde tcheck-container)
+                   (list (first tcheck-container) 'dictionary (third tcheck-container)))
                  (make-tcheck err-count 'ignore))))
 
           ((generate)
@@ -1139,17 +1107,9 @@
           ((user-call-tail-to-check)
            ;; Mark user-call checked!
            (astnode-type-set! atom 'user-call-tail)
-
-           ;;           (let* ((fundef-atom (varloc-scope-get (car (astnode-value atom))))
-           ;;                  (args (cdr (astnode-value atom))))
-           ;;             (user-call-tail fundef-atom args))
-
            (let* ((fundef-atom (varloc-scope-get (car (astnode-value atom))))
                   (args (cdr (astnode-value atom))))
-             (user-call fundef-atom args))
-
-           ;;           (make-tcheck 0 'ignore)
-           )
+             (user-call fundef-atom args)))
 
           ;; Checked tail-call.
           ((user-call-tail)
