@@ -1,0 +1,245 @@
+#!/usr/bin/guile -s
+!#
+
+(use-modules (srfi srfi-64))
+(use-modules (srfi srfi-1))
+
+(add-to-load-path "..")
+(use-modules (tuile pr))
+(use-modules (tuile utils))
+(use-modules (tuile con))
+
+
+;;(define (code text)
+;;  (last (con-text text)))
+
+(define (test-text code ref)
+  (equal? (last (con-text code))
+          ref))
+
+(define (code->text code)
+  (let ((code-lines (map (lambda (datum) (with-output-to-string (lambda () (write datum)))) code)))
+    (string-join code-lines "\n")))
+
+(define (test-code code ref)
+  (test-text (code->text code)
+             ref))
+
+;;(con-text (code->text '((def foo 2)
+;;                        (ref (arr 1 foo 3) 1))))
+;;(exit 1)
+;;(pd (con-text (code->text '((def foo 123) (ref (dic (1 2) ("foo"  foo)) "foo")))))
+;;(exit 1)
+;;(pd (con-text (code->text '((def foo 123)
+;;                            (dic (1 2) ("foo" foo))))))
+;;(exit 1)
+;;(pd (con-text (code->text '((def foo 123)
+;;                            (def my-dic (dic (1 2)
+;;                                             ("foo" foo)))
+;;                            (ref (set my-dic "foo" 321) "foo")))))
+;;(exit 1)
+
+;;(pd (con-text (code->text '((cat "foo" "haa")))))
+;;(exit 1)
+
+(test-begin "con")
+
+(test-assert "constant-integer"
+  (test-text "10" 10))
+
+(test-assert "constant-float"
+  (test-text "10.2" 10.2))
+
+(test-assert "constant-true"
+  (test-text "#t" #t))
+
+(test-assert "constant-false"
+  (test-text "#f" #f))
+
+(test-assert "constant-null"
+  (test-text "#nil" #nil))
+
+(test-assert "constant-string"
+  (test-code '("foo") "foo"))
+
+(test-assert "variable-definition"
+  (test-code '((def var 10) var) 10))
+
+(test-assert "constant-array"
+  (test-code '((arr 1 2 3)) (list 1 2 3)))
+
+(test-assert "variable-array"
+  (test-code '((def var 10) (arr 1 2 var)) (list 1 2 10)))
+
+(test-assert "constant-dictionary"
+  (test-code '((dic (1 2) (3 4))) (alist 1 2 3 4)))
+
+(test-assert "variable-dictionary"
+  (test-code '((def foo 10)
+               (def bar 11)
+               (dic (1 foo) (3 bar)))
+             (alist 1 10 3 11)))
+
+(test-assert "if-statement-true"
+  (test-code '((def foo #t) (sel foo 1 2)) 1))
+
+(test-assert "if-statement-false"
+  (test-code '((def foo #f) (sel foo 1 2)) 2))
+
+(test-assert "function-call"
+  (test-code '((def my-fun (fun (a) (add 1 a)))
+              (my-fun 12))
+            13))
+
+(test-assert "recursive-call"
+  (test-code '((def my-rec (fun (x) (sel (cge x 10)
+                                         x
+                                         (my-rec (add x 4)))))
+               (my-rec 5))
+             13))
+
+(test-assert "run-expression"
+  (test-code '((run (fun (x) (mul x 3))
+                    (gen 3)))
+             (list 0 3 6)))
+
+(test-assert "thunk-with-free-variable"
+  (test-code '((def z 1)
+               (def my-thunk (fun () (add z 4)))
+               (my-thunk))
+             5))
+
+(test-assert "fun-with-local-variable"
+  (test-code '((def z 1)
+               (def my-fun (fun (x y)
+                                (def inner-val 128)
+                                (add inner-val x y z)))
+               (my-fun 4 17))
+             150))
+
+(test-assert "func-with-inner-fun"
+  (test-code '((def z 1)
+               (def my-fun (fun (x y)
+                                (def inner-fun (fun (a) (add a z x)))
+                                (add (inner-fun y) 2)))
+               (my-fun 4 17))
+             24))
+
+(test-assert "func-with-inner-thunk"
+  (test-code '((def z 1)
+               (def my-fun (fun (x y)
+                                (def inner-fun (fun () (add z x)))
+                                (add (inner-fun) y)))
+               (my-fun 4 17))
+             22))
+
+(test-assert "prim-num"
+  (test-code '((num "12")) 12))
+
+(test-assert "prim-str"
+  (test-code '((str 13)) "13"))
+
+(test-assert "prim-mul"
+  (test-code '((mul 2 3)) 6))
+
+(test-assert "prim-add"
+  (test-code '((add 2 3)) 5))
+
+(test-assert "prim-sub"
+  (test-code '((sub 2 3)) -1))
+
+(test-assert "prim-neg"
+  (test-code '((neg (sub 2 3))) 1))
+
+(test-assert "prim-len"
+  (test-code '((len (arr 1 2 3))) 3))
+
+(test-assert "prim-ref-array-index"
+  (test-code '((ref (arr 1 2 3) 1)) 2))
+
+(test-assert "prim-ref-array-range-1"
+  (test-code '((def foo 2)
+               (ref (arr 1 foo 3) 1 2))
+             (list 2)))
+
+(test-assert "prim-ref-array-range-2"
+  (test-code '((ref (arr 1 2 3) 1 3))
+             (list 2 3)))
+
+(test-assert "prim-ref-dict"
+  (test-code '((def foo 123)
+               (ref (dic (1 2)
+                         ("foo" foo))
+                    "foo"))
+             123))
+
+(test-assert "prim-set-dict"
+  (test-code '((def foo 123)
+               (def my-dic (dic (1 2)
+                                ("foo" foo)))
+               (ref (set my-dic "foo" 321) "foo"))
+             321))
+
+(test-assert "compare-equal-true"
+  (test-code '((def foo 10) (ceq 10 foo))
+             #t))
+
+(test-assert "compare-equal-false"
+  (test-code '((def foo 10) (ceq 11 foo))
+             #f))
+
+(test-assert "compare-greater-true"
+  (test-code '((def foo 10) (cgt 11 foo))
+             #t))
+
+(test-assert "compare-greater-false"
+  (test-code '((def foo 10) (cgt 10 foo))
+             #f))
+
+(test-assert "compare-less-true"
+  (test-code '((def foo 11) (clt 10 foo))
+             #t))
+
+(test-assert "compare-less-false"
+  (test-code '((def foo 10) (clt 10 foo))
+             #f))
+
+(test-assert "compare-greater-or-equal-true"
+  (test-code '((def foo 10) (cge 10 foo))
+             #t))
+
+(test-assert "compare-greateror-equal-false"
+  (test-code '((def foo 11) (cge 10 foo))
+             #f))
+
+(test-assert "compare-less-or-equal-true"
+  (test-code '((def foo 10) (cle 10 foo))
+             #t))
+
+(test-assert "compare-lessor-equal-false"
+  (test-code '((def foo 10) (cle 11 foo))
+             #f))
+
+(test-assert "string-concatenation"
+  (test-code '((cat "foo" (arr "bar" "jii") "haa")) "foobarjiihaa"))
+
+(test-assert "string-concatenation-with-separator"
+  (test-code '((glu "@" "foo" (arr "bar" "jii") "haa")) "foo@barjii@haa"))
+
+(test-assert "string-split"
+  (test-code '((div "/foo//bar" "/")) (list "" "foo" "" "bar")))
+
+(test-assert "string-splicing"
+  (test-code '((rip "/foo//bar" 0 2)) "/f"))
+
+(test-assert "string-fix"
+  (test-code '((fix "foo\n")) "foo"))
+
+(test-assert "environment-variable"
+  (test-code '((env "HOME")) (getenv "HOME")))
+
+(test-assert "shell-command"
+  (test-code '((fix (egg "echo foobar"))) "foobar"))
+
+
+(test-end)
