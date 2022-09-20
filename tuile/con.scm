@@ -128,8 +128,7 @@
   (when (not (scope-vars scope))
     ;; Just create an empty vector for variable slots. They will be
     ;; filled when variable definitions are evaluted.
-    (scope-vars-set! scope (make-vector (scope-count scope)))
-    ))
+    (scope-vars-set! scope (make-vector (scope-count scope)))))
 
 
 ;; SCOPE:
@@ -147,6 +146,7 @@
           id                            ; Var id (string), before elab.
           (mutable scope)               ; Scope of var.
           ))
+
 
 ;; Create an (almost) empty varloc with just id (tag).
 (define (varloc-create id)
@@ -184,7 +184,7 @@
 
 
 ;; Find stack entry by level and index. Go down in stack by
-;; level. Each level corresponds to one stack frame.
+;; levels. Each level corresponds to one stack frame.
 ;;
 ;;   Example:
 ;;
@@ -193,7 +193,7 @@
 ;;
 ;;                                 level
 ;;
-;;         top ->    0 1 2 3       0
+;;           top ->  0 1 2 3       0
 ;;
 ;;                   0 1 2 3 4     1
 ;;                       ^
@@ -209,10 +209,14 @@
         (loop (cdr stack)
               (1- level)))))
 
+
+;; Get variable value through stack.
 (define (varloc-get stack varloc)
   (vector-ref (varloc-find-stack-level stack varloc)
               (varloc-index varloc)))
 
+
+;; Set variable value through stack.
 (define (varloc-set stack varloc value)
   (vector-set! (varloc-find-stack-level stack varloc)
                (varloc-index varloc)
@@ -622,9 +626,7 @@
     (define (ensure value msg)
       (if value
           0
-          (begin
-            (con-error-info token (ss "Incorrect number of arguments, expected: " msg))
-            1)))
+          (con-error-info token (ss "Incorrect number of arguments, expected: " msg))))
 
     (cond
      ((symbol? spec)
@@ -821,7 +823,7 @@
     (integer? (car atom)))
 
   ;; Return check failure count (1/0).
-  (define (check token tag tcheck type)
+  (define (check-atom-type tcheck type token tag)
     (let ((valid? (case type
                     ((ignore) #t)
                     ((numeric integer) (case (tcheck-type tcheck)
@@ -838,37 +840,42 @@
 
 
   ;; Return check failure count.
-  (define (check-many token tag tcheck-list type)
+  (define (check-atom-types tchecks type token tag)
     ;; Each listed type must match.
-    (let loop ((tail tcheck-list)
+    (let loop ((tail tchecks)
                (types (if (list? type)
                           type
-                          (make-list (length tcheck-list) type)))
+                          (make-list (length tchecks) type)))
                (error-count 0))
       (if (pair? tail)
           (loop (cdr tail)
                 (cdr types)
-                (+ error-count (check token
-                                      tag
-                                      (car tail)
-                                      (car types))))
+                (+ error-count (check-atom-type (car tail)
+                                                (car types)
+                                                token
+                                                tag)))
           ;;(make-tcheck error-count 'ignore)
           error-count
           )))
 
   ;; Return tcheck (i.e. (<count> . <type)) for array.
-  (define (check-array token tag atoms)
+  (define (check-array atoms token tag)
     (let* ((base (tcheck-atom (car atoms)))
            (base-type (tcheck-type base)))
       (if (> (tcheck-count base) 0)
           ;; Type-error in first item.
           (make-tcheck 1 'ignore)
           ;; Check that all types are the same as first in the array.
-          (make-tcheck (check-many token
-                                   tag
-                                   (map tcheck-atom (cdr atoms))
-                                   base-type)
+          (make-tcheck (check-atom-types (map tcheck-atom (cdr atoms))
+                                         base-type
+                                         token
+                                         tag)
                        base-type))))
+
+  (define (check-count count lst)
+    (if (= count (length lst))
+        0
+        1))
 
   (define (user-call fundef-atom args)
     (let ((fundef (astnode-value fundef-atom)))
@@ -933,15 +940,15 @@
                  (make-tcheck 1 'ignore))))
 
           ((if-stmt)
-           (check-array (astnode-token atom)
-                        "sel"
-                        (list (second (astnode-value atom))
-                              (third (astnode-value atom)))))
+           (check-array (list (second (astnode-value atom))
+                              (third (astnode-value atom)))
+                        (astnode-token atom)
+                        "sel"))
 
           ((array)
-           (let ((tcheck-elems (check-array (astnode-token atom)
-                                            "arr"
-                                            (astnode-value atom))))
+           (let ((tcheck-elems (check-array (astnode-value atom)
+                                            (astnode-token atom)
+                                            "arr")))
              (list (first tcheck-elems)
                    'array
                    (second tcheck-elems))))
@@ -949,9 +956,9 @@
           ((dictionary)
            ;; NOTE: It is a runtime error if there is no value for the
            ;; key.
-           (let ((tcheck-elems (check-array (astnode-token atom)
-                                            "dic"
-                                            (map cdr (astnode-value atom)))))
+           (let ((tcheck-elems (check-array (map cdr (astnode-value atom))
+                                            (astnode-token atom)
+                                            "dic")))
              (list (first tcheck-elems)
                    'dictionary
                    (second tcheck-elems))))
@@ -961,10 +968,10 @@
                  (args (cdr (astnode-value atom))))
              (case prim
                ((KEY-MUL KEY-ADD KEY-SUB)
-                (make-tcheck (check-many (astnode-token atom)
-                                         (keywordsym->string prim)
-                                         (map tcheck-atom args)
-                                         'numeric)
+                (make-tcheck (check-atom-types (map tcheck-atom args)
+                                               'numeric
+                                               (astnode-token atom)
+                                               (keywordsym->string prim))
                              'numeric)))))
 
           ((arith-op-single)
@@ -972,10 +979,10 @@
                  (args (cdr (astnode-value atom))))
              (case prim
                ((KEY-NEG)
-                (make-tcheck (check (astnode-token atom)
-                                    (keywordsym->string prim)
-                                    (tcheck-atom args)
-                                    'numeric)
+                (make-tcheck (check-atom-type (tcheck-atom args)
+                                              'numeric
+                                              (astnode-token atom)
+                                              (keywordsym->string prim))
                              'numeric)))))
 
           ;;     (ref (dic (1 2) ("foo" foo)) "foo")
@@ -987,28 +994,28 @@
              (case (second tcheck-container)
                ((array)
                 (case (length val)
-                  ((2) (let ((tcheck-index (check (astnode-token atom)
-                                                  "arr"
-                                                  (tcheck-atom (second (astnode-value atom)))
-                                                  'integer)))
+                  ((2) (let ((tcheck-index (check-atom-type (tcheck-atom (second (astnode-value atom)))
+                                                            'integer
+                                                            (astnode-token atom)
+                                                            "arr")))
                          (astnode-type-set! atom 'array-index-ref)
                          (if (= tcheck-index 0)
                              (list (first tcheck-container) (third tcheck-container))
                              (make-tcheck tcheck-index 'ignore))))
-                  ((3) (let ((tcheck-index-1 (check (astnode-token atom)
-                                                    "arr"
-                                                    (tcheck-atom (second (astnode-value atom)))
-                                                    'integer))
-                             (tcheck-index-2 (check (astnode-token atom)
-                                                    "arr"
-                                                    (tcheck-atom (third (astnode-value atom)))
-                                                    'integer)))
+                  ((3) (let ((tcheck-index-1 (check-atom-type (tcheck-atom (second (astnode-value atom)))
+                                                              'integer
+                                                              (astnode-token atom)
+                                                              "arr"))
+                             (tcheck-index-2 (check-atom-type (tcheck-atom (third (astnode-value atom)))
+                                                              'integer
+                                                              (astnode-token atom)
+                                                              "arr")))
                          (astnode-type-set! atom 'array-range-ref)
                          (if (= (+ tcheck-index-1 tcheck-index-2) 0)
                              (list (first tcheck-container) (third tcheck-container))
                              (make-tcheck (+ tcheck-index-1 tcheck-index-2) 'ignore))))
-                  (else (con-error-info (astnode-token atom) (ss "Incorrect number of arguments, expected: 1-2"))
-                        1)))
+                  (else (make-tcheck (con-error-info (astnode-token atom) (ss "Incorrect number of arguments, expected: 1-2"))
+                                     'ignore))))
                ((dictionary)
                 (astnode-type-set! atom 'dictionary-ref)
                 (list (first tcheck-container) (third tcheck-container))))))
@@ -1018,46 +1025,80 @@
                  (args (cdr (astnode-value atom))))
              (case prim
                ((KEY-NUM)
-                (make-tcheck (check (astnode-token atom)
-                                    (keywordsym->string prim)
-                                    (tcheck-atom args)
-                                    'string)
+                (make-tcheck (check-atom-type (tcheck-atom args)
+                                              'string
+                                              (astnode-token atom)
+                                              (keywordsym->string prim))
                              'string))
                ((KEY-STR)
                 (make-tcheck 0 'string))
                ((KEY-LEN)
-                (make-tcheck (check (astnode-token atom)
-                                    (keywordsym->string prim)
-                                    (tcheck-atom args)
-                                    'array)
+                (make-tcheck (check-atom-type (tcheck-atom args)
+                                              'array
+                                              (astnode-token atom)
+                                              (keywordsym->string prim))
                              'integer))
-               ((KEY-CAT KEY-GLU KEY-DIV KEY-RIP)
-                (make-tcheck (check-many (astnode-token atom)
-                                         (keywordsym->string prim)
-                                         (map tcheck-atom args)
-                                         'string)
+               ;;     (cat "foo" (arr "bar" 1 2 3) "/" "jii.haa")
+               ((KEY-CAT)
+                (make-tcheck 0 'string))
+               ;;     (glu "@" "foo" (arr "bar" 1 2 3) "/" "jii.haa")
+               ((KEY-GLU)
+                (make-tcheck (check-atom-type (tcheck-atom (car args))
+                                              'string
+                                              (astnode-token atom)
+                                              (keywordsym->string prim))
                              'string))
-               ((KEY-FIX KEY-ENV KEY_EGG)
-                (make-tcheck (check (astnode-token atom)
-                                    (keywordsym->string prim)
-                                    (tcheck-atom args)
-                                    'string)
+               ;;     (div "/foo//bar" "/")
+               ((KEY-DIV)
+                (if (= (length args) 2)
+                    (make-tcheck (check-atom-types (map tcheck-atom args)
+                                                   'string
+                                                   (astnode-token atom)
+                                                   (keywordsym->string prim))
+                                 'string)
+                    (make-tcheck (con-error-info (astnode-token atom) (ss "Incorrect number of arguments, expected: 1"))
+                                 'ignore)))
+               ;;     (rip "/foo//bar" 0 2)
+               ((KEY-RIP)
+                (if (= (length args) 3)
+                    (let ((tcheck-str (check-atom-type (tcheck-atom (first args))
+                                                       'string
+                                                       (astnode-token atom)
+                                                       (keywordsym->string prim)))
+                          (tcheck-index-1 (check-atom-type (tcheck-atom (second args))
+                                                           'integer
+                                                           (astnode-token atom)
+                                                           (keywordsym->string prim)))
+                          (tcheck-index-2 (check-atom-type (tcheck-atom (third args))
+                                                           'integer
+                                                           (astnode-token atom)
+                                                           (keywordsym->string prim))))
+                      (if (= (+ tcheck-str tcheck-index-1 tcheck-index-2) 0)
+                          (make-tcheck 0 'string)
+                          (make-tcheck 1 'ignore)))
+                    (make-tcheck (con-error-info (astnode-token atom) (ss "Incorrect number of arguments, expected: 3"))
+                                 'ignore)))
+               ((KEY-FIX KEY-ENV KEY-EGG)
+                (make-tcheck (check-atom-type (tcheck-atom args)
+                                              'string
+                                              (astnode-token atom)
+                                              (keywordsym->string prim))
                              'string)))))
 
           ((obj-assign)
            ;;          |<dic>                  |<ref>    |<val>
            ;;     (set (dic (1 2) ("foo" foo)) "foo"     12)
            (let* ((tcheck-container (tcheck-atom (first (astnode-value atom))))
-                  (set-check (check (astnode-token atom)
-                                    "set"
-                                    tcheck-container
-                                    'dictionary))
+                  (set-check (check-atom-type tcheck-container
+                                              'dictionary
+                                              (astnode-token atom)
+                                              "set"))
                   ;; Make sure dic values are same type as the
                   ;; assigned value.
-                  (val-check (check (astnode-token atom)
-                                    "set"
-                                    (tcheck-atom (third (astnode-value atom)))
-                                    (third tcheck-container)))
+                  (val-check (check-atom-type (tcheck-atom (third (astnode-value atom)))
+                                              (third tcheck-container)
+                                              (astnode-token atom)
+                                              "set"))
                   (err-count (+ set-check val-check)))
              (if (= err-count 0)
                  (begin
@@ -1066,29 +1107,29 @@
                  (make-tcheck err-count 'ignore))))
 
           ((generate)
-           (make-tcheck (check-many (astnode-token atom)
-                                    "gen"
-                                    (map tcheck-atom (astnode-value atom))
-                                    'integer)
+           (make-tcheck (check-atom-types (map tcheck-atom (astnode-value atom))
+                                          'integer
+                                          (astnode-token atom)
+                                          "gen")
                         'array
                         'integer))
 
           ;;     (run (fun (x) (mul x 3)) (gen 10))
           ((mapping)
            ;; TODO: Check that fun is not tail-recursive.
-           (let* ((fun-check (check (astnode-token atom)
-                                    "run"
-                                    (tcheck-atom (car (astnode-value atom)))
-                                    'fundef))
+           (let* ((fun-check (check-atom-type (tcheck-atom (car (astnode-value atom)))
+                                              'fundef
+                                              (astnode-token atom)
+                                              "run"))
                   (tcheck-gen (tcheck-atom (cdr (astnode-value atom))))
-                  (gen-check-container (check (astnode-token atom)
-                                              "run"
-                                              (list (car tcheck-gen) (second tcheck-gen))
-                                              'array))
-                  (gen-check-value (check (astnode-token atom)
-                                          "run"
-                                          (list (car tcheck-gen) (third tcheck-gen))
-                                          'integer))
+                  (gen-check-container (check-atom-type (list (car tcheck-gen) (second tcheck-gen))
+                                                        'array
+                                                        (astnode-token atom)
+                                                        "run"))
+                  (gen-check-value (check-atom-type (list (car tcheck-gen) (third tcheck-gen))
+                                                    'integer
+                                                    (astnode-token atom)
+                                                    "run"))
                   (err-count (+ fun-check gen-check-container gen-check-value)))
              (if (= err-count 0)
                  (make-tcheck err-count 'array 'integer)
@@ -1288,8 +1329,7 @@
        (let ((prim (car (astnode-value atom)))
              (args (cdr (astnode-value atom))))
          (case prim
-           ((KEY-NEG) (- (eval-atom args)))
-           )))
+           ((KEY-NEG) (- (eval-atom args))))))
 
       ((user-call)
        ;;     (my-fun 1 2)
