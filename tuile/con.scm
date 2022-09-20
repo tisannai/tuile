@@ -11,12 +11,12 @@
 ;;   scopes for definitions and references. Variable are stored to
 ;;   slots.
 ;;
-;; * TODO: Elaboration knows type of each atom. Primitive functions
-;;   have fixed input type(s) to output type mapping, i.e. we can
-;;   check all types at elaboration stage. We do type inference. Types
-;;   are not checked at evaluation stage
+;; * Elaboration knows type of each atom. Primitive functions have
+;;   fixed input type(s) to output type mapping, i.e. we can check all
+;;   types at elaboration stage. We do type inference. Types are not
+;;   checked at evaluation stage
 ;;
-;; * TODO: Functions have predefined number of arguments. We check at
+;; * Functions have predefined number of arguments. We check at
 ;;   elaboration time that function is taking the correct amount of
 ;;   arguments.
 ;;
@@ -95,12 +95,13 @@
 ;;
 ;; Return: <var index>
 ;;
-(define (scope-elab-register-varloc scope varloc)
-  ;; TODO: Check for multiple definions for same variable.
-  (let ((index (scope-count scope)))
-    (hash-set! (scope-varhsh scope) (varloc-id varloc) (cons index varloc))
-    (scope-count-set! scope (1+ (scope-count scope)))
-    index))
+(define (scope-elab-register-varloc scope varloc token)
+  (if (hash-get-handle (scope-varhsh scope) (varloc-id varloc))
+      (con-error token (ss "Variable name already used: \"" (varloc-id varloc) "\""))
+      (let ((index (scope-count scope)))
+        (hash-set! (scope-varhsh scope) (varloc-id varloc) (cons index varloc))
+        (scope-count-set! scope (1+ (scope-count scope)))
+        index)))
 
 ;; Return variable level-index or #f (for failure).
 (define (scope-elab-get-var-index scope varname)
@@ -488,7 +489,6 @@
          (make-astnode 'obj-assign (list (parse-atom) (parse-atom) (parse-atom)) key-tok))
 
         ((KEY-GEN)
-         ;;     TODO: Check number of args at elaboration.
          ;;     Mapped to iota, and have args from 1 to 3.
          ;;     (gen 10)
          (make-astnode 'generate (parse-atoms) key-tok))
@@ -665,7 +665,7 @@
        ;; vardef: (<varloc> <value>)
        ;; Elaborate the value part.
        (let* ((varloc (car (astnode-value atom)))
-              (index (scope-elab-register-varloc scope varloc)))
+              (index (scope-elab-register-varloc scope varloc (astnode-token atom))))
          (varloc-finalize varloc scope 0 index)
          (elab-atom-with-scope (cdr (astnode-value atom)) scope (varloc-id varloc))))
 
@@ -684,10 +684,10 @@
 
          ;; Create slot (reservation) for the function itself, to the
          ;; function scope. Self-calling functions are stored here.
-         (scope-elab-register-varloc fun-scope (varloc-create funname))
+         (scope-elab-register-varloc fun-scope (varloc-create funname) (astnode-token atom))
 
          ;; Add function arguments to function scope.
-         (for-each (lambda (varref) (scope-elab-register-varloc fun-scope varref))
+         (for-each (lambda (varref) (scope-elab-register-varloc fun-scope varref (astnode-token atom)))
                    (fundef-params fundef))
 
          (let ((error-count (elab-atoms-with-scope (fundef-body fundef) fun-scope #f)))
@@ -717,11 +717,9 @@
              (elab-atom (third val)))))
 
       ((array)
-       ;; TODO: Check that arg count is more than 0.
        (elab-atoms (astnode-value atom)))
 
       ((dictionary)
-       ;; TODO: Check that key-value count is more than 0.
        ;; "dictionary" requires a "custom" loop for elab-error
        ;; counting, since the value contains list of pairs.
        (let loop ((atom-pairs (astnode-value atom))
@@ -761,7 +759,6 @@
           (elab-atom (cdr (astnode-value atom)))))
 
       ((prim-call)
-       ;; TODO: Add support for floats, in addition to integers.
        (let* ((prim (car (astnode-value atom)))
               (args (cdr (astnode-value atom)))
               (do-many (lambda (args)
@@ -931,11 +928,19 @@
            (make-tcheck-self atom))
 
           ((compare)
-           ;; TODO: Check that for CGT and CLT arguments are numbers.
-           (let ((tcheck-index-1 (tcheck-atom (second (astnode-value atom))))
-                 (tcheck-index-2 (tcheck-atom (third (astnode-value atom)))))
-             (if (eq? (second tcheck-index-1)
-                      (second tcheck-index-2))
+           (let* ((tcheck-index-1 (tcheck-atom (second (astnode-value atom))))
+                  (tcheck-index-2 (tcheck-atom (third (astnode-value atom))))
+                  (tcheck-type-1 (check-atom-type tcheck-index-1
+                                                  'numeric
+                                                  (astnode-token atom)
+                                                  (keywordsym->string (first (astnode-value atom)))))
+                  (tcheck-type-2 (check-atom-type tcheck-index-2
+                                                  'numeric
+                                                  (astnode-token atom)
+                                                  (keywordsym->string (first (astnode-value atom))))))
+             (if (and (eq? (second tcheck-index-1)
+                           (second tcheck-index-2))
+                      (= (+ tcheck-type-1 tcheck-type-2) 0))
                  (make-tcheck 0 'ignore)
                  (make-tcheck 1 'ignore))))
 
@@ -946,22 +951,28 @@
                         "sel"))
 
           ((array)
-           (let ((tcheck-elems (check-array (astnode-value atom)
-                                            (astnode-token atom)
-                                            "arr")))
-             (list (first tcheck-elems)
-                   'array
-                   (second tcheck-elems))))
+           (if (> (length (astnode-value atom)) 0)
+               (let ((tcheck-elems (check-array (astnode-value atom)
+                                                (astnode-token atom)
+                                                "arr")))
+                 (list (first tcheck-elems)
+                       'array
+                       (second tcheck-elems)))
+               (make-tcheck (con-error-info (astnode-token atom) (ss "Array must have at least one element"))
+                            'ignore)))
 
           ((dictionary)
            ;; NOTE: It is a runtime error if there is no value for the
            ;; key.
-           (let ((tcheck-elems (check-array (map cdr (astnode-value atom))
-                                            (astnode-token atom)
-                                            "dic")))
-             (list (first tcheck-elems)
-                   'dictionary
-                   (second tcheck-elems))))
+           (if (> (length (astnode-value atom)) 0)
+               (let ((tcheck-elems (check-array (map cdr (astnode-value atom))
+                                                (astnode-token atom)
+                                                "dic")))
+                 (list (first tcheck-elems)
+                       'dictionary
+                       (second tcheck-elems)))
+               (make-tcheck (con-error-info (astnode-token atom) (ss "Dictionary must have at least one element"))
+                            'ignore)))
 
           ((arith-op-multi)
            (let ((prim (car (astnode-value atom)))
@@ -1192,8 +1203,6 @@
     ;;      v      v ...
     ;;     (my-fun 1 2)
     (define (user-call fundef args)
-      ;; TODO: add func itself to its scope.
-      ;;
       ;; Copy function arguments to function scope locations,
       ;; i.e. pass function parameters.
 

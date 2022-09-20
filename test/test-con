@@ -10,9 +10,6 @@
 (use-modules (tuile con))
 
 
-;;(define (code text)
-;;  (last (con-text text)))
-
 (define (test-text code ref)
   (equal? (last (con-text code))
           ref))
@@ -25,22 +22,7 @@
   (test-text (code->text code)
              ref))
 
-;;(con-text (code->text '((def foo 2)
-;;                        (ref (arr 1 foo 3) 1))))
-;;(exit 1)
-;;(pd (con-text (code->text '((def foo 123) (ref (dic (1 2) ("foo"  foo)) "foo")))))
-;;(exit 1)
-;;(pd (con-text (code->text '((def foo 123)
-;;                            (dic (1 2) ("foo" foo))))))
-;;(exit 1)
-;;(pd (con-text (code->text '((def foo 123)
-;;                            (def my-dic (dic (1 2)
-;;                                             ("foo" foo)))
-;;                            (ref (set my-dic "foo" 321) "foo")))))
-;;(exit 1)
 
-;;(pd (con-text (code->text '((cat "foo" "haa")))))
-;;(exit 1)
 
 (test-begin "con")
 
