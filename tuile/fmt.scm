@@ -180,6 +180,17 @@
                  str-def)
             (fn str-def width pad))))
 
+    (define (gap rest)
+      (let ((size (if (pair? (first rest))
+                      (first (first rest))
+                      (first rest)))
+            (char (if (pair? (first rest))
+                      (second (first rest))
+                      " ")))
+        (string-join (flatten (map format-atom (cdr rest)))
+                     (string-repeat size char))))
+
+
     (cond
 
      ((list? atom)
@@ -196,14 +207,7 @@
          (call-align center-align-or-clip atom))
 
         ((gap)
-         (let ((size (if (pair? (second atom))
-                         (first (second atom))
-                         (second atom)))
-               (char (if (pair? (second atom))
-                         (second (second atom))
-                         " ")))
-           (string-join (flatten (map format-atom (drop atom 2)))
-                        (string-repeat size char))))
+         (gap (cdr atom)))
 
         ((bin)
          (bin (cdr atom)))
