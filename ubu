@@ -13,6 +13,9 @@
                                         (map file-name files))
                                    (lambda (s t) (gap "cp" s t))))))
 
+(action install-force
+        (sh "cp -r tuile " usr-install-path))
+
 (action test-pr
         (with-output
          (sh "cd test; test-pr")))
