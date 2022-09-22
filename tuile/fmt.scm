@@ -26,9 +26,10 @@
 ;; Formatters (with space as default pad):
 ;;
 ;; lal - left-align
-;; ral - rigth-align
+;; ral - right-align
+;; cal - center-align
 ;; lai - left-align-with-indent
-;; rai - rigth-align-with-indent
+;; rai - right-align-with-indent
 ;; dis - distribute
 ;; gap - gap
 
@@ -64,6 +65,7 @@
 
   (define format-commands '(lal
                             ral
+                            cal
                             dis
                             gap
                             bin
@@ -95,6 +97,15 @@
                        excess
                        (+ width excess)))))
 
+    (define (center-align-or-clip str width pad-elem)
+      (if (< (string-length str) width)
+          (let* ((len (string-length str))
+                 (left-pad (quotient (- width len) 2)))
+            (string-append (string-repeat left-pad pad-elem)
+                           str
+                           (string-repeat (- width left-pad len) pad-elem)))
+          (substring str 0 width)))
+
     (define (num-to-string radix pad rest)
       (if (= 1 (length rest))
           (let ((str (number->string (first rest) radix)))
@@ -125,7 +136,7 @@
       (num-to-string 16 "0" rest))
 
     (define (oct rest)
-      (num-to-string 16 "0" rest))
+      (num-to-string 8 "0" rest))
 
     (define (dec rest)
       (num-to-string 10 " " rest))
@@ -165,8 +176,20 @@
         ((ral)
          (call-align right-align-or-clip atom))
 
+        ((cal)
+         (call-align center-align-or-clip atom))
+
         ((bin)
          (bin (cdr atom)))
+
+        ((hex)
+         (hex (cdr atom)))
+
+        ((oct)
+         (oct (cdr atom)))
+
+        ((dec)
+         (dec (cdr atom)))
 
         (else
          (apply fmt atom))))
@@ -225,7 +248,7 @@
 
 
 (define (fmt-info . args)
-  
+
   (define (get-fmt-info args)
 
     (define (find-length-prop cmp args)
@@ -251,3 +274,6 @@
       ;; List argument.
       (get-fmt-info (car args))
       (get-fmt-info args)))
+
+
+;;(define (fmt-table ))

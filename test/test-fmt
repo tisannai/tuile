@@ -7,62 +7,73 @@
 (add-to-load-path "..")
 (use-modules (tuile fmt))
 
+(define (test-string-match name code expected)
+  (test-assert name (string=? code expected)))
+
+
+(pr (fmt '(cal 9  "foo") "***"))
+(exit 0)
 
 (test-begin "fmt")
 
-(test-equal "trivial string" #t
-            (string=?
-             (fmt "foo")
-             "foo"))
+(test-string-match "trivial string"
+                   (fmt "foo")
+                   "foo")
 
-(test-equal "multiple string args" #t
-            (string=?
-             (fmt "foo" "bar")
-             "foobar"))
+(test-string-match "multiple string args"
+                   (fmt "foo" "bar")
+                   "foobar")
 
-(test-equal "list of strings" #t
-            (string=?
-             (fmt '("foo" "bar"))
-             "foobar"))
+(test-string-match "list of strings"
+                   (fmt '("foo" "bar"))
+                   "foobar")
 
-(test-equal "left-align with space" #t
-            (string=?
-             (fmt '(lal 5 "foo"))
-             "foo  "))
+(test-string-match "left-align with space"
+                   (fmt '(lal 5 "foo"))
+                   "foo  ")
 
-(test-equal "right-align with dash" #t
-            (string=?
-             (fmt '(ral (5 "-") "foo"))
-             "--foo"))
+(test-string-match "right-align with dash"
+                   (fmt '(ral (5 "-") "foo"))
+                   "--foo")
 
-(test-equal "binary format" #t
-            (string=?
-             (fmt '(bin 123))
-             "1111011"))
+(test-string-match "binary format"
+                   (fmt '(bin 123))
+                   "1111011")
 
-(test-equal "binary format with dash" #t
-            (string=?
-             (fmt "0b" '(bin (10 "-") 123))
-             "0b---1111011"))
+(test-string-match "binary format with dash"
+                   (fmt "0b" '(bin (10 "-") 123))
+                   "0b---1111011")
 
-(test-equal "many left-aligns, multiple args" #t
-            (string=?
-             (fmt '(lal 5 "foo" "bar" "dii"))
-             "foo  bar  dii  "))
+(test-string-match "hexadecimal format"
+                   (fmt '(hex 123))
+                   "7b")
 
-(test-equal "many left-aligns, list arg" #t
-            (string=?
-             (fmt '(lal 5 ("foo" "bar" "dii")))
-             "foo  bar  dii  "))
+(test-string-match "hexadecimal format with dash"
+                   (fmt "0h" '(hex (10 "-") 123))
+                   "0h--------7b")
 
-(test-equal "many left-aligns with shorthand" #t
-            (string=?
-             (fmt 'lal 5 "foo" "bar" "dii")
-             "foo  bar  dii  "))
+(test-string-match "octal format"
+                   (fmt '(oct 123))
+                   "173")
 
-(test-equal "many left-aligns with many shorthands" #t
-            (string=?
-             (fmt 'lal 5 "foo" "bar" "dii" 'lal 5 "foo" "bar" "dii")
-             "foo  bar  dii  foo  bar  dii  "))
+(test-string-match "octal format with dash"
+                   (fmt "0o" '(oct (10 "-") 123))
+                   "0o-------173")
+
+(test-string-match "many left-aligns, multiple args"
+                   (fmt '(lal 5 "foo" "bar" "dii"))
+                   "foo  bar  dii  ")
+
+(test-string-match "many left-aligns, list arg"
+                   (fmt '(lal 5 ("foo" "bar" "dii")))
+                   "foo  bar  dii  ")
+
+(test-string-match "many left-aligns with shorthand"
+                   (fmt 'lal 5 "foo" "bar" "dii")
+                   "foo  bar  dii  ")
+
+(test-string-match "many left-aligns with many shorthands"
+                   (fmt 'lal 5 "foo" "bar" "dii" 'lal 5 "foo" "bar" "dii")
+                   "foo  bar  dii  foo  bar  dii  ")
 
 (test-end)
