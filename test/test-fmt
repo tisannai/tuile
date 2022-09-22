@@ -11,9 +11,6 @@
   (test-assert name (string=? code expected)))
 
 
-(pr (fmt '(cal 9  "foo") "***"))
-(exit 0)
-
 (test-begin "fmt")
 
 (test-string-match "trivial string"
@@ -66,7 +63,7 @@
 
 (test-string-match "many left-aligns, list arg"
                    (fmt '(lal 5 ("foo" "bar" "dii")))
-                   "foo  bar  dii  ")
+                   "fooba")
 
 (test-string-match "many left-aligns with shorthand"
                    (fmt 'lal 5 "foo" "bar" "dii")
@@ -75,5 +72,13 @@
 (test-string-match "many left-aligns with many shorthands"
                    (fmt 'lal 5 "foo" "bar" "dii" 'lal 5 "foo" "bar" "dii")
                    "foo  bar  dii  foo  bar  dii  ")
+
+(test-string-match "gap with multiple args"
+                   (fmt '(gap (4 "+") "foo" "bar" "hii"))
+                   "foo++++bar++++hii")
+
+(test-string-match "gap with compose over right-align"
+                   (fmt '(gap (2 "+") (ral (5 "-") "foo" "bar" "dii")))
+                   "--foo++--bar++--dii")
 
 (test-end)

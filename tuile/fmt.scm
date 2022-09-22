@@ -11,12 +11,6 @@
    ))
 
 
-;; left-align (with-indent)
-;; right-align (with-indent)
-;; center-align
-;; distribute (with-indent)
-;; gap (with-indent)
-;;
 ;; 0123456789012301234567890123012345678901230
 ;; |      :      |      :      |      :      |
 ;; foo                 bar                 dii  ; left-align, center-align, right-align
@@ -46,7 +40,8 @@
 ;; ------------------------------------------------------------
 ;; Internal functions:
 
-(define (fmt-to-str arg)
+;; Convert arg to string.
+(define (->str arg)
   (cond
    ((string? arg)
     arg)
@@ -55,8 +50,30 @@
    ((symbol? arg)
     (object->string arg))
    ((list? arg)
-    (string-concatenate (map fmt-to-str arg)))))
+    (string-concatenate (map ->str arg)))))
 
+;; Tail recursive full flatten.
+(define (flatten . rest)
+  (let loop ((stack rest)
+             (res '()))
+    (cond
+     ((null? stack)
+      ;; We are done, reverse the result.
+      (reverse res))
+     ((null? (car stack))
+      ;; Eat out empty tails.
+      (loop (cdr stack)
+            res))
+     ((pair? (car stack))
+      ;; Convert stack into: (head tail rest-of-stack).
+      (loop (cons (caar stack)
+                  (cons (cdar stack)
+                        (cdr stack)))
+            res))
+     (else
+      ;; Add head to result.
+      (loop (cdr stack)
+            (cons (car stack) res))))))
 
 ;; ------------------------------------------------------------=
 ;; User API:
@@ -143,24 +160,24 @@
 
     ;; Return values: str/str-list, width, pad.
     (define (handle-align-or-clip-args atom)
-      (apply values (append (list (if (= (length atom) 3)
-                                      (if (list? (third atom))
-                                          ;; List argument.
-                                          (map format-atom (third atom))
-                                          ;; Single argument.
-                                          (format-atom (third atom)))
-                                      ;; Many arguments.
-                                      (map format-atom (drop atom 2))))
-                            (if (pair? (second atom))
-                                (second atom)
-                                (list (second atom) " ")))))
+      (apply values (cons (if (= (length atom) 3)
+                              (if (list? (third atom))
+                                  ;; List argument.
+                                  (string-concatenate (format-atom (third atom)))
+                                  ;; Single argument.
+                                  (third atom))
+                              ;; Many arguments.
+                              (map format-atom (drop atom 2)))
+                          (if (pair? (second atom))
+                              (second atom)
+                              (list (second atom) " ")))))
 
     (define (call-align fn atom)
       (let-values (((str-def width pad) (handle-align-or-clip-args atom)))
         (if (list? str-def)
-            (string-concatenate (map (lambda (str)
-                                       (fn str width pad))
-                                     str-def))
+            (map (lambda (str)
+                   (fn str width pad))
+                 str-def)
             (fn str-def width pad))))
 
     (cond
@@ -169,7 +186,6 @@
 
       (case (first atom)
 
-        ;; Left-align.
         ((lal)
          (call-align left-align-or-clip atom))
 
@@ -178,6 +194,16 @@
 
         ((cal)
          (call-align center-align-or-clip atom))
+
+        ((gap)
+         (let ((size (if (pair? (second atom))
+                         (first (second atom))
+                         (second atom)))
+               (char (if (pair? (second atom))
+                         (second (second atom))
+                         " ")))
+           (string-join (flatten (map format-atom (drop atom 2)))
+                        (string-repeat size char))))
 
         ((bin)
          (bin (cdr atom)))
@@ -192,10 +218,10 @@
          (dec (cdr atom)))
 
         (else
-         (apply fmt atom))))
+         (map fmt atom))))
 
      (else
-      (fmt-to-str atom))))
+      (->str atom))))
 
   (define (format-atoms atoms)
     (if (pair? atoms)
@@ -235,7 +261,7 @@
         (group-atoms atoms)
         atoms))
 
-  (string-concatenate (format-atoms (format-shorthand args))))
+  (string-concatenate (flatten (format-atoms (format-shorthand args)))))
 
 
 (define-record-type fmt-info-rec
@@ -261,7 +287,7 @@
                   (find prop (cdr tail))))
             prop)))
 
-    (let ((str-args (map fmt-to-str args)))
+    (let ((str-args (map ->str args)))
       (make-fmt-info (length args)
                      (find-length-prop > str-args)
                      (find-length-prop < str-args)
