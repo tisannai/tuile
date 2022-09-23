@@ -10,6 +10,19 @@
 (define (test-string-match name code expected)
   (test-assert name (string=? code expected)))
 
+(define (test-lines-match name code expected)
+  (define (lines-match? a b)
+    (and (= (length a) (length b))
+         (let loop ((a a)
+                    (b b)
+                    (ret #t))
+           (if (and ret (pair? a))
+               (loop (cdr a)
+                     (cdr b)
+                     (string=? (car a) (car b)))
+               ret))))
+  (test-assert name (lines-match? code expected)))
+
 
 (test-begin "fmt")
 
@@ -77,8 +90,13 @@
                    (fmt '(gap (4 "+") "foo" "bar" "hii"))
                    "foo++++bar++++hii")
 
-(test-string-match "gap with compose over right-align"
-                   (fmt '(gap (2 "+") (ral (5 "-") "foo" "bar" "dii")))
-                   "--foo++--bar++--dii")
+(test-lines-match "simple table format"
+                  (fmt-table '((lal 6) (lal 12))
+                             '(("#" "foo" "First dummy name.")
+                               ("#" "bar" "Second dummy name.")))
+                  (list "#     foo         First dummy name."
+                        "#     bar         Second dummy name."))
+
+
 
 (test-end)

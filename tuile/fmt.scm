@@ -5,6 +5,7 @@
   #:export
   (
    fmt
+   fmt-table
 
    fmt-info-rec
    fmt-info
@@ -306,4 +307,32 @@
       (get-fmt-info args)))
 
 
-;;(define (fmt-table ))
+;; Format multiple lines with the given "format".
+;;
+;; "format" includes a formatting rule for each column, and the
+;; remaining line columns are output as is.
+;;
+;; Example:
+;;
+;;     (fmt-table '((lal 6) (lal 12))
+;;                 '(("#" "foo" "First dummy name.")
+;;                   ("#" "bar" "Second dummy name.")))
+;;
+(define (fmt-table format lines)
+  (let loop ((lines lines)
+             (ret '()))
+    (if (pair? lines)
+        ;; Example:
+        ;;     (fmt '(lal 6 "#") '(lal 12 "foo") "First dummy name.")
+        (loop (cdr lines)
+              (cons (apply fmt (let loop2 ((rest format)
+                                           (cols (car lines))
+                                           (ret '()))
+                                 (if (pair? rest)
+                                     (loop2 (cdr rest)
+                                            (cdr cols)
+                                            (append ret
+                                                    (list (append (car rest) (list (car cols))))))
+                                     (append ret cols))))
+                    ret))
+        (reverse ret))))
