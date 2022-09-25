@@ -14,7 +14,6 @@
   #:use-module ((srfi srfi-19) #:prefix srfi:)
   #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
-  #:use-module ((ice-9 match) #:select (match))
   #:use-module (tuile re)
   #:use-module (tuile compatible)
   #:export

@@ -2,6 +2,7 @@
   #:use-module ((srfi srfi-1)  #:select (first second third fold drop))
   #:use-module ((srfi srfi-9)  #:select (define-record-type))
   #:use-module ((srfi srfi-11) #:select (let-values))
+  #:use-module ((ice-9 match) #:select (match))
   #:export
   (
    fmt
@@ -81,7 +82,8 @@
 
 (define (fmt . args)
 
-  (define format-commands '(lal
+  (define format-commands '(ind
+                            lal
                             ral
                             cal
                             dis
@@ -95,6 +97,11 @@
 
     (define (string-repeat n str)
       (fold string-append "" (make-list n str)))
+
+    (define (ind atom)
+      (match atom
+        ((num char) (make-string num (car (string->list char))))
+        (num (make-string num #\ ))))
 
     (define (left-align-or-clip str width pad-elem)
       (if (< (string-length str) width)
@@ -197,6 +204,9 @@
      ((list? atom)
 
       (case (first atom)
+
+        ((ind)
+         (ind (second atom)))
 
         ((lal)
          (call-align left-align-or-clip atom))
@@ -329,10 +339,15 @@
                                            (cols (car lines))
                                            (ret '()))
                                  (if (pair? rest)
-                                     (loop2 (cdr rest)
-                                            (cdr cols)
-                                            (append ret
-                                                    (list (append (car rest) (list (car cols))))))
+                                     (if (eq? (caar rest) 'ind)
+                                         (loop2 (cdr rest)
+                                                cols
+                                                (append ret
+                                                        (list (append (car rest)))))
+                                         (loop2 (cdr rest)
+                                                (cdr cols)
+                                                (append ret
+                                                        (list (append (car rest) (list (car cols)))))))
                                      (append ret cols))))
                     ret))
         (reverse ret))))
