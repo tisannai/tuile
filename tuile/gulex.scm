@@ -35,6 +35,7 @@
    char-stream-put
    char-stream-file
    char-stream-line
+   char-stream-column
 
    token-stream-open
    token-stream-open-with-text
@@ -47,12 +48,14 @@
 ;;   token-stream-put
    token-stream-file
    token-stream-line
+   token-stream-column
    token-stream-show-token
 
    token-type
    token-value
    token-file
    token-line
+   token-column
 
    gulex-parse-token-table
    gulex-create-lexer-interp
@@ -85,6 +88,7 @@
           text                 ; String of file/text chars.
           (mutable index)      ; Current char index.
           (mutable lineno)     ; Line number info, pair: index, lineno
+          (mutable column)     ; Column number of Line
           ))
 
 
@@ -94,6 +98,7 @@
                         (call-with-input-file filename
                           (lambda (port) (get-string-all port)))
                         0
+                        0
                         0)
       (comp:error (ss "char-stream: File not found: \"" filename "\" ..."))))
 
@@ -101,6 +106,7 @@
 (define (char-stream-open-with-text text)
   (make-char-stream "<unknown>"
                     text
+                    0
                     0
                     0))
 
@@ -126,14 +132,20 @@
 (define (char-stream-change-linenum! cs change)
   (char-stream-lineno-set! cs (+ (char-stream-lineno cs) change)))
 
+(define (char-stream-change-column! cs change)
+  (char-stream-column-set! cs (+ (char-stream-column cs) change)))
+
 (define (char-stream-change-index! cs change)
   (char-stream-index-set! cs (+ (char-stream-index cs) change)))
 
 (define (char-stream-get cs)
   (let ((ret (char-stream-char cs)))
     (when ret
-      (when (char=? ret #\newline)
-        (char-stream-change-linenum! cs 1))
+      (if (char=? ret #\newline)
+          (begin
+            (char-stream-change-linenum! cs 1)
+            (char-stream-column-set! cs 0))
+          (char-stream-change-column! cs 1))
       (char-stream-change-index! cs 1))
     ret))
 
@@ -144,6 +156,14 @@
          (nl-count (fold + 0 (map (lambda (i) (if (char=? i #\newline) 1 0)) chars))))
     (char-stream-change-index! cs (- (length chars)))
     (char-stream-change-linenum! cs (- nl-count))
+    (char-stream-column-set! cs (let loop ((index (char-stream-index cs))
+                                           (count 0))
+                                  (if (or (= index 0)
+                                          (char=? (string-ref (char-stream-text cs) (1- index))
+                                                  #\newline))
+                                      count
+                                      (loop (1- index)
+                                            (1+ count)))))
     (char-stream-char cs)))
 
 (define (char-stream-line cs)
@@ -212,11 +232,13 @@
          (lexer (token-stream-lexer ts))
          (file (char-stream-file char-stream))
          (line (1+ (char-stream-line char-stream)))
+         (column (1+ (char-stream-column char-stream)))
          (lex-ret (lexer char-stream))
          (ret (list (first lex-ret)
                     (list->string (second lex-ret))
                     file
-                    line)))
+                    line
+                    column)))
     (when token-stream-show-token-active
       (pr "Token Stream: " (comp:datum->string ret)))
     ret))
@@ -276,6 +298,10 @@
 (define (token-stream-line ts)
   (char-stream-line (token-stream-cs ts)))
 
+;; Get current char-stream column.
+(define (token-stream-column ts)
+  (char-stream-column (token-stream-cs ts)))
+
 (define token-stream-show-token-active #f)
 
 ;; Turn on token display with
@@ -294,12 +320,13 @@
 ;; ------------------------------------------------------------
 ;; Token attribute access:
 
-;; Token: (<token> <lexeme> <file> <line>)
+;; Token: (<token> <lexeme> <file> <line> <column>)
 
-(define token-type  first)
-(define token-value second)
-(define token-file  third)
-(define token-line  fourth)
+(define token-type   first)
+(define token-value  second)
+(define token-file   third)
+(define token-line   fourth)
+(define token-column fifth)
 
 
 
