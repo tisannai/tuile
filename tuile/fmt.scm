@@ -6,7 +6,7 @@
   #:export
   (
    fmt
-   fmt-table
+   fmt-group
 
    fmt-info-rec
    fmt-info
@@ -324,11 +324,11 @@
 ;;
 ;; Example:
 ;;
-;;     (fmt-table '((lal 6) (lal 12))
+;;     (fmt-group '((lal 6) (lal 12))
 ;;                 '(("#" "foo" "First dummy name.")
 ;;                   ("#" "bar" "Second dummy name.")))
 ;;
-(define (fmt-table format lines)
+(define (fmt-group format lines)
   (let loop ((lines lines)
              (ret '()))
     (if (pair? lines)

@@ -91,7 +91,7 @@
                    "foo++++bar++++hii")
 
 (test-lines-match "simple table format"
-                  (fmt-table '((ind (3 "-")) (lal 6) (lal 12))
+                  (fmt-group '((ind (3 "-")) (lal 6) (lal 12))
                              '(("#" "foo" "First dummy name.")
                                ("#" "bar" "Second dummy name.")))
                   (list "---#     foo         First dummy name."
