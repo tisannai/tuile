@@ -6,7 +6,8 @@
 (use-modules (tuile codeprint))
 (add-to-load-path "..")
 (use-modules (tuile vlogmod))
-
+;;(use-modules (oop goops))
+;;(use-modules (oop goops describe))
 
 (test-begin "vlogmod")
 

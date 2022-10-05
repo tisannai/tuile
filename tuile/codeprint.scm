@@ -7,6 +7,7 @@
    codeprint-open
    codeprint-do
    codeprint-close
+
    ))
 
 ;; For debugging:
@@ -157,7 +158,7 @@
                (codeprint-indent-set! cp 0)
                (loop (cdr args)))
               ((m)
-               (codeprint-indent-step-set! cp (car args))
+               (codeprint-indent-step-set! cp (cadr args))
                (loop (cdr args)))))))
       cp))
 

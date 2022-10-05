@@ -2,22 +2,31 @@
   #:use-module (srfi srfi-1)
   #:use-module (tuile utils)
   #:use-module (tuile pr)
+  #:use-module (tuile re)
   #:use-module (tuile codeprint)
-;;  #:use-module (tuile record)
   #:use-module (tuile record-r6rs)
   #:use-module (ice-9 optargs)
   #:use-module (oop goops)
   #:use-module (oop goops describe)
   #:export
   (
+   ;; Creation:
    /create
+   =indent
    =header
    +header
    +body
    +var
    /output
    /build
-   <input-port>                         ; This is needed for some reason?
+
+   ;; Queries:
+   ?clocks
+   ?resets
+   ?inputs
+   ?inputs+
+   ?outputs
+
    ))
 
 
@@ -132,7 +141,10 @@
           (mutable params)              ; 9: param list
           (mutable header)              ; 10: header lines
           (mutable body)                ; 11: body lines
+          (mutable indent-step)         ; 12: Code indent step (default: 3)
           ))
+
+(define default-indent-step 3)
 
 (define (inputs v)
   (list-compact (append (vlogmod-clocks v)
@@ -142,6 +154,12 @@
 (define outputs vlogmod-outputs)
 
 (define (ports v) (append (inputs v) (outputs v)))
+
+(define ?clocks vlogmod-clocks)
+(define ?resets vlogmod-clocks)
+(define ?inputs vlogmod-inputs)
+(define ?inputs+ inputs)
+(define ?outputs vlogmod-outputs)
 
 
 ;; ------------------------------------------------------------
@@ -225,14 +243,15 @@
 (define-method (portdef (self <variable>))
   (slot-ref self 'name))
 
-(define-class <input-port> (<variable>))
-(define-method (vardef (self <input-port>)) (ss "input  " (sizedef self) ";"))
+;; NOTE: "<input-port>" conflicts with goops, hence use "<v-input-port>".
+(define-class <v-input-port> (<variable>))
+(define-method (vardef (self <v-input-port>)) (ss "input  " (sizedef self) ";"))
 
 ;;(define dummy-input-port (make <input-port> "foo" "bar"))
 
-(define-class <clock> (<input-port>))
-(define-class <reset> (<input-port>))
-(define-class <input> (<input-port>))
+(define-class <clock> (<v-input-port>))
+(define-class <reset> (<v-input-port>))
+(define-class <input> (<v-input-port>))
 
 (define-class <output> (<variable>))
 (define-method (vardef (self <output>)) (ss "output " (sizedef self) ";"))
@@ -268,10 +287,15 @@
   ;; Apply name, and for the rest of the fields, calculate the number
   ;; of non-name fields from <vlogmod> and use empty lists as init values.
   (apply make-vlogmod (cons name
-                            (make-list (1- (/ (string-length (symbol->string (struct-ref <vlogmod>
-                                                                                         vtable-index-layout)))
-                                              2))
-                                       (list)))))
+                            (append
+                             (make-list (- (/ (string-length
+                                                (symbol->string
+                                                 (struct-ref vlogmod
+                                                             vtable-index-layout)))
+                                              2)
+                                           2) ; Remove name and indent-step.
+                                        (list))
+                             (list default-indent-step)))))
 
 ;; Add variable with type and optionally with width and value.
 ;;
@@ -304,16 +328,36 @@
 ;; Set header content.
 (define (=header v lines) (vlogmod-header-set! v lines))
 
+;; Set indent.
+(define (=indent v indent) (vlogmod-indent-step-set! v indent))
+
 ;; Output <vlogmod> with codeprinter ("pp").
 (define (/output v pp)
+
   (define (output-vardefs lst)
     (pp 'p)
     (for-each (lambda (i) (pp 'p (vardef i))) lst))
+
+  (define (re-indent-line line)
+    (define (n-space n) (make-string n #\ ))
+    (let ((space-body (re-matches "^([ ]+)([^ ]+.*)$" line)))
+      (if space-body
+          (let* ((space (list-ref space-body 1))
+                 (body (list-ref space-body 2))
+                 (n (quotient (string-length space) default-indent-step))
+                 (r (remainder (string-length space) default-indent-step))
+                 (new-space (string-append (n-space (* (vlogmod-indent-step v) n))
+                                           (n-space r))))
+            (string-append new-space body))
+          line)))
+
+  (pp 'm (vlogmod-indent-step v))
+
   (for-each (lambda (header-line)
               (pp 'p header-line))
             (vlogmod-header v))
   (pp 'p (ss "module " (vlogmod-name v)))
-  (pp 'p "  (")
+  (pp 'p (ss (make-string (1- (vlogmod-indent-step v)) #\ ) "("))
   (pp 'i)
   (pp 's (map portdef (ports v)) ",")
   (pp 'p ");")
@@ -333,7 +377,7 @@
 
   (pp 'p 'p)
   (for-each (lambda (body-line)
-              (pp 'p body-line))
+              (pp 'p (re-indent-line body-line)))
             (vlogmod-body v))
 
   (pp 'd 'p)
