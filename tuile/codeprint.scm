@@ -1,7 +1,7 @@
 (define-module (tuile codeprint)
   #:use-module (tuile utils)
   #:use-module (tuile pr)
-  #:use-module (tuile record)
+  #:use-module (tuile record-r6rs)
   #:export
   (
    codeprint-open
@@ -49,7 +49,12 @@
 
 
 ;; Codeprinter state.
-(define-mu-record codeprint port indent-step indent)
+;;(define-mu-record codeprint port indent-step indent)
+(define-record-type codeprint
+  (fields port
+          (mutable indent-step)
+          (mutable indent)
+          ))
 
 
 (define (close cp)
@@ -80,14 +85,14 @@
 
 
 (define (inc-indent cp count)
-  (set-codeprint-indent! cp (+ (codeprint-indent cp) (* count (codeprint-indent-step cp)))))
+  (codeprint-indent-set! cp (+ (codeprint-indent cp) (* count (codeprint-indent-step cp)))))
 
 
 (define (dec-indent cp count)
   (let ((new-indent (- (codeprint-indent cp) (* count (codeprint-indent-step cp)))))
     (if (< new-indent 0)
-        (set-codeprint-indent! cp 0)
-        (set-codeprint-indent! cp new-indent))))
+        (codeprint-indent-set! cp 0)
+        (codeprint-indent-set! cp new-indent))))
 
 
 ;; Codeprinter function (interpreter).
@@ -149,10 +154,10 @@
                        (dec-indent cp 1)
                        (loop args)))))
               ((r)
-               (set-codeprint-indent! cp 0)
+               (codeprint-indent-set! cp 0)
                (loop (cdr args)))
               ((m)
-               (set-codeprint-indent-step! cp (car args))
+               (codeprint-indent-step-set! cp (car args))
                (loop (cdr args)))))))
       cp))
 

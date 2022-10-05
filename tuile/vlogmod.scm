@@ -3,7 +3,8 @@
   #:use-module (tuile utils)
   #:use-module (tuile pr)
   #:use-module (tuile codeprint)
-  #:use-module (tuile record)
+;;  #:use-module (tuile record)
+  #:use-module (tuile record-r6rs)
   #:use-module (ice-9 optargs)
   #:use-module (oop goops)
   #:use-module (oop goops describe)
@@ -102,6 +103,7 @@
 
 
 
+#;
 (define-mu-record vlogmod
   name                                  ; 0: module name
   clocks                                ; 1: clock list
@@ -117,6 +119,21 @@
   body                                  ; 11: body lines
   )
 
+(define-record-type vlogmod
+  (fields (mutable name)                ; 0: module name
+          (mutable clocks)              ; 1: clock list
+          (mutable resets)              ; 2: reset list
+          (mutable inputs)              ; 3: input list
+          (mutable outputs)             ; 4: output list
+          (mutable regs)                ; 5: reg list
+          (mutable wires)               ; 6: wire list
+          (mutable combs)               ; 7: comb list
+          (mutable ties)                ; 8: tie list
+          (mutable params)              ; 9: param list
+          (mutable header)              ; 10: header lines
+          (mutable body)                ; 11: body lines
+          ))
+
 (define (inputs v)
   (list-compact (append (vlogmod-clocks v)
                         (vlogmod-resets v)
@@ -130,10 +147,16 @@
 ;; ------------------------------------------------------------
 ;; Width
 
+#;
 (define-mu-record width
   signed
   value
   )
+
+(define-record-type width
+  (fields signed
+          value
+          ))
 
 (define (width-create spec)
   (cond
@@ -261,25 +284,25 @@
     (let loop ((types types))
       (when (pair? types)
         (case (car types)
-          ((clock) (set-vlogmod-clocks! v (add vlogmod-clocks (make <clock> name width))))
-          ((reset) (set-vlogmod-resets! v (add vlogmod-resets (make <reset> name width))))
-          ((input) (set-vlogmod-inputs! v (add vlogmod-inputs (make <input> name width))))
-          ((output) (set-vlogmod-outputs! v (add vlogmod-outputs (make <output> name width))))
-          ((reg) (set-vlogmod-regs! v (add vlogmod-regs (make <reg> name width value))))
-          ((wire) (set-vlogmod-wires! v (add vlogmod-wires (make <wire> name width))))
-          ((comb) (set-vlogmod-combs! v (add vlogmod-combs (make <comb> name width))))
-          ((tie) (set-vlogmod-ties! v (add vlogmod-ties (make <tie> name width value))))
-          ((param) (set-vlogmod-params! v (add vlogmod-params (make <param> name width)))))
+          ((clock) (vlogmod-clocks-set! v (add vlogmod-clocks (make <clock> name width))))
+          ((reset) (vlogmod-resets-set! v (add vlogmod-resets (make <reset> name width))))
+          ((input) (vlogmod-inputs-set! v (add vlogmod-inputs (make <input> name width))))
+          ((output) (vlogmod-outputs-set! v (add vlogmod-outputs (make <output> name width))))
+          ((reg) (vlogmod-regs-set! v (add vlogmod-regs (make <reg> name width value))))
+          ((wire) (vlogmod-wires-set! v (add vlogmod-wires (make <wire> name width))))
+          ((comb) (vlogmod-combs-set! v (add vlogmod-combs (make <comb> name width))))
+          ((tie) (vlogmod-ties-set! v (add vlogmod-ties (make <tie> name width value))))
+          ((param) (vlogmod-params-set! v (add vlogmod-params (make <param> name width)))))
         (loop (cdr types))))))
 
 ;; Add line(s) to body.
-(define (+body v line) (set-vlogmod-body! v (append (vlogmod-body v) (if (list? line) line (list line)))))
+(define (+body v line) (vlogmod-body-set! v (append (vlogmod-body v) (if (list? line) line (list line)))))
 
 ;; Add line(s) to header.
-(define (+header v line) (set-vlogmod-header! v (append (vlogmod-header v) (if (list? line) line (list line)))))
+(define (+header v line) (vlogmod-header-set! v (append (vlogmod-header v) (if (list? line) line (list line)))))
 
 ;; Set header content.
-(define (=header v lines) (set-vlogmod-header! v lines))
+(define (=header v lines) (vlogmod-header-set! v lines))
 
 ;; Output <vlogmod> with codeprinter ("pp").
 (define (/output v pp)
