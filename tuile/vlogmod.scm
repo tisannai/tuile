@@ -110,24 +110,6 @@
 ;;            ))))
 
 
-
-
-#;
-(define-mu-record vlogmod
-  name                                  ; 0: module name
-  clocks                                ; 1: clock list
-  resets                                ; 2: reset list
-  inputs                                ; 3: input list
-  outputs                               ; 4: output list
-  regs                                  ; 5: reg list
-  wires                                 ; 6: wire list
-  combs                                 ; 7: comb list
-  ties                                  ; 8: tie list
-  params                                ; 9: param list
-  header                                ; 10: header lines
-  body                                  ; 11: body lines
-  )
-
 (define-record-type vlogmod
   (fields (mutable name)                ; 0: module name
           (mutable clocks)              ; 1: clock list
@@ -156,7 +138,7 @@
 (define (ports v) (append (inputs v) (outputs v)))
 
 (define ?clocks vlogmod-clocks)
-(define ?resets vlogmod-clocks)
+(define ?resets vlogmod-resets)
 (define ?inputs vlogmod-inputs)
 (define ?inputs+ inputs)
 (define ?outputs vlogmod-outputs)
@@ -321,6 +303,45 @@
 
 ;; Add line(s) to body.
 (define (+body v line) (vlogmod-body-set! v (append (vlogmod-body v) (if (list? line) line (list line)))))
+
+;; Add clocked always-block.
+;;
+;; The reg-spec is a list of FFs to include to reset branch. reg-spec
+;; starts with either "inc" or "exc" symbol which specifies the
+;; "polarity" of the spec. "inc" regs are included and "exc" regs are
+;; excluded, i.e. removed from the list of all regs in the module. If
+;; reg-spec is "#f", all module regs are used.
+;;
+;; "lines" are simply a list for code lines in the non-reset branch.
+;;
+;; Example:
+
+
+(define (+sync v reg-spec lines)
+  (define (signame s) (slot-ref s 'name))
+  (let* ((clock (signame (car (vlogmod-clocks v))))
+         (reset (signame (car (vlogmod-resets v))))
+         (all-reg-names (map signame (vlogmod-regs v)))
+         (get-reg-by-name (lambda (reg-name)
+                            (find (lambda (reg) (string=? (signame reg) reg-name))
+                                  (vlogmod-regs v))))
+         (regs (cond
+                ((not reg-spec) all-reg-names)
+                ((eq? (car reg-spec) 'inc) (cdr reg-spec))
+                (else (lset-difference string=? all-reg-names (cdr reg-spec))))))
+    (+body v "")
+    (+body v (si "always @( posedge #{clock} or negedge #{reset} ) begin"))
+    (+body v (si "   if ( !#{reset} ) begin"))
+    (for-each (lambda (reg)
+                (+body v (si "      #{reg} <= #{(slot-ref (get-reg-by-name reg) 'value)};")))
+              regs)
+    (+body v (si "   end else begin"))
+    (for-each (lambda (line) (+body v
+                                    (ss (make-string (* (vlogmod-indent-step v) 2) #\ )
+                                        line)))
+              lines)
+    (+body v (si "   end"))
+    (+body v (si "end"))))
 
 ;; Add line(s) to header.
 (define (+header v line) (vlogmod-header-set! v (append (vlogmod-header v) (if (list? line) line (list line)))))
