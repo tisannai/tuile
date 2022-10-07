@@ -2,19 +2,18 @@
 !#
 
 (use-modules (ubu))
-(define usr-install-path (car (string-split (getenv "GUILE_LOAD_PATH") #\:)))
-
+(use-modules (ubu-lib path))
 
 (ubu-default "install")
 (action install
         (let ((files (get-files "tuile/*.scm")))
           (sh-ser (ubu-for-updates files
-                                   (map (lambda (i) (cat usr-install-path "/tuile/" i))
+                                   (map (lambda (i) (cat (get "user-install-path") "/tuile/" i))
                                         (map file-name files))
                                    (lambda (s t) (gap "cp" s t))))))
 
 (action install-force
-        (sh "cp -r tuile " usr-install-path))
+        (sh "cp -r tuile " (get "user-install-path")))
 
 (action test-pr
         (with-output
