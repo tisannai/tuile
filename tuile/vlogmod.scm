@@ -17,6 +17,10 @@
    +header
    +body
    +var
+   +sync
+   +comb
+   +stmt-if
+   +stmt-case
    /output
    /build
 
@@ -446,8 +450,9 @@
 (define (/output v pp)
 
   (define (output-vardefs lst)
-    (pp 'p)
-    (for-each (lambda (i) (pp 'p (vardef i))) lst))
+    (when (pair? lst)
+      (pp 'p)
+      (for-each (lambda (i) (pp 'p (vardef i))) lst)))
 
   (define (re-indent-line line)
     (define (n-space n) (make-string n #\ ))
