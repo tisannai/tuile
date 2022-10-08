@@ -30,12 +30,6 @@
    ))
 
 
-;; TODO
-;;
-;; * Query function API
-;;
-
-
 ;; vlogmod - Verilog module creator
 ;;
 ;; Procedural: Create module, add variables (ports, regs, etc.) and
@@ -147,12 +141,6 @@
 ;; ------------------------------------------------------------
 ;; Width
 
-#;
-(define-mu-record width
-  signed
-  value
-  )
-
 (define-record-type width
   (fields signed
           value
@@ -229,8 +217,6 @@
 (define-class <v-input-port> (<variable>))
 (define-method (vardef (self <v-input-port>)) (ss "input  " (sizedef self) ";"))
 
-;;(define dummy-input-port (make <input-port> "foo" "bar"))
-
 (define-class <clock> (<v-input-port>))
 (define-class <reset> (<v-input-port>))
 (define-class <input> (<v-input-port>))
@@ -304,6 +290,30 @@
 ;; Add line(s) to body.
 (define (+body v line) (vlogmod-body-set! v (append (vlogmod-body v) (if (list? line) line (list line)))))
 
+
+;; Indent of one step, macro.
+;;
+;;     (indent-1)
+;;
+(define-syntax indent-1
+  (lambda (x)
+    (with-syntax ((vlogmod-indent-step (datum->syntax x 'vlogmod-indent-step))
+                  (v (datum->syntax x 'v)))
+      #`(make-string (vlogmod-indent-step v) #\ ))))
+
+
+;; Indent of n-steps, macro.
+;;
+;;     (indent-n 2)
+;;
+(define-syntax indent-n
+  (lambda (x)
+    (let ((stx (syntax->datum x)))
+      (with-syntax ((vlogmod-indent-step (datum->syntax x 'vlogmod-indent-step))
+                    (v (datum->syntax x 'v)))
+        #`(make-string (* #,(cadr stx) (vlogmod-indent-step v)) #\ )))))
+
+
 ;; Add clocked always-block.
 ;;
 ;; The reg-spec is a list of FFs to include to reset branch. reg-spec
@@ -315,9 +325,18 @@
 ;; "lines" are simply a list for code lines in the non-reset branch.
 ;;
 ;; Example:
-
-
-(define (+sync v reg-spec lines)
+;;
+;;       (+sync v
+;;              #f
+;;              (+stmt-if
+;;               v
+;;               (list "if ( init )"
+;;                     "count <= 0;")
+;;               (list "else if ( end )"
+;;                     "count <= count + 1;"))
+;;              )
+;;
+(define (+sync v reg-spec . parts)
   (define (signame s) (slot-ref s 'name))
   (let* ((clock (signame (car (vlogmod-clocks v))))
          (reset (signame (car (vlogmod-resets v))))
@@ -336,12 +355,83 @@
                 (+body v (si "      #{reg} <= #{(slot-ref (get-reg-by-name reg) 'value)};")))
               regs)
     (+body v (si "   end else begin"))
-    (for-each (lambda (line) (+body v
-                                    (ss (make-string (* (vlogmod-indent-step v) 2) #\ )
-                                        line)))
-              lines)
+    (for-each (lambda (line) (+body v (ss (indent-n 2) line)))
+              (flatten parts))
     (+body v (si "   end"))
     (+body v (si "end"))))
+
+
+;; Add combinational process.
+(define (+comb v . parts)
+  (define (signame s) (slot-ref s 'name))
+  (+body v "")
+  (+body v (si "always @* begin"))
+  (for-each (lambda (line) (+body v (ss (indent-n 1) line)))
+            (flatten parts))
+  (+body v (si "end")))
+
+
+;; Add if-stmt to sync/comb.
+;;
+;; Example:
+;;
+;;     (+stmt-if
+;;      v
+;;      '("if ( init )"
+;;        "count <= 0;")
+;;      '("else if ( end )"
+;;        "count <= count + 1;"))
+;;
+(define (+stmt-if v . parts)
+  (let loop ((parts parts)
+             (first #t)
+             (ret '()))
+    (if (pair? parts)
+        (loop (cdr parts)
+              #f
+              (append ret (cons (if first
+                                    (ss (caar parts) " begin")
+                                    (ss "end " (caar parts) " begin"))
+                                (map (lambda (stmt) (ss indent-1 stmt)) (cdar parts)))))
+        (append ret (list "end")))))
+
+;; Add case-stmt to sync/comb.
+;;
+;; Example:
+;;
+;;     (+stmt-case
+;;      v
+;;      "count"                            ; Use default (as is the default).
+;;      `(("0"
+;;         "count <= 0;")
+;;        ("1"
+;;         "count <= count + 1;")
+;;        ("count <= count;")))
+;;
+(define (+stmt-case v cond-spec parts)
+  (let* ((use-default (if (list? cond-spec)
+                          (second cond-spec)
+                          #t))
+         (condition (if (list? cond-spec)
+                        (first cond-spec)
+                        cond-spec))
+         (case-indent (make-string (1- (vlogmod-indent-step v)) #\ ))
+         (body-indent (make-string (1- (* 2 (vlogmod-indent-step v))) #\ ))
+         (case-branch (lambda (condition stmts)
+                        (append (list (ss case-indent condition ": begin"))
+                                (map (lambda (stmt) (ss body-indent stmt)) stmts)
+                                (list (ss case-indent "end"))))))
+    (let loop ((parts parts)
+               (ret (list (ss "case ( " condition " )"))))
+      (if (pair? parts)
+          (if (or (pair? (cdr parts))
+                  (not use-default))
+              (loop (cdr parts)
+                    (append ret (case-branch (caar parts) (cdar parts))))
+              (loop (cdr parts)
+                    (append ret (case-branch "default" (car parts)))))
+          (append ret (list "endcase"))))))
+
 
 ;; Add line(s) to header.
 (define (+header v line) (vlogmod-header-set! v (append (vlogmod-header v) (if (list? line) line (list line)))))
@@ -405,6 +495,7 @@
   (pp 'p "endmodule"))
 
 
+;; Build mode from declarion.
 (define (/build spec)
   (let ((v (aif (assoc-ref spec 'module)
                 (/create it)
@@ -436,3 +527,57 @@
           (/output v pp)
           (codeprint-close pp))
         (error "vlogmod: Specification is missing file or module" spec))))
+
+
+#;
+(pr
+ (with-output-to-string
+   (lambda ()
+     (let ((pp (codeprint-open "<stdout>")))
+       (define v (/create "my_mod"))
+       (=header v (list "// This is my module."
+                        "`include \"my_inc.v\""
+                        ""))
+
+       (+var v 'clock "clk")
+       (+var v 'reset "rstn")
+       (+var v 'input "init")
+       (+var v 'input "en")
+       (+var v '(output reg) "count" 3)
+       (+var v 'param "my_par" 13)
+       (+var v 'comb "combi" 10)
+       (+var v 'wire "wirei")
+       (+var v 'tie "tiei" 10 12)
+
+       (+comb v
+              (+stmt-if
+               v
+               '("if ( init )"
+                 "count <= 0;")
+               '("else if ( end )"
+                 "count <= count + 1;"))
+              (+stmt-if
+               v
+               '("if ( init )"
+                 "count <= 0;"))
+              (+stmt-case
+               v
+               "count" ; Use default (as is the default).
+               `(("0"
+                  "count <= 0;")
+                 ("1"
+                  "count <= count + 1;")
+                 ("count <= count;"))))
+
+       (+sync v
+              #f
+              (+stmt-if
+               v
+               (list "if ( init )"
+                     "count <= 0;")
+               (list "else if ( end )"
+                     "count <= count + 1;"))
+              )
+
+       (/output v pp)
+       (codeprint-close pp)))))

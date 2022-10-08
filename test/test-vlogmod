@@ -30,14 +30,6 @@
                    (+var v 'comb "combi" 10)
                    (+var v 'wire "wirei")
                    (+var v 'tie "tiei" 10 12)
-                         
-;;                   (+sync v #f
-;;                          (list
-;;                           "if ( init ) begin"
-;;                           "   count <= 0;"
-;;                           "end else if ( en ) begin"
-;;                           "   count <= count + 1;"
-;;                           "end"))
 
                    (+body v "always @( posedge clk or negedge rstn ) begin" )
                    (+body v "   if ( !rstn ) begin")
@@ -87,7 +79,7 @@ module my_mod
 
 
    always @( posedge clk or negedge rstn ) begin
-      if ( !rstn) begin
+      if ( !rstn ) begin
          count <= 16'b0;
       end else begin
          if ( init ) begin
