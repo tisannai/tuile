@@ -315,7 +315,7 @@
     (let ((stx (syntax->datum x)))
       (with-syntax ((vlogmod-indent-step (datum->syntax x 'vlogmod-indent-step))
                     (v (datum->syntax x 'v)))
-        #`(make-string (* #,(cadr stx) (vlogmod-indent-step v)) #\ )))))
+        #`(make-string (* #,(datum->syntax x (cadr stx)) (vlogmod-indent-step v)) #\ )))))
 
 
 ;; Add clocked always-block.
@@ -360,7 +360,7 @@
               regs)
     (+body v (si "   end else begin"))
     (for-each (lambda (line) (+body v (ss (indent-n 2) line)))
-              (flatten parts))
+              (+stmt v parts))
     (+body v (si "   end"))
     (+body v (si "end"))))
 
@@ -370,8 +370,9 @@
   (define (signame s) (slot-ref s 'name))
   (+body v "")
   (+body v (si "always @* begin"))
-  (for-each (lambda (line) (+body v (ss (indent-n 1) line)))
-            (flatten parts))
+  (for-each (lambda (line)
+              (+body v (ss (indent-n 1) line)))
+            (+stmt v parts))
   (+body v (si "end")))
 
 
@@ -435,6 +436,72 @@
               (loop (cdr parts)
                     (append ret (case-branch "default" (car parts)))))
           (append ret (list "endcase"))))))
+
+
+
+
+(define (+stmt v parts)
+
+  (define (space-n n)
+    (make-string n #\ ))
+
+  (define (indent n lines)
+    (map (lambda (line) (ss (space-n n) line)) lines))
+
+  (define (stmt-if parts)
+    (let loop ((parts parts)
+               (first #t)
+               (ret '()))
+      (if (pair? parts)
+          (loop (cdr parts)
+                #f
+                (append ret (cons (if first
+                                      (ss (caar parts) " begin")
+                                      (ss "end " (caar parts) " begin"))
+                                  (indent (vlogmod-indent-step v) (stmt (cdar parts))))))
+          (append ret (list "end")))))
+
+  (define (stmt-case cond-spec parts)
+    (let* ((use-default (if (list? cond-spec)
+                          (second cond-spec)
+                          #t))
+         (condition (if (list? cond-spec)
+                        (first cond-spec)
+                        cond-spec))
+         (case-indent (space-n (1- (vlogmod-indent-step v))))
+         (body-indent-cnt (1- (* 2 (vlogmod-indent-step v))))
+         (case-branch (lambda (condition stmts)
+                        (append (list (ss case-indent condition ": begin"))
+                                (indent body-indent-cnt (stmt stmts))
+                                ;;                                (map (lambda (stmt) (ss body-indent stmt)) stmts)
+                                (list (ss case-indent "end"))))))
+    (let loop ((parts parts)
+               (ret (list (ss "case ( " condition " )"))))
+      (if (pair? parts)
+          (if (or (pair? (cdr parts))
+                  (not use-default))
+              (loop (cdr parts)
+                    (append ret (case-branch (caar parts) (cdar parts))))
+              (loop (cdr parts)
+                    (append ret (case-branch "default" (car parts)))))
+          (append ret (list (ss "endcase")))))))
+
+  (define (stmt parts)
+    (let loop ((parts parts)
+               (ret '()))
+      (if (pair? parts)
+          (loop (cdr parts)
+                (append ret (cond
+                             ((string? (car parts)) (list (car parts)))
+                             (else
+                              (if (symbol? (caar parts))
+                                  (case (caar parts)
+                                    ((stmt-if) (stmt-if (cdar parts)))
+                                    ((stmt-case) (stmt-case (cadar parts) (cddar parts))))
+                                  (car parts))))))
+          ret)))
+
+  (stmt parts))
 
 
 ;; Add line(s) to header.
@@ -555,34 +622,38 @@
        (+var v 'tie "tiei" 10 12)
 
        (+comb v
-              (+stmt-if
-               v
-               '("if ( init )"
+              "foobar <= 1;"
+              `(stmt-case
+                "count"            ; Use default (as is the default).
+                ("0"
                  "count <= 0;")
-               '("else if ( end )"
-                 "count <= count + 1;"))
-              (+stmt-if
-               v
-               '("if ( init )"
+                ("1"
+                 "count <= count + 1;")
+                ("count <= count;"))
+              `(stmt-if ("if ( init )"
+                         (stmt-if ("if ( init )"
+                                   "count <= 0;"))
+                         "count <= 0;")
+                        ("else if ( end )"
+                         (stmt-case
+                          "count"  ; Use default (as is the default).
+                          ("0"
+                           "count <= 0;")
+                          ("1"
+                           "count <= count + 1;")
+                          ("count <= count;"))
+                         "count <= count + 1;"))
+              `(stmt-if
+                ("if ( init )"
                  "count <= 0;"))
-              (+stmt-case
-               v
-               "count" ; Use default (as is the default).
-               `(("0"
-                  "count <= 0;")
-                 ("1"
-                  "count <= count + 1;")
-                 ("count <= count;"))))
+              )
 
        (+sync v
               #f
-              (+stmt-if
-               v
-               (list "if ( init )"
-                     "count <= 0;")
-               (list "else if ( end )"
-                     "count <= count + 1;"))
-              )
+              `(stmt-if ("if ( init )"
+                         "count <= 0;")
+                        ("else if ( end )"
+                         "count <= count + 1;")))
 
        (/output v pp)
        (codeprint-close pp)))))
