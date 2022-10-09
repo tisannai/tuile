@@ -135,6 +135,9 @@
    sequence
    range
    span
+
+   module-forward
+
    ))
 
 
@@ -1537,6 +1540,25 @@
           (if (>= num end)
               (cons num (loop (- num step)))
               '())))))
+
+
+;; Collect the list of "modules" and forward (re-export) all
+;; symbols. In other word, create a collection type module from the
+;; "modules".
+;;
+;; Example:
+;;
+;;     (module-forward '(tuile utils)
+;;                     '(tuile pr))
+;;
+(define (module-forward . modules)
+  (for-each (lambda (module)
+              (module-use! (current-module)
+                           (resolve-interface module))
+              (module-re-export! (current-module)
+                                 (hash-map->list (lambda (a b) a)
+                                                 (module-obarray (resolve-module module)))))
+            modules))
 
 
 ;; Usage:
