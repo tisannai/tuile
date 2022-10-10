@@ -1561,6 +1561,26 @@
             modules))
 
 
+;; Create progress bar for "done" of "todo" (the total work).
+;;
+;; Use "display" to print out the result, in order to show the
+;; progress on the same line as animation.
+;;
+;;     [++++++++-------] 50%
+;;
+(define (progress-bar done todo)
+  (define (->int v) (inexact->exact (ceiling v)))
+  (define (->flo v) (exact->inexact v))
+  (let* ((width 60)
+         (done-int (if (inexact? done) (->int done) done))
+         (todo-int (if (inexact? todo) (->int todo) todo))
+         (done-pct (quotient (* 100 done-int) todo-int))
+         (done-len (quotient (* width done-pct) 100))
+         (todo-len (- width done-len))
+         (done-str (make-string done-len #\+))
+         (todo-str (make-string todo-len #\-)))
+    (string-append "\r[" done-str todo-str "] " (:rj 3 " " done-pct) "%")))
+
 ;; Usage:
 ;;
 ;;     (define-structure tree left right)
