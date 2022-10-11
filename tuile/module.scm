@@ -19,7 +19,5 @@
                            (resolve-interface module))
               (module-re-export! (current-module)
                                  (module-map (lambda (a b) a)
-                                             (resolve-interface module))
-;;                                 (hash-map->list )
-                                 ))
+                                             (resolve-interface module))))
             modules))
