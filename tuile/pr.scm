@@ -4,6 +4,7 @@
   #:use-module (rnrs records procedural)
   #:export
   (pr
+   pl
    prp
    pro
    prpo
@@ -251,6 +252,10 @@
 ;;  (newline)
 ;;  (force-output)
   )
+
+;; Print lines from args.
+(define (pl args)
+  (for-each pr args))
 
 
 ;; Print from args.
