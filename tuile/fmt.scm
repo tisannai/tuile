@@ -1,6 +1,7 @@
 (define-module (tuile fmt)
   #:use-module ((srfi srfi-1)  #:select (first second third fold drop))
-  #:use-module ((srfi srfi-9)  #:select (define-record-type))
+;;  #:use-module ((srfi srfi-9)  #:select (define-record-type))
+  #:use-module (tuile compatible)
   #:use-module ((srfi srfi-11) #:select (let-values))
   #:use-module ((ice-9 match) #:select (match))
   #:export
@@ -279,13 +280,18 @@
   (string-concatenate (flatten (format-atoms (format-shorthand args)))))
 
 
-(define-record-type fmt-info-rec
-  (make-fmt-info count max min total)
-  fmt-info?
-  (count fmt-info-count)
-  (max   fmt-info-max)
-  (min   fmt-info-min)
-  (total fmt-info-total))
+;;(define-record-type fmt-info-rec
+;;  (make-fmt-info count max min total)
+;;  fmt-info?
+;;  (count fmt-info-count)
+;;  (max   fmt-info-max)
+;;  (min   fmt-info-min)
+;;  (total fmt-info-total))
+(define-record-type fmt-info
+  (fields count
+          max
+          min
+          total))
 
 
 (define (fmt-info . args)

@@ -1,6 +1,6 @@
 (define-module (tuile utils)
   #:use-module (srfi srfi-1)
-  #:use-module (srfi srfi-9)
+;;  #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-43)
   #:use-module (oop goops)
@@ -10,7 +10,7 @@
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 popen)
   #:use-module ((ice-9 control) #:select (% abort))
-  #:use-module ((srfi srfi-9 gnu) #:select (define-immutable-record-type))
+;;  #:use-module ((srfi srfi-9 gnu) #:select (define-immutable-record-type))
   #:use-module ((srfi srfi-19) #:prefix srfi:)
   #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
@@ -135,8 +135,6 @@
    sequence
    range
    span
-
-   module-forward
 
    ))
 
@@ -1540,25 +1538,6 @@
           (if (>= num end)
               (cons num (loop (- num step)))
               '())))))
-
-
-;; Collect the list of "modules" and forward (re-export) all
-;; symbols. In other word, create a collection type module from the
-;; "modules".
-;;
-;; Example:
-;;
-;;     (module-forward '(tuile utils)
-;;                     '(tuile pr))
-;;
-(define (module-forward . modules)
-  (for-each (lambda (module)
-              (module-use! (current-module)
-                           (resolve-interface module))
-              (module-re-export! (current-module)
-                                 (hash-map->list (lambda (a b) a)
-                                                 (module-obarray (resolve-module module)))))
-            modules))
 
 
 ;; Create progress bar for "done" of "todo" (the total work).
