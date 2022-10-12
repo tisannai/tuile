@@ -396,3 +396,9 @@
 ;;(pl (oak-render root oak-node-data 4 1))
 ;;(pl (oak-render-clean root oak-node-data))
 ;;(pl (oak-render-compact root oak-node-data))
+
+
+;;(pl (oak-render-compact (oak-build (list "root" (list "b1-1" "b1-1-1") "b1-2")
+;;                                   (lambda (node) (if (pair? node) (car node) node))
+;;                                   (lambda (node) (if (pair? node) (cdr node) '())))
+;;                        oak-node-data))
