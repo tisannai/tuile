@@ -5,8 +5,8 @@
   #:use-module (tuile log)
   #:use-module (tuile compatible)
   #:export (
-            make-tree-node
-            make-tree-node-with-name
+            tree-node-create
+            tree-node-create-with-name
             tree-node
             tree-node-name
             tree-node-host
@@ -48,9 +48,11 @@
    )) 
 
 
+(define tree-node-create make-tree-node)
+
 ;; Make node with given name, others are defaults.
-(define (make-tree-node-with-name name)
-  (make-tree-node name #f '() #f))
+(define (tree-node-create-with-name name)
+  (tree-node-create name #f '() #f))
 
 
 (define (tree-node-set-host node host)
@@ -337,17 +339,17 @@
   (tree-render node indent gap tree-node-name))
 
 
-;;(define hn (make-tree-node-with-name "root"))
-;;(define b1-1 (make-tree-node-with-name "b1-1"))
-;;(define b1-2 (make-tree-node-with-name "b1-2"))
-;;(define b1-3 (make-tree-node-with-name "b1-3"))
+;;(define hn (tree-node-create-with-name "root"))
+;;(define b1-1 (tree-node-create-with-name "b1-1"))
+;;(define b1-2 (tree-node-create-with-name "b1-2"))
+;;(define b1-3 (tree-node-create-with-name "b1-3"))
 ;;
-;;(define b1-1-1 (make-tree-node-with-name "b1-1-1"))
-;;(define b1-1-2 (make-tree-node-with-name "b1-1-2"))
-;;(define b1-1-2-1 (make-tree-node-with-name "b1-1-2-1"))
-;;(define b1-1-3 (make-tree-node-with-name "b1-1-3"))
-;;(define b1-2-1 (make-tree-node-with-name "b1-2-1"))
-;;(define b1-2-2 (make-tree-node-with-name "b1-2-2"))
+;;(define b1-1-1 (tree-node-create-with-name "b1-1-1"))
+;;(define b1-1-2 (tree-node-create-with-name "b1-1-2"))
+;;(define b1-1-2-1 (tree-node-create-with-name "b1-1-2-1"))
+;;(define b1-1-3 (tree-node-create-with-name "b1-1-3"))
+;;(define b1-2-1 (tree-node-create-with-name "b1-2-1"))
+;;(define b1-2-2 (tree-node-create-with-name "b1-2-2"))
 ;;
 ;;(tree-node-add-sub hn b1-1)
 ;;(tree-node-add-sub hn b1-2)
@@ -364,19 +366,19 @@
 ;;(pl (tree-render-by-name hn 4 1))
 
 
-;;(define hn (make-tree-node-with-name "root"))
-;;(define b1-1 (make-tree-node-with-name "b1-1"))
-;;(define b1-2 (make-tree-node-with-name "b1-2"))
-;;(define b1-3 (make-tree-node-with-name "b1-3"))
+;;(define hn (tree-node-create-with-name "root"))
+;;(define b1-1 (tree-node-create-with-name "b1-1"))
+;;(define b1-2 (tree-node-create-with-name "b1-2"))
+;;(define b1-3 (tree-node-create-with-name "b1-3"))
 ;;
 ;;(tree-node-add-sub hn b1-1)
 ;;(tree-node-add-sub hn b1-2)
 ;;(tree-node-add-sub hn b1-3)
 ;;
-;;(define b1-1 (make-tree-node-with-name "b1-1"))
-;;(define b1-1-1 (make-tree-node-with-name "b1-1-1"))
-;;(define b1-1-2 (make-tree-node-with-name "b1-1-2"))
-;;(define b1-1-2-1 (make-tree-node-with-name "b1-1-2-1"))
+;;(define b1-1 (tree-node-create-with-name "b1-1"))
+;;(define b1-1-1 (tree-node-create-with-name "b1-1-1"))
+;;(define b1-1-2 (tree-node-create-with-name "b1-1-2"))
+;;(define b1-1-2-1 (tree-node-create-with-name "b1-1-2-1"))
 ;;(tree-node-add-sub b1-1 b1-1-1)
 ;;(tree-node-add-sub b1-1 b1-1-2)
 ;;(tree-node-add-sub b1-1-2 b1-1-2-1)
