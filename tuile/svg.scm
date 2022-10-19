@@ -13,6 +13,7 @@
    svg-text-right
    svg-poly
    svg-draw
+   svg-path
 
    svg-text-width
 
@@ -77,8 +78,23 @@
 ;; Add polyline.
 ;;
 ;;     (svg-poly s (xy->points 5 1 5 2 6 2 6 1 7 1 7 2 8 2 8 1))
-(define (svg-poly s points)
-  (svg-add-elem! s (list 'poly points)))
+(define* (svg-poly s points #:key (line-style 'default))
+  (svg-add-elem! s (list 'poly points line-style)))
+
+
+;; Add path.
+;;
+(define* (svg-path s
+                   points
+                   #:key
+                   (stroke 'default)
+                   (fill "none")
+                   (line-style 'default)
+                   (close #f))
+  (svg-add-elem! s (list 'path points (list (cons 'stroke stroke)
+                                            (cons 'fill fill)
+                                            (cons 'line-style line-style)
+                                            (cons 'close close)))))
 
 ;; API:
 ;; ------------------------------------------------------------
@@ -133,14 +149,24 @@
   (inexact->exact (ceiling (/ (text-width (svgctx-font-size s) text)
                               (svgctx-ux s)))))
 
+(define (line-width base-width type)
+  (case type
+    ((default) base-width)
+    ((thin) (/ (exact->inexact base-width) 2))
+    ((thick) (* base-width 2))))
+
 ;; Utils:
 ;; ------------------------------------------------------------
 
 
 ;; Scale position.
 (define (svgctx-scale s pos)
-  (p. (* (svgctx-ux s) (px pos))
-      (* (svgctx-uy s) (py pos))))
+  (define (quantify v)
+    (if (inexact? v)
+        (inexact->exact (round v))
+        v))
+  (p. (quantify (* (svgctx-ux s) (px pos)))
+      (quantify (* (svgctx-uy s) (py pos)))))
 
 
 ;; Macro for "svgctx-scale" short syntax.
@@ -158,7 +184,7 @@
 ;;     <path d="M 100 100 300 100 200 300"
 ;;     fill="red" stroke="blue" stroke-width="3" />
 ;;
-(define (svg-draw-poly s points)
+(define (svg-draw-poly s points line-style)
   (list (ss "  <path")
         (apply ss (cons "      d=\"M"
                         (append
@@ -169,7 +195,7 @@
                          (list "\""))))
         (ss "      fill=\"none\"")
         (si "      stroke=\"#{(svgctx-line-color s)}\"")
-        (si "      stroke-width=\"#{(svgctx-line-width s)}\"")
+        (si "      stroke-width=\"#{(line-width (svgctx-line-width s) line-style)}\"")
         (ss "      />")))
 
 ;; Draw text.
@@ -191,12 +217,43 @@
           (si "      >#{text}</text>"))))
 
 
+(define (svg-draw-path s points spec)
+  (define r (lambda (key) (assoc-ref spec key)))
+  (let* ((do-stroke (case (r 'stroke)
+                      ((none) #f)
+                      (else #t)))
+         (stroke (if do-stroke
+                     (case (r 'stroke)
+                       ((none) "none")
+                       ((default) (svgctx-line-color s))
+                       (else (r 'stroke)))
+                     "none"))
+         (stroke-width (if do-stroke
+                           #f
+                           (line-width (svgctx-line-width s) (r 'line-style))))
+         (fill (r 'fill))
+         (close (if (r 'close) " Z" "")))
+    (list-compact (list (ss "  <path")
+                        (apply ss (cons "      d=\"M"
+                                        (append
+                                         (map (lambda (pos)
+                                                (let ((sp (svgctx-scale s pos)))
+                                                  (ss " " (px sp) " " (py sp))))
+                                              points)
+                                         (list (ss close "\"")))))
+                        (si "      fill=\"#{fill}\"")
+                        (si "      stroke=\"#{stroke}\"")
+                        (if stroke-width (si "      stroke-width=\"#{stroke-width}\"") stroke-width)
+                        (ss "      />")))))
+
+
 ;; Elem accessor funcs.
 (define svg-elem-type first)
 (define svg-text-pos second)
 (define svg-text-alignment third)
 (define svg-text-text fourth)
 (define svg-poly-points second)
+(define svg-poly-line-width third)
 
 
 ;; Draw all elements in svg-context.
@@ -223,14 +280,14 @@
     (case (svg-elem-type e)
       ((text) (case (svg-text-alignment e)
                 ((left) (let ((pos (->s (svg-text-pos e))))
-                          (p. (p+x pos (svg-text-width-without-scaling s (svg-text-text e)))
+                          (p. (+ (px pos) (svg-text-width-without-scaling s (svg-text-text e)))
                               (py pos))))
                 ((center) (let ((pos (->s (svg-text-pos e))))
-                            (p. (p+x pos (quotient (svg-text-width-without-scaling s (svg-text-text e))
-                                                   2))
+                            (p. (+ (px pos) (quotient (svg-text-width-without-scaling s (svg-text-text e))
+                                                      2))
                                 (py pos))))
                 ((right) (->s (svg-text-pos e)))))
-      ((poly) (find-max-dim (map (lambda (p) (svgctx-scale s p)) (svg-poly-points e))))))
+      ((poly path) (find-max-dim (map (lambda (p) (svgctx-scale s p)) (svg-poly-points e))))))
 
   ;; Find max of all elems.
   (define max-dim (find-max-dim (map get-elem-dim (svgctx-elems s))))
@@ -273,7 +330,8 @@
   (define (svg-draw-elem args)
     (case (svg-elem-type args)
       ((text) (apply svg-draw-text (cons s (cdr args))))
-      ((poly) (apply svg-draw-poly (cons s (cdr args))))))
+      ((poly) (apply svg-draw-poly (cons s (cdr args))))
+      ((path) (apply svg-draw-path (cons s (cdr args))))))
 
   (append (svg-draw-header s)
           (apply append (map svg-draw-elem (svgctx-elems s)))
@@ -284,4 +342,13 @@
 ;;(define s (svg-create #:ux 30 #:uy 20))
 ;;(svg-text-right s (p. 4 2) "clk")
 ;;(svg-poly s (xy->points 5 1 5 2 6 2 6 1 7 1 7 2 8 2 8 1))
+;;(pl (svg-draw s))
+
+;;(define s (svg-create #:ux 10 #:uy 10))
+;;(svg-path s
+;;          (xy->points 5 1 5 2 6 2)
+;;          #:fill "gray"
+;;          #:close #t
+;;          #:stroke 'none
+;;          )
 ;;(pl (svg-draw s))
