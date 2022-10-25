@@ -15,6 +15,7 @@
   #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
   #:use-module (tuile re)
+  #:use-module ((tuile pr) #:select (si :in :rj))
   #:use-module (tuile compatible)
   #:export
   (
@@ -120,6 +121,8 @@
    timestamp
    datestamp
    days-in-month
+
+   terminal-dimensions
 
    old-memf
    find-all
@@ -1339,6 +1342,16 @@
          28))))
 
 
+;; Return width and height of the terminal window as pair: '(<width> . <height>).
+(define (terminal-dimensions)
+  (let ((get-tput-attr (lambda (attr)
+                         (string->number
+                          (string-trim-right
+                           (capture-shell-command-stdout
+                            (si "tput #{attr}")))))))
+    (cons (get-tput-attr "cols")
+          (get-tput-attr "lines"))))
+
 ;; Find all items matched with one argument proc "fn" from "lst".
 (define (old-memf fn lst)
   (let loop ((rest lst)
@@ -1547,10 +1560,11 @@
 ;;
 ;;     [++++++++-------] 50%
 ;;
-(define (progress-bar done todo)
+(define* (progress-bar done todo #:key (terminal-width 72) (gap-right 2) (gap-left 2))
   (define (->int v) (inexact->exact (ceiling v)))
   (define (->flo v) (exact->inexact v))
-  (let* ((width 60)
+  (let* ((non-bar-width (+ 7 gap-right gap-left))
+         (width (- terminal-width non-bar-width))
          (done-int (if (inexact? done) (->int done) done))
          (todo-int (if (inexact? todo) (->int todo) todo))
          (done-pct (quotient (* 100 done-int) todo-int))
@@ -1558,7 +1572,7 @@
          (todo-len (- width done-len))
          (done-str (make-string done-len #\+))
          (todo-str (make-string todo-len #\-)))
-    (string-append "\r[" done-str todo-str "] " (:rj 3 " " done-pct) "%")))
+    (string-append "\r" (:in gap-left) (:rj 3 " " done-pct) "% " "[" done-str todo-str "]" )))
 
 ;; Usage:
 ;;
@@ -1702,3 +1716,9 @@
            (syntax-case x (k ...)
              ((_ . pattern) #'template)
              ...))))))
+
+;;(use-modules (tuile pr))
+;;(define done 30)
+;;(define todo 100)
+;;;;(pr (progress-bar done todo #:terminal-width (car (terminal-dimensions)) #:gap-right 6 #:gap-left 6))
+;;(pr (progress-bar done todo #:terminal-width (car (terminal-dimensions))))
