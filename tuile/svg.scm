@@ -38,8 +38,11 @@
                              (list elem))))
 
 ;; Return font size.
-(define (svg-font-size s)
-  (svgctx-font-size s))
+(define (svg-font-size s fsize)
+  (case fsize
+    ((default) (svgctx-font-size s))
+    ((large)  (* (svgctx-font-size s) 2))
+    ((small) (quotient (svgctx-font-size s) 2))))
 
 
 ;; ------------------------------------------------------------
@@ -59,20 +62,22 @@
 ;;
 ;;     (svg-text s (p. 1 1) 'left "foobar")
 ;;
-(define (svg-text s pos alignment text)
-  (svg-add-elem! s (list 'text pos alignment text)))
+(define* (svg-text s pos text #:key
+                   (alignment 'left)
+                   (fsize 'default))
+  (svg-add-elem! s (list 'text pos text alignment fsize)))
 
 ;; Add text element with left alignment for text.
-(define (svg-text-left s pos text)
-  (svg-add-elem! s (list 'text pos 'left text)))
+(define* (svg-text-left s pos text #:key (fsize 'default))
+  (svg-add-elem! s (list 'text pos text 'left fsize)))
 
 ;; Add text element with center alignment for text.
-(define (svg-text-center s pos text)
-  (svg-add-elem! s (list 'text pos 'center text)))
+(define* (svg-text-center s pos text #:key (fsize 'default))
+  (svg-add-elem! s (list 'text pos text 'center fsize)))
 
 ;; Add text element with right alignment for text.
-(define (svg-text-right s pos text)
-  (svg-add-elem! s (list 'text pos 'right text)))
+(define* (svg-text-right s pos text #:key (fsize 'default))
+  (svg-add-elem! s (list 'text pos text 'right fsize)))
 
 
 ;; Add polyline.
@@ -106,7 +111,7 @@
 ;; Utils:
 
 ;; Low-level text width calculation.
-(define (text-width font-size text)
+(define (text-width text font-size)
 
   (define svg-char-width-percentages
     (reverse (map (lambda (spec) (cons (string->list (first spec))
@@ -140,13 +145,13 @@
 
 
 ;; Width of text without context scaling (i.e. in drawing units).
-(define (svg-text-width-without-scaling s text)
-  (inexact->exact (ceiling (text-width (svgctx-font-size s) text))))
+(define (svg-text-width-without-scaling s text fsize)
+  (inexact->exact (ceiling (text-width text (svg-font-size s fsize)))))
 
 
 ;; Width of text in with scaling (i.e. in user units).
-(define (svg-text-width s text)
-  (inexact->exact (ceiling (/ (text-width (svgctx-font-size s) text)
+(define* (svg-text-width s text #:key (fsize 'default))
+  (inexact->exact (ceiling (/ (text-width text (svg-font-size s fsize))
                               (svgctx-ux s)))))
 
 (define (line-width base-width type)
@@ -199,7 +204,7 @@
         (ss "      />")))
 
 ;; Draw text.
-(define (svg-draw-text s pos alignment text)
+(define (svg-draw-text s pos text alignment fsize)
   (let ((sp (svgctx-scale s pos))
         (align (case alignment
                  ((left) "start")
@@ -209,7 +214,7 @@
           (si "      fill=\"#{(svgctx-line-color s)}\"")
           (si "      text-anchor=\"#{align}\"")
           (si "      font-family=\"DejaVu Sans\"")
-          (si "      font-size=\"#{(svgctx-font-size s)}\"")
+          (si "      font-size=\"#{(svg-font-size s fsize)}\"")
           (si "      stroke=\"#{(svgctx-line-color s)}\"")
           (si "      stroke-width=\"0.25\"")
           (si "      x=\"#{(px sp)}\"")
@@ -249,9 +254,12 @@
 
 ;; Elem accessor funcs.
 (define svg-elem-type first)
+
 (define svg-text-pos second)
-(define svg-text-alignment third)
-(define svg-text-text fourth)
+(define svg-text-text third)
+(define svg-text-alignment fourth)
+(define svg-text-fsize fifth)           ; Font-size of text.
+
 (define svg-poly-points second)
 (define svg-poly-line-width third)
 
@@ -280,10 +288,10 @@
     (case (svg-elem-type e)
       ((text) (case (svg-text-alignment e)
                 ((left) (let ((pos (->s (svg-text-pos e))))
-                          (p. (+ (px pos) (svg-text-width-without-scaling s (svg-text-text e)))
+                          (p. (+ (px pos) (svg-text-width-without-scaling s (svg-text-text e) (svg-text-fsize e)))
                               (py pos))))
                 ((center) (let ((pos (->s (svg-text-pos e))))
-                            (p. (+ (px pos) (quotient (svg-text-width-without-scaling s (svg-text-text e))
+                            (p. (+ (px pos) (quotient (svg-text-width-without-scaling s (svg-text-text e) (svg-text-fsize e))
                                                       2))
                                 (py pos))))
                 ((right) (->s (svg-text-pos e)))))
