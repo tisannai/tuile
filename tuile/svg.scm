@@ -158,7 +158,8 @@
   (case type
     ((default) base-width)
     ((thin) (/ (exact->inexact base-width) 2))
-    ((thick) (* base-width 2))))
+    ((thick) (* base-width 2))
+    ((dotted) (/ (exact->inexact base-width) 2))))
 
 ;; Utils:
 ;; ------------------------------------------------------------
@@ -190,18 +191,20 @@
 ;;     fill="red" stroke="blue" stroke-width="3" />
 ;;
 (define (svg-draw-poly s points line-style)
-  (list (ss "  <path")
-        (apply ss (cons "      d=\"M"
-                        (append
-                         (map (lambda (pos)
-                                (let ((sp (svgctx-scale s pos)))
-                                  (ss " " (px sp) " " (py sp))))
-                              points)
-                         (list "\""))))
-        (ss "      fill=\"none\"")
-        (si "      stroke=\"#{(svgctx-line-color s)}\"")
-        (si "      stroke-width=\"#{(line-width (svgctx-line-width s) line-style)}\"")
-        (ss "      />")))
+  (list/ (ss "  <path")
+         (apply ss (cons "      d=\"M"
+                         (append
+                          (map (lambda (pos)
+                                 (let ((sp (svgctx-scale s pos)))
+                                   (ss " " (px sp) " " (py sp))))
+                               points)
+                          (list "\""))))
+         (ss "      fill=\"none\"")
+         (si "      stroke=\"#{(svgctx-line-color s)}\"")
+         (si "      stroke-width=\"#{(line-width (svgctx-line-width s) line-style)}\"")
+         (if (eq? line-style 'dotted)
+             (si "      stroke-dasharray=\"#{(* 1 (svgctx-line-width s))},#{(* 3 (svgctx-line-width s))}\""))
+         (ss "      />")))
 
 ;; Draw text.
 (define (svg-draw-text s pos text alignment fsize)
