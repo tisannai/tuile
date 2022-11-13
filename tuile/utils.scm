@@ -36,6 +36,7 @@
    flatten-0
    flatten-1
    delete-ref
+   list/
    list-slice
    list-range
    list-pick
@@ -322,6 +323,20 @@
                 (if (pair? tail) (cdr tail) '())))))
 
 
+;; Create a clean list, i.e. don't include unspecified entries.
+(define (list/ . rest)
+  (cond
+   ((null? rest) (list))
+   (else
+    (let loop ((rest rest)
+               (ret '()))
+      (if (pair? rest)
+          (if (unspecified? (car rest))
+              (loop (cdr rest) ret)
+              (loop (cdr rest) (cons (car rest) ret)))
+          (reverse ret))))))
+
+
 ;; Take a slice of the list.
 ;;
 ;; "list-slice" accepts negative indeces and they are taken as
@@ -365,7 +380,6 @@
                   (lambda (item) (not (or (unspecified? item)
                                           (not item)))))))
     (filter pred lst)))
-
 
 ;; Randomize the list ordering.
 ;;

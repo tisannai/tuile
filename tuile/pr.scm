@@ -46,6 +46,8 @@
        ((null? (car args))
         ;; (format #t "null?\n")
         '())
+       ((unspecified? (car args))
+        (flat-args (cdr args)))
        (else
         ;; (format #t "else\n")
         (cons (car args) (flat-args (cdr args)))))
