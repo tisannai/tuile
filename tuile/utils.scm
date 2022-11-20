@@ -1414,7 +1414,7 @@
            #f))))
 (define find-first find)
 
-
+;; Find first matching item from lst.
 (define (find-member item lst)
   (let ((res (member item lst)))
     (if res (car res) res)))
