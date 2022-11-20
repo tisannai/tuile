@@ -22,6 +22,7 @@
 ;;   +stmt-if
 ;;   +stmt-case
    /output
+   /output-file
    /build
 
    ;; Queries:
@@ -156,7 +157,7 @@
     (if (eq? (string-ref spec 0) #\+)
         (make-width #t (substring spec 1))
         (make-width #f spec)))
-   ((list? spec)
+   ((pair? spec)
     (make-width (eq? (car spec) 'signed)
                 (cdr spec)))
    (else
@@ -375,7 +376,7 @@
               regs)
     (+body v (si "   end else begin"))
     (for-each (lambda (line) (+body v (ss (indent-n 2) line)))
-              (+stmt v parts))
+              (+stmt v 'sync parts))
     (+body v (si "   end"))
     (+body v (si "end"))))
 
@@ -387,7 +388,7 @@
   (+body v (si "always @* begin"))
   (for-each (lambda (line)
               (+body v (ss (indent-n 1) line)))
-            (+stmt v parts))
+            (+stmt v 'comb parts))
   (+body v (si "end")))
 
 
@@ -451,7 +452,7 @@
 
 
 ;; Declarative statement handler for +sync and +comb.
-(define (+stmt v parts)
+(define (+stmt v context parts)
 
   (define (space-n n)
     (make-string n #\ ))
@@ -459,7 +460,7 @@
   (define (indent n lines)
     (map (lambda (line) (ss (space-n n) line)) lines))
 
-  (define (stmt-if parts)
+  (define (stmt-if context parts)
     (let loop ((parts parts)
                (first #t)
                (ret '()))
@@ -467,14 +468,14 @@
           (loop (cdr parts)
                 #f
                 (append ret (cons (cond
-                                   (first (ss "if ( " (caar parts) ") begin"))
+                                   (first (ss "if ( " (caar parts) " ) begin"))
                                    (else (if (caar parts)
                                              (ss "end else if ( " (caar parts) " ) begin")
                                              (ss "end else begin"))))
-                                  (indent (vlogmod-indent-step v) (stmt (cdar parts))))))
+                                  (indent (vlogmod-indent-step v) (stmt context (cdar parts))))))
           (append ret (list "end")))))
 
-  (define (stmt-case case-var parts)
+  (define (stmt-case context case-var parts)
     (let* ((case-indent (space-n (1- (vlogmod-indent-step v))))
            (body-indent-cnt (1- (* 2 (vlogmod-indent-step v))))
            (expand-condition (lambda (condition)
@@ -483,7 +484,7 @@
                                 (else condition))))
            (case-branch (lambda (condition stmts)
                           (append (list (ss case-indent (expand-condition condition) ": begin"))
-                                  (indent body-indent-cnt (stmt stmts))
+                                  (indent body-indent-cnt (stmt context stmts))
                                   ;;                                (map (lambda (stmt) (ss body-indent stmt)) stmts)
                                   (list (ss case-indent "end"))))))
       (let loop ((parts parts)
@@ -496,7 +497,15 @@
                       (append ret (case-branch "default" (cdar parts)))))
             (append ret (list (ss "endcase")))))))
 
-  (define (stmt parts)
+  (define (stmt-assign context parts)
+    (list (ss (first parts)
+              (if (eq? context 'sync)
+                  " <= "
+                  " = ")
+              (second parts)
+              ";")))
+
+  (define (stmt context parts)
     (let loop ((parts parts)
                (ret '()))
       (if (pair? parts)
@@ -506,12 +515,13 @@
                          ((string? (car parts)) (list (car parts)))
                          (else (if (symbol? (caar parts))
                                    (case (caar parts)
-                                     ((stmt-if) (stmt-if (cdar parts)))
-                                     ((stmt-case) (stmt-case (cadar parts) (cddar parts))))
+                                     ((stmt-if) (stmt-if context (cdar parts)))
+                                     ((stmt-case) (stmt-case context (cadar parts) (cddar parts)))
+                                     ((stmt-assign) (stmt-assign context (cdar parts))))
                                    (car parts))))))
           ret)))
 
-  (stmt parts))
+  (stmt context parts))
 
 
 ;; Add line(s) to header.
@@ -575,6 +585,12 @@
 
   (pp 'd 'p)
   (pp 'p "endmodule"))
+
+
+(define (/output-file v filename)
+  (let ((pp (codeprint-open filename)))
+    (/output v pp)
+    (codeprint-close pp)))
 
 
 ;; Build mode from declarion.
@@ -679,13 +695,20 @@
             (wire  "wirei")
             (tie   "tiei" 10 12)
             ))
-   ,(cons 'body (cons (list 'sync
-                            (list (cons 'clock "clk")
-                                  (cons 'reset "rstn")
-                                  (cons 'regs (list 'inc "count")))
-                            (list 'stmt-if
-                                  (list "init" "count <= 0;")
-                                  (list "en" "count <= count + 1;")))
+   ,(cons 'body (append (list
+                         (list 'sync
+                               (list (cons 'clock "clk")
+                                     (cons 'reset "rstn")
+                                     (cons 'regs (list 'inc "count")))
+                               (list 'stmt-if
+                                     (list "init" '(stmt-assign "count" "0"))
+                                     (list "en" '(stmt-assign "count" "count + 1")))
+                               (list 'stmt-assign "foobar" "12"))
+                         (list 'comb
+                               (list 'stmt-if
+                                     (list "init" '(stmt-assign "count" "0"))
+                                     (list "en" '(stmt-assign "count" "count + 1")))
+                               '(stmt-assign "foobar" "12")))
                       (list ""
                             "always @( posedge clk or negedge rstn ) begin"
                             "   if ( !rstn) begin"
