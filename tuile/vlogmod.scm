@@ -477,8 +477,12 @@
   (define (stmt-case case-var parts)
     (let* ((case-indent (space-n (1- (vlogmod-indent-step v))))
            (body-indent-cnt (1- (* 2 (vlogmod-indent-step v))))
+           (expand-condition (lambda (condition)
+                               (cond
+                                ((list? condition) (string-join condition ", "))
+                                (else condition))))
            (case-branch (lambda (condition stmts)
-                          (append (list (ss case-indent condition ": begin"))
+                          (append (list (ss case-indent (expand-condition condition) ": begin"))
                                   (indent body-indent-cnt (stmt stmts))
                                   ;;                                (map (lambda (stmt) (ss body-indent stmt)) stmts)
                                   (list (ss case-indent "end"))))))
@@ -640,7 +644,7 @@
               `(stmt-if ("init" (stmt-if ("init" "count <= 0;")
                                          (#f "count <= 0;")))
                         ("end" (stmt-case "count" ; Use default (as is the default).
-                                          ("0" "count <= 0;")
+                                          (("0" "2") "count <= 0;")
                                           ("1" "count <= count + 1;")
                                           (#f "count <= count;")))
                         (#f "count <= count + 1;"))
