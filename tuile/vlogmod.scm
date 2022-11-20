@@ -19,8 +19,8 @@
    +var
    +sync
    +comb
-   +stmt-if
-   +stmt-case
+;;   +stmt-if
+;;   +stmt-case
    /output
    /build
 
@@ -54,7 +54,7 @@
 ;;     (+var v 'reset "rstn")
 ;;     (+var v 'input "init")
 ;;     (+var v 'input "en")
-;;     (+var v '(output reg) "count" 3)
+;;     (+var v '(output reg) "count" '(signed . 3))
 ;;     (+var v 'param "my_par" 13)
 ;;     (+var v 'comb "combi" 10)
 ;;     (+var v 'wire "wirei")
@@ -156,6 +156,9 @@
     (if (eq? (string-ref spec 0) #\+)
         (make-width #t (substring spec 1))
         (make-width #f spec)))
+   ((list? spec)
+    (make-width (eq? (car spec) 'signed)
+                (cdr spec)))
    (else
     (make-width #f spec))))
 
@@ -340,13 +343,12 @@
 ;;
 ;;       (+sync v
 ;;              #f
-;;              (+stmt-if
-;;               v
-;;               (list "if ( init )"
-;;                     "count <= 0;")
-;;               (list "else if ( end )"
-;;                     "count <= count + 1;"))
-;;              )
+;;              (list 'stmt-if
+;;                    v
+;;                    (list "init"
+;;                          "count <= 0;")
+;;                    (list "end"
+;;                          "count <= count + 1;")))
 ;;
 (define (+sync v sync-spec . parts)
   (define (signame s) (slot-ref s 'name))
@@ -395,21 +397,23 @@
 ;;
 ;;     (+stmt-if
 ;;      v
-;;      '("if ( init )"
+;;      '("init"
 ;;        "count <= 0;")
-;;      '("else if ( end )"
+;;      '("end"
 ;;        "count <= count + 1;"))
 ;;
-(define (+stmt-if v . parts)
+(define (obsolete-+stmt-if v . parts)
   (let loop ((parts parts)
              (first #t)
              (ret '()))
     (if (pair? parts)
         (loop (cdr parts)
               #f
-              (append ret (cons (if first
-                                    (ss (caar parts) " begin")
-                                    (ss "end " (caar parts) " begin"))
+              (append ret (cons (cond
+                                 (first (ss "if ( " (caar parts) ") begin"))
+                                 (else (if (caar parts)
+                                           (ss "end " (caar parts) " begin")
+                                           (ss "end else begin"))))
                                 (map (lambda (stmt) (ss indent-1 stmt)) (cdar parts)))))
         (append ret (list "end")))))
 
@@ -419,40 +423,34 @@
 ;;
 ;;     (+stmt-case
 ;;      v
-;;      "count"                            ; Use default (as is the default).
+;;      "count"                            ; Case variable.
 ;;      `(("0"
 ;;         "count <= 0;")
 ;;        ("1"
 ;;         "count <= count + 1;")
-;;        ("count <= count;")))
+;;        (#f
+;;         "count <= count;")))
 ;;
-(define (+stmt-case v cond-spec parts)
-  (let* ((use-default (if (list? cond-spec)
-                          (second cond-spec)
-                          #t))
-         (condition (if (list? cond-spec)
-                        (first cond-spec)
-                        cond-spec))
-         (case-indent (make-string (1- (vlogmod-indent-step v)) #\ ))
+(define (obsolete-+stmt-case v case-var parts)
+  (let* ((case-indent (make-string (1- (vlogmod-indent-step v)) #\ ))
          (body-indent (make-string (1- (* 2 (vlogmod-indent-step v))) #\ ))
          (case-branch (lambda (condition stmts)
                         (append (list (ss case-indent condition ": begin"))
                                 (map (lambda (stmt) (ss body-indent stmt)) stmts)
                                 (list (ss case-indent "end"))))))
     (let loop ((parts parts)
-               (ret (list (ss "case ( " condition " )"))))
+               (ret (list (ss "case ( " case-var " )"))))
       (if (pair? parts)
-          (if (or (pair? (cdr parts))
-                  (not use-default))
+          (if (caar parts)
               (loop (cdr parts)
                     (append ret (case-branch (caar parts) (cdar parts))))
               (loop (cdr parts)
-                    (append ret (case-branch "default" (car parts)))))
+                    (append ret (case-branch "default" (cdar parts)))))
           (append ret (list "endcase"))))))
 
 
 
-
+;; Declarative statement handler for +sync and +comb.
 (define (+stmt v parts)
 
   (define (space-n n)
@@ -468,50 +466,45 @@
       (if (pair? parts)
           (loop (cdr parts)
                 #f
-                (append ret (cons (if first
-                                      (ss (caar parts) " begin")
-                                      (ss "end " (caar parts) " begin"))
+                (append ret (cons (cond
+                                   (first (ss "if ( " (caar parts) ") begin"))
+                                   (else (if (caar parts)
+                                             (ss "end else if ( " (caar parts) " ) begin")
+                                             (ss "end else begin"))))
                                   (indent (vlogmod-indent-step v) (stmt (cdar parts))))))
           (append ret (list "end")))))
 
-  (define (stmt-case cond-spec parts)
-    (let* ((use-default (if (list? cond-spec)
-                          (second cond-spec)
-                          #t))
-         (condition (if (list? cond-spec)
-                        (first cond-spec)
-                        cond-spec))
-         (case-indent (space-n (1- (vlogmod-indent-step v))))
-         (body-indent-cnt (1- (* 2 (vlogmod-indent-step v))))
-         (case-branch (lambda (condition stmts)
-                        (append (list (ss case-indent condition ": begin"))
-                                (indent body-indent-cnt (stmt stmts))
-                                ;;                                (map (lambda (stmt) (ss body-indent stmt)) stmts)
-                                (list (ss case-indent "end"))))))
-    (let loop ((parts parts)
-               (ret (list (ss "case ( " condition " )"))))
-      (if (pair? parts)
-          (if (or (pair? (cdr parts))
-                  (not use-default))
-              (loop (cdr parts)
-                    (append ret (case-branch (caar parts) (cdar parts))))
-              (loop (cdr parts)
-                    (append ret (case-branch "default" (car parts)))))
-          (append ret (list (ss "endcase")))))))
+  (define (stmt-case case-var parts)
+    (let* ((case-indent (space-n (1- (vlogmod-indent-step v))))
+           (body-indent-cnt (1- (* 2 (vlogmod-indent-step v))))
+           (case-branch (lambda (condition stmts)
+                          (append (list (ss case-indent condition ": begin"))
+                                  (indent body-indent-cnt (stmt stmts))
+                                  ;;                                (map (lambda (stmt) (ss body-indent stmt)) stmts)
+                                  (list (ss case-indent "end"))))))
+      (let loop ((parts parts)
+                 (ret (list (ss "case ( " case-var " )"))))
+        (if (pair? parts)
+            (if (caar parts)
+                (loop (cdr parts)
+                      (append ret (case-branch (caar parts) (cdar parts))))
+                (loop (cdr parts)
+                      (append ret (case-branch "default" (cdar parts)))))
+            (append ret (list (ss "endcase")))))))
 
   (define (stmt parts)
     (let loop ((parts parts)
                (ret '()))
       (if (pair? parts)
           (loop (cdr parts)
-                (append ret (cond
-                             ((string? (car parts)) (list (car parts)))
-                             (else
-                              (if (symbol? (caar parts))
-                                  (case (caar parts)
-                                    ((stmt-if) (stmt-if (cdar parts)))
-                                    ((stmt-case) (stmt-case (cadar parts) (cddar parts))))
-                                  (car parts))))))
+                (append ret
+                        (cond
+                         ((string? (car parts)) (list (car parts)))
+                         (else (if (symbol? (caar parts))
+                                   (case (caar parts)
+                                     ((stmt-if) (stmt-if (cdar parts)))
+                                     ((stmt-case) (stmt-case (cadar parts) (cddar parts))))
+                                   (car parts))))))
           ret)))
 
   (stmt parts))
@@ -589,28 +582,32 @@
                  (codeprint-open it)
                  #f)))
     (if (and v pp)
-        (begin
-          (for-each
-           (lambda (entry)
-             (case (car entry)
-               ((file) #f)
-               ((module) #f)
-               ((header) (=header v (cdr entry)))
-               ((vars) (for-each (lambda (vardef)
-                                   (let ((tag (car vardef))
-                                         (data (cdr vardef)))
-                                     (for-each (lambda (data)
-                                                 (if (list? data)
-                                                     (apply +var (append (list v tag) data))
-                                                     (apply +var (list v tag data))))
-                                               (if (list? (car data))
-                                                   (car data)
-                                                   (list data)))))
-                                 (cdr entry)))
-               ((body) (+body v (cdr entry)))))
-           spec)
-          (/output v pp)
-          (codeprint-close pp))
+        (begin (for-each (lambda (entry)
+                           (case (car entry)
+                             ((file) #f)
+                             ((module) #f)
+                             ((header) (=header v (cdr entry)))
+                             ((vars) (for-each (lambda (vardef)
+                                                 (let ((tag (car vardef))
+                                                       (data (cdr vardef)))
+                                                   (for-each (lambda (data)
+                                                               (if (list? data)
+                                                                   (apply +var (append (list v tag) data))
+                                                                   (apply +var (list v tag data))))
+                                                             (if (list? (car data))
+                                                                 (car data)
+                                                                 (list data)))))
+                                               (cdr entry)))
+                             ((body) (for-each (lambda (item)
+                                                 (cond
+                                                  ((string? item) (apply +body (list v item)))
+                                                  (else (case (car item)
+                                                          ((sync) (apply +sync (cons v (cdr item))))
+                                                          ((comb) (apply +comb (cons v (cdr item))))))))
+                                               (cdr entry)))))
+                         spec)
+               (/output v pp)
+               (codeprint-close pp))
         (error "vlogmod: Specification is missing file or module" spec))))
 
 
@@ -636,37 +633,64 @@
 
        (+comb v
               "foobar <= 1;"
-              `(stmt-case
-                "count"            ; Use default (as is the default).
-                ("0"
-                 "count <= 0;")
-                ("1"
-                 "count <= count + 1;")
-                ("count <= count;"))
-              `(stmt-if ("if ( init )"
-                         (stmt-if ("if ( init )"
-                                   "count <= 0;"))
-                         "count <= 0;")
-                        ("else if ( end )"
-                         (stmt-case
-                          "count"  ; Use default (as is the default).
-                          ("0"
-                           "count <= 0;")
-                          ("1"
-                           "count <= count + 1;")
-                          ("count <= count;"))
-                         "count <= count + 1;"))
-              `(stmt-if
-                ("if ( init )"
-                 "count <= 0;"))
+              `(stmt-case "count"   ; Use default (as is the default).
+                          ("0" "count <= 0;")
+                          ("1" "count <= count + 1;")
+                          (#f "count <= count;"))
+              `(stmt-if ("init" (stmt-if ("init" "count <= 0;")
+                                         (#f "count <= 0;")))
+                        ("end" (stmt-case "count" ; Use default (as is the default).
+                                          ("0" "count <= 0;")
+                                          ("1" "count <= count + 1;")
+                                          (#f "count <= count;")))
+                        (#f "count <= count + 1;"))
+              `(stmt-if ("init" "count <= 0;")
+                        (#f "count <= 1;"))
               )
 
        (+sync v
               #f
-              `(stmt-if ("if ( init )"
-                         "count <= 0;")
-                        ("else if ( end )"
-                         "count <= count + 1;")))
+              `(stmt-if ("init" "count <= 0;")
+                        ("end" "count <= count + 1;")))
 
        (/output v pp)
-       (codeprint-close pp)))))
+       (codeprint-close pp))
+     )))
+
+
+#;
+(/build
+ `((file   . "<stdout>")
+   (module . "my_mod")
+   (header . ("// This is my module."
+              "`include \"my_inc.v\""
+              ""))
+   (vars . ((clock "clk")
+            (reset "rstn")
+            (input ("init" "en"))
+            ((output reg) (("count" 3)
+                           ("foobar" 2)))
+            (param "my_par" 13)
+            (comb  "combi" 10)
+            (wire  "wirei")
+            (tie   "tiei" 10 12)
+            ))
+   ,(cons 'body (cons (list 'sync
+                            (list (cons 'clock "clk")
+                                  (cons 'reset "rstn")
+                                  (cons 'regs (list 'inc "count")))
+                            (list 'stmt-if
+                                  (list "init" "count <= 0;")
+                                  (list "en" "count <= count + 1;")))
+                      (list ""
+                            "always @( posedge clk or negedge rstn ) begin"
+                            "   if ( !rstn) begin"
+                            "      count <= 16'b0;"
+                            "   end else begin"
+                            "      if ( init ) begin"
+                            "         count <= 0;"
+                            "      end else if ( en ) begin"
+                            "         count <= count + 1;"
+                            "      end"
+                            "   end"
+                            "end")))))
