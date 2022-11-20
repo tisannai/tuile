@@ -320,11 +320,19 @@
 
 ;; Add clocked always-block.
 ;;
-;; The reg-spec is a list of FFs to include to reset branch. reg-spec
-;; starts with either "inc" or "exc" symbol which specifies the
-;; "polarity" of the spec. "inc" regs are included and "exc" regs are
-;; excluded, i.e. removed from the list of all regs in the module. If
-;; reg-spec is "#f", all module regs are used.
+;; The sync-spec is an alist of clock, reset and regs (FFs) to include
+;; to reset branch (reg-spec). When clock or reset is missing from the
+;; sync-spec, the first clock and reset of the block is used,
+;; respectively. reg-spec starts with either "inc" or "exc" symbol
+;; which specifies the "polarity" of the spec. "inc" regs are included
+;; and "exc" regs are excluded, i.e. removed from the list of all regs
+;; in the module. If reg-spec is "#f", all module regs are used.
+;;
+;; sync-spec example:
+;;
+;;     ((clock . "clk")
+;;      (reset . "rstn")
+;;      (regs  . '(inc r1 r2)))
 ;;
 ;; "lines" are simply a list for code lines in the non-reset branch.
 ;;
@@ -340,18 +348,23 @@
 ;;                     "count <= count + 1;"))
 ;;              )
 ;;
-(define (+sync v reg-spec . parts)
+(define (+sync v sync-spec . parts)
   (define (signame s) (slot-ref s 'name))
-  (let* ((clock (signame (car (vlogmod-clocks v))))
-         (reset (signame (car (vlogmod-resets v))))
-         (all-reg-names (map signame (vlogmod-regs v)))
+  (let* ((clock (if (and sync-spec (assoc-ref sync-spec 'clock))
+                    (assoc-ref sync-spec 'clock)
+                    (signame (car (vlogmod-clocks v)))))
+         (reset (if (and sync-spec (assoc-ref sync-spec 'reset))
+                    (assoc-ref sync-spec 'reset)
+                    (signame (car (vlogmod-resets v)))))
+         (reg-spec (if sync-spec (assoc-ref sync-spec 'regs) #f))
+         (all-reg-names (lambda () (map signame (vlogmod-regs v))))
          (get-reg-by-name (lambda (reg-name)
                             (find (lambda (reg) (string=? (signame reg) reg-name))
                                   (vlogmod-regs v))))
          (regs (cond
-                ((not reg-spec) all-reg-names)
+                ((not reg-spec) (all-reg-names))
                 ((eq? (car reg-spec) 'inc) (cdr reg-spec))
-                (else (lset-difference string=? all-reg-names (cdr reg-spec))))))
+                (else (lset-difference string=? (all-reg-names) (cdr reg-spec))))))
     (+body v "")
     (+body v (si "always @( posedge #{clock} or negedge #{reset} ) begin"))
     (+body v (si "   if ( !#{reset} ) begin"))
