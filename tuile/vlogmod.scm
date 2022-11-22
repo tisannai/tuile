@@ -19,6 +19,7 @@
    +var
    +sync
    +comb
+   +wire
 ;;   +stmt-if
 ;;   +stmt-case
    /output
@@ -390,6 +391,14 @@
               (+body v (ss (indent-n 1) line)))
             (+stmt v 'comb parts))
   (+body v (si "end")))
+
+
+;; Add assignment process.
+(define (+wire v . parts)
+  (define (signame s) (slot-ref s 'name))
+  (for-each (lambda (line)
+              (+body v (ss "assign " line)))
+            (+stmt v 'comb parts)))
 
 
 ;; Add if-stmt to sync/comb.
