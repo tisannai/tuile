@@ -58,6 +58,7 @@
 ;;     (+var v 'input "en")
 ;;     (+var v '(output reg) "count" '(signed . 3))
 ;;     (+var v 'param "my_par" 13)
+;;     (+var v 'local "my_loc" 15)
 ;;     (+var v 'comb "combi" 10)
 ;;     (+var v 'wire "wirei")
 ;;     (+var v 'tie "tiei" 10 12)
@@ -121,9 +122,10 @@
           (mutable combs)               ; 7: comb list
           (mutable ties)                ; 8: tie list
           (mutable params)              ; 9: param list
-          (mutable header)              ; 10: header lines
-          (mutable body)                ; 11: body lines
-          (mutable indent-step)         ; 12: Code indent step (default: 3)
+          (mutable locals)              ; 10: localparam list
+          (mutable header)              ; 11: header lines
+          (mutable body)                ; 12: body lines
+          (mutable indent-step)         ; 13: Code indent step (default: 3)
           ))
 
 (define default-indent-step 3)
@@ -252,6 +254,10 @@
 (define-method (vardef (self <param>))
   (ss "parameter " (slot-ref self 'name) " = " (width->string (slot-ref self 'width)) ";"))
 
+(define-class <local> (<variable>))
+(define-method (vardef (self <local>))
+  (ss "localparam " (slot-ref self 'name) " = " (width->string (slot-ref self 'width)) ";"))
+
 (define-class <tie> (<reg>))
 (define-method (vardef (self <tie>)) (ss "wire   " (sizedef self) ";"))
 
@@ -293,7 +299,8 @@
           ((wire) (vlogmod-wires-set! v (add vlogmod-wires (make <wire> name width))))
           ((comb) (vlogmod-combs-set! v (add vlogmod-combs (make <comb> name width))))
           ((tie) (vlogmod-ties-set! v (add vlogmod-ties (make <tie> name width value))))
-          ((param) (vlogmod-params-set! v (add vlogmod-params (make <param> name width)))))
+          ((param) (vlogmod-params-set! v (add vlogmod-params (make <param> name width))))
+          ((local) (vlogmod-locals-set! v (add vlogmod-locals (make <local> name width)))))
         (loop (cdr types))))))
 
 ;; Add line(s) to body.
@@ -574,6 +581,7 @@
   (pp 's (map portdef (ports v)) ",")
   (pp 'p ");")
   (output-vardefs (vlogmod-params v))
+  (output-vardefs (vlogmod-locals v))
   (output-vardefs (inputs v))
   (output-vardefs (outputs v))
   (output-vardefs (vlogmod-regs v))
@@ -640,6 +648,7 @@
         (error "vlogmod: Specification is missing file or module" spec))))
 
 
+
 #;
 (pr
  (with-output-to-string
@@ -653,9 +662,11 @@
        (+var v 'clock "clk")
        (+var v 'reset "rstn")
        (+var v 'input "init")
-       (+var v 'input "en")
+       (+var v 'input "ending")
        (+var v '(output reg) "count" 3)
+       (+var v '(reg) "foobar" 1)
        (+var v 'param "my_par" 13)
+       (+var v 'local "my_loc" 15)
        (+var v 'comb "combi" 10)
        (+var v 'wire "wirei")
        (+var v 'tie "tiei" 10 12)
@@ -668,7 +679,7 @@
                           (#f "count <= count;"))
               `(stmt-if ("init" (stmt-if ("init" "count <= 0;")
                                          (#f "count <= 0;")))
-                        ("end" (stmt-case "count" ; Use default (as is the default).
+                        ("ending" (stmt-case "count" ; Use default (as is the default).
                                           (("0" "2") "count <= 0;")
                                           ("1" "count <= count + 1;")
                                           (#f "count <= count;")))
@@ -680,7 +691,7 @@
        (+sync v
               #f
               `(stmt-if ("init" "count <= 0;")
-                        ("end" "count <= count + 1;")))
+                        ("ending" "count <= count + 1;")))
 
        (/output v pp)
        (codeprint-close pp))
