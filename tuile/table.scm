@@ -6,6 +6,11 @@
   #:use-module (tuile re)
   #:export
   (
+   table-geometry
+   table-style
+   table->cells
+   table-render-cells
+   table-render
    ))
 
 
@@ -69,7 +74,7 @@
                      (cons 'vsep #\|)   ; Vertical separator (runs vertically).
                      (cons 'hsep #\-)   ; Horizontal separator (runs horizontally).
                      (cons 'csep #\+))) ; Corner separator (cell corner marker).
-     ))
+    (else (table-style 'default))))
 
 
 (define (table->cells table column-geometry)
@@ -298,26 +303,86 @@
                                    (reverse ret)))))))
 
 
-;;(use-modules (tuile pr))
-;;
-;;(define table (list (list "foobar was here" "foobar was here")
-;;                    (list "foobar wasn't here")
-;;                    (list "foobar was here" "foobar was")))
-;;;;(pr (table-geometry table))
-;;;;(pd (table-column-geometry table))
-;;
-;;(define column-geometry (list 12 4))
-;;
-;;(define cells (table->cells table
-;;                            column-geometry))
-;;;;(pp cells)
-;;
-;;;;(pr (table-render-cells cells
-;;;;                        column-geometry
-;;;;                        (table-style 'default)))
-;;
-;;(pr (table-render-cells cells
-;;                        column-geometry
-;;                        (assoc-set! (table-style 'default)
-;;                                    'indent
-;;                                    4)))
+
+(define* (table-render table
+                       #:key
+                       (set-style #f)
+                       (set-style-name #f)
+                       (set-style-options '())
+                       (create-aligns #f)
+                       (set-geometry #f)
+                       (create-geometry #f))
+  (let* ((column-geometry (cond
+                           (set-geometry set-geometry)
+                           (create-geometry (create-geometry (table-column-geometry table)))
+                           (else (table-column-geometry table))))
+         (selected-style (cond
+                          (set-style set-style)
+                          (set-style-name (table-style set-style-name))
+                          (else (table-style 'default))))
+         (modified-style (if (null? set-style-options)
+                             selected-style
+                             (let loop ((updates set-style-options)
+                                        (style selected-style))
+                               (if (pair? updates)
+                                   (loop (cdr updates)
+                                         (assoc-set! style
+                                                     (caar updates)
+                                                     (cdar updates)))
+                                   style))))
+         (alignments (assoc-ref modified-style 'align))
+         (modified-alignments (if create-aligns
+                                  (create-aligns alignments column-geometry)
+                                  alignments))
+         (final-style (assoc-set! modified-style 'align modified-alignments))
+         (cells (table->cells table column-geometry)))
+    (table-render-cells cells
+                        column-geometry
+                        final-style)))
+
+
+#;
+(define (test-basics)
+
+  (use-modules (tuile pr))
+
+  (define table (list (list "foobar was here" "foobar was here")
+                      (list "foobar wasn't here")
+                      (list "foobar was here" "foobar was")))
+  ;;(pr (table-geometry table))
+  ;;(pd (table-column-geometry table))
+
+  (define column-geometry (list 12 4))
+
+  (define cells (table->cells table
+                            column-geometry))
+  ;;(pp cells)
+
+  ;;(pr (table-render-cells cells
+  ;;                        column-geometry
+  ;;                        (table-style 'default)))
+
+  (pr (table-render-cells cells
+                          column-geometry
+                          (assoc-set! (table-style 'default)
+                                      'indent
+                                      4))))
+
+
+#;
+(define (test-renderer)
+
+  (use-modules (tuile pr))
+
+  (define table (list (list "foobar was here" "foobar was here")
+                      (list "foobar wasn't here")
+                      (list "foobar was here" "foobar was")))
+
+  (pr (table-render table
+                    #:create-geometry (lambda (g) (list 12 4))
+                    #:create-aligns (lambda (a g) (make-list (length g) 'left))
+                    #:set-style-options (list (cons 'tgap 2)
+                                              (cons 'bgap 1)))))
+
+;;(test-basics)
+;;(test-renderer)
