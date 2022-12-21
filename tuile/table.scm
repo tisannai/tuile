@@ -65,15 +65,19 @@
 
 (define (table-style style)
   (case style
-    ((default) (list (cons 'indent 0)   ; Left indent of complete table.
+    ((default) (list (cons 'style 'default) ; Style name.
+                     (cons 'indent 0) ; Left indent of complete table.
                      (cons 'align 'left) ; Text alignment within cells.
-                     (cons 'lgap 1)     ; Left gap for cell line.
-                     (cons 'rgap 1)     ; Right gap for cell line.
-                     (cons 'tgap 0)     ; Top gap for cell line.
-                     (cons 'bgap 0)     ; Bottom gap for cell line.
-                     (cons 'vsep #\|)   ; Vertical separator (runs vertically).
-                     (cons 'hsep #\-)   ; Horizontal separator (runs horizontally).
+                     (cons 'lgap 1)      ; Left gap for cell line.
+                     (cons 'rgap 1)      ; Right gap for cell line.
+                     (cons 'tgap 0)      ; Top gap for cell line.
+                     (cons 'bgap 0)      ; Bottom gap for cell line.
+                     (cons 'vsep #\|) ; Vertical separator (runs vertically).
+                     (cons 'hsep #\-) ; Horizontal separator (runs horizontally).
                      (cons 'csep #\+))) ; Corner separator (cell corner marker).
+    ((gfm) (list (cons 'style 'gfm)
+                 (cons 'indent 0)
+                 (cons 'align 'left)))
     (else (table-style 'default))))
 
 
@@ -160,24 +164,30 @@
 ;;                    (list "foobar wasn't here")))
 ;;(define column-geometry (list 12 4))
 
-(define (table-render-cells cells column-geometry style)
+(define (table-render-cells cells column-geometry style-description)
 
   ;; Helper functions for style attributes.
-  (define (indent) (assoc-ref style 'indent))
-  (define (align)  (assoc-ref style 'align))
-  (define (lgap)   (assoc-ref style 'lgap))
-  (define (rgap)   (assoc-ref style 'rgap))
-  (define (tgap)   (assoc-ref style 'tgap))
-  (define (bgap)   (assoc-ref style 'bgap))
-  (define (vsep)   (assoc-ref style 'vsep))
-  (define (hsep)   (assoc-ref style 'hsep))
-  (define (csep)   (assoc-ref style 'csep))
+  (define (style)  (assoc-ref style-description 'style))
+  (define (indent) (assoc-ref style-description 'indent))
+  (define (align)  (assoc-ref style-description 'align))
+  (define (lgap)   (assoc-ref style-description 'lgap))
+  (define (rgap)   (assoc-ref style-description 'rgap))
+  (define (tgap)   (assoc-ref style-description 'tgap))
+  (define (bgap)   (assoc-ref style-description 'bgap))
+  (define (vsep)   (assoc-ref style-description 'vsep))
+  (define (hsep)   (assoc-ref style-description 'hsep))
+  (define (csep)   (assoc-ref style-description 'csep))
 
   ;;  ;; Return nth item from list, otherwise #f.
   ;;  (define (nth lst n)
   ;;    (if (>= n (length lst))
   ;;        #f
   ;;        (list-ref lst n)))
+
+  (define (expand-align align)
+    (if (list? align)
+        align
+        (make-list (length column-geometry) align)))
 
 
   ;; Format one cell-line.
@@ -224,9 +234,7 @@
   (define (format-line cell-line-slice column-geometry indent lgap rgap vsep align)
     (let loop ((slice cell-line-slice)
                (geometry column-geometry)
-               (align (if (list? align)
-                          align
-                          (make-list (length cell-line-slice) align)))
+               (align (expand-align align))
                (ret (list (string-append (make-string indent #\ )
                                          (string vsep)))))
       (if (pair? slice)
@@ -256,51 +264,78 @@
                                 'left))))
 
 
-  (let ((horizontal-separator (format-horizontal-separator column-geometry
-                                                           (indent)
-                                                           (lgap)
-                                                           (rgap)
-                                                           (hsep)
-                                                           (csep)))
-        (top-filler (format-filler-lines column-geometry
-                                         (indent)
-                                         (lgap)
-                                         (rgap)
-                                         (vsep)
-                                         (tgap)))
-        (bottom-filler (format-filler-lines column-geometry
+  (case (style)
+    ((default)
+     (let ((horizontal-separator (format-horizontal-separator column-geometry
+                                                              (indent)
+                                                              (lgap)
+                                                              (rgap)
+                                                              (hsep)
+                                                              (csep)))
+           (top-filler (format-filler-lines column-geometry
                                             (indent)
                                             (lgap)
                                             (rgap)
                                             (vsep)
-                                            (bgap))))
-    (let loop-cell-rows ((cell-rows cells)
-                         (ret (list horizontal-separator)))
-      (if (pair? cell-rows)
-          (loop-cell-rows (cdr cell-rows)
-                          (append (let ((cell-height (apply max (map length (car cell-rows)))))
-                                    (let loop-cell-line ((cell-columns (car cell-rows))
-                                                         (line-index 0)
-                                                         (ret top-filler))
-                                      (if (< line-index cell-height)
-                                          (loop-cell-line cell-columns
-                                                          (1+ line-index)
-                                                          (cons (format-line (map (lambda (cell-lines)
-                                                                                    (if (>= line-index (length cell-lines))
-                                                                                        ""
-                                                                                        (list-ref cell-lines line-index)))
-                                                                                  cell-columns)
-                                                                             column-geometry
-                                                                             (indent)
-                                                                             (lgap)
-                                                                             (rgap)
-                                                                             (vsep)
-                                                                             (align))
-                                                                ret))
-                                          (append (list horizontal-separator) bottom-filler ret))))
-                                  ret))
-          (string-concatenate (map (lambda (line) (string-append line "\n"))
-                                   (reverse ret)))))))
+                                            (tgap)))
+           (bottom-filler (format-filler-lines column-geometry
+                                               (indent)
+                                               (lgap)
+                                               (rgap)
+                                               (vsep)
+                                               (bgap))))
+       (let loop-cell-rows ((cell-rows cells)
+                            (ret (list horizontal-separator)))
+         (if (pair? cell-rows)
+             (loop-cell-rows (cdr cell-rows)
+                             (append (let ((cell-height (apply max (map length (car cell-rows)))))
+                                       (let loop-cell-line ((cell-columns (car cell-rows))
+                                                            (line-index 0)
+                                                            (ret top-filler))
+                                         (if (< line-index cell-height)
+                                             (loop-cell-line cell-columns
+                                                             (1+ line-index)
+                                                             (cons (format-line (map (lambda (cell-lines)
+                                                                                       (if (>= line-index (length cell-lines))
+                                                                                           ""
+                                                                                           (list-ref cell-lines line-index)))
+                                                                                     cell-columns)
+                                                                                column-geometry
+                                                                                (indent)
+                                                                                (lgap)
+                                                                                (rgap)
+                                                                                (vsep)
+                                                                                (align))
+                                                                   ret))
+                                             (append (list horizontal-separator) bottom-filler ret))))
+                                     ret))
+             (string-concatenate (map (lambda (line) (string-append line "\n"))
+                                      (reverse ret)))))))
+
+    ((gfm)
+     (let ((gfm-header-separator (map (lambda (align)
+                                        (list (case align
+                                                ((left) ":----")
+                                                ((right) "----:")
+                                                ((center) ":----:"))))
+                                      (expand-align (align)))))
+       (let loop-cell-rows ((cell-rows (cons (car cells)
+                                             ;; Insert header separator row.
+                                             (cons gfm-header-separator
+                                                   (cdr cells))))
+                            (ret (list)))
+         (if (pair? cell-rows)
+             (loop-cell-rows (cdr cell-rows)
+                             (cons (format-line (map car (car cell-rows))
+                                                column-geometry
+                                                (indent)
+                                                1
+                                                1
+                                                #\|
+                                                'left)
+                                   ret))
+             (string-concatenate (map (lambda (line) (string-append line "\n"))
+                                      (reverse ret)))))))))
 
 
 
@@ -384,5 +419,18 @@
                     #:set-style-options (list (cons 'tgap 2)
                                               (cons 'bgap 1)))))
 
+#;
+(define (test-gfm)
+
+  (use-modules (tuile pr))
+
+  (define table (list (list "foobar was here" "foobar was here")
+                      (list "foobar wasn't here")
+                      (list "foobar was here" "foobar was")))
+
+  (pr (table-render table
+                    #:set-style-name 'gfm)))
+
 ;;(test-basics)
 ;;(test-renderer)
+;;(test-gfm)
