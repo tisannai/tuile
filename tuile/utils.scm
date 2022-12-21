@@ -42,6 +42,8 @@
    list-pick
    list-compact
    list-randomize
+   list-update
+   list-update!
    map-compact
    clean-list
 
@@ -401,6 +403,35 @@
             (vector-swap! vec cnt (random size))
             (loop (1+ cnt)))
           (vector->list vec)))))
+
+;; Update list content and return a new list with updated content.
+;;
+;; Modify the list item at position "index" with "modifier" proc.
+;;
+(define (list-update lst index modifier)
+  (cond
+   ((= index 0) (cons (modifier (list-ref lst index))
+                      (cdr lst)))
+   ((= index (- (length lst) 1))
+    (append (take lst index)
+            (list (modifier (list-ref lst index)))))
+   ((>= index (length lst))
+    lst)
+   (else
+    (append (take lst index)
+            (list (modifier (list-ref lst index)))
+            (drop lst (1+ index))))))
+
+;; Update list content by mutation.
+;;
+;; Modify the list item at position "index" with "modifier" proc.
+;;
+(define (list-update! lst index modifier)
+  (cond
+   ((>= index (length lst)) lst)
+   (else
+    (list-set! lst index (modifier (list-ref lst index)))
+    lst)))
 
 
 ;; Map list by removing (by default) unspecified values.

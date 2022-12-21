@@ -20,6 +20,7 @@
    pp
    :lj
    :rj
+   :cj
    :ls
    :rs
    :lc
@@ -29,6 +30,7 @@
    :ms
    :in
    :nl
+   :ow
    ))
 
 
@@ -311,6 +313,22 @@
     (string-append (make-string pad-cnt pad-ch) str)))
 
 
+;; Center justify with padding.
+;;
+;; center-just <width> <pad-str-or-ch> <strings>
+(define (:cj width pad . rest)
+  (let* ((str (string-concatenate (fa rest)))
+         (len (string-length str)))
+    (if (>= len width)
+        str
+        (let* ((pad-ch (ch-or-str-as-ch pad))
+               (lpad-cnt (quotient (- width len) 2))
+               (rpad-cnt (- width len lpad-cnt)))
+          (string-append (make-string lpad-cnt pad-ch)
+                         str
+                         (make-string rpad-cnt pad-ch))))))
+
+
 ;; Left-justify with space.
 (define (:ls width . rest)
   (:lj width #\  rest))
@@ -361,8 +379,10 @@
 
 
 ;; Make string from template (string or char).
-(define (:ms width char-or-str)
-  (make-string width (ch-or-str-as-ch char-or-str)))
+(define (:ms count char-or-str)
+  (if (char? char-or-str)
+      (make-string count char-or-str)
+      (string-concatenate (make-list count char-or-str))))
 
 
 ;; Space indentation by count.
@@ -371,3 +391,22 @@
 
 ;; Newline string.
 (define :nl "\n")
+
+
+;; String overwrite with list of cons arguments. Each cons is a
+;; (<index> . <overwrite>) pair.
+(define (:ow str . rest)
+  (if (or (null? rest)
+          (not (car rest)))
+      str
+      (let loop ((mod rest)
+                 (str str))
+        (if (pair? mod)
+            (loop (cdr mod)
+                  (string-append (substring str
+                                                 0
+                                                 (caar mod))
+                                      (cdar mod)
+                                      (substring str
+                                                 (+ (caar mod) (string-length (cdar mod))))))
+            str))))
