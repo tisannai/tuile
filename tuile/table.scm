@@ -1,3 +1,121 @@
+;;
+;; Guile Module: (tuile table)
+;;
+;; This module takes rows and columns of text and formats it to
+;; selected table format.
+;;
+;; The input is list of rows and each row is a list of columns, i.e.,
+;;
+;;     (list (list <col0> <col1> ... <coln>)  ; <line0>
+;;           (list <col0> <col1> ... <coln>)  ; <line1>
+;;           ...
+;;           (list <col0> <col1> ... <coln>)) ; <linen>
+;;
+;; The rows may have different number of columns and row with most
+;; columns is used for the resulting table.
+;;
+;; The processing starts with "table-geometry" detection. Rows are
+;; counted and the row with maximum number of columns is used for
+;; table width.
+;;
+;; Next the "table-column-geometry" is calculated. The row with the
+;; widest column text is used. "table-column-geometry" is a list of
+;; column widths.
+;;
+;;     (list <col0-w> <col1-w> ... <coln-w>)
+;;
+;; User can take the "table-column-geometry" as is or constrain the
+;; widths ("create-geometry" option for "table-render" function).
+;;
+;; The final "table-column-geometry" is used to format each column to
+;; a cell. Cell is column text formatted to the final table-column
+;; geometry by wrapping the text to multiple cell lines, if
+;; necessary. The column text is first split into words. If all words
+;; fit in to the width, the cell lines are split at word
+;; boundaries. If one or more words are wider than the column width,
+;; the column text is cut exactly at width, neglecting the word
+;; boundaries. The last cell lines is what ever is remaining for
+;; previous lines.
+;;
+;; Table options:
+;;
+;; * Table style, see below for more details.
+;;
+;; * Cell lines can be left, right, or center aligned, i.e.,
+;;   alignment. If alignment is a single symbol, it is applied to all
+;;   columns. If aligment is a list, it is applied to corresponding to
+;;   columns. If aligment list is not long enough, the last entry is
+;;   repeated for the rest of the columns.
+;;
+;; * Column widts can be manipulated, by user.
+;;
+;; * Table cell boundary characters can be selected:
+;;
+;;   * hsep: Boundary character in horizontal direction.
+;;
+;;   * vsep: Boundary character in vertical direction.
+;;
+;;   * csep: Boundary character in cell corners.
+;;
+;; * Table indent, number of space before table rows start.
+;;
+;; * Left gap (space) for each cell.
+;;
+;; * Right gap (space) for each cell.
+;;
+;; * Top gap (space) for each cell.
+;;
+;; * Bottom gap (space) for each cell.
+;;
+;;
+;; Styles:
+;;
+;; * default: style with all options available.
+;;
+;; * gfm: Github Flawored Markdown Table. Style options: style, table
+;;        indent, and alignment.
+;;
+;;
+;;
+;; Example:
+;;
+;; This input:
+;;
+;;     (list (list "foobar was here" "foobar was here")
+;;                           (list "foobar wasn't here")
+;;                           (list "foobar was here" "foobar was"))
+;;
+;; is in formated table (default style) as:
+;;     
+;;         +--------------+------+
+;;         | foobar was   | foob |
+;;         | here         | ar w |
+;;         |              | as h |
+;;         |              | ere  |
+;;         +--------------+------+
+;;         | foobar       |      |
+;;         | wasn't here  |      |
+;;         +--------------+------+
+;;         | foobar was   | foob |
+;;         | here         | ar w |
+;;         |              | as   |
+;;         +--------------+------+
+;;
+;; Options
+;;     column-geometry: '(14 4)
+;;     indent:          4
+;;     align:           'left
+;;     hsep:            #\-
+;;     vsep:            #\|
+;;     csep:            #\+
+;;     lgap:            1
+;;     rgap:            1
+;;     tgap:            0
+;;     bgap:            0
+;;
+;; 
+
+
 (define-module (tuile table)
   #:use-module ((srfi srfi-1)  #:select (first second third fold drop take))
   #:use-module (tuile compatible)
@@ -12,10 +130,6 @@
    table-render-cells
    table-render
    ))
-
-
-
-
 
 
 ;; Return (x . y) dimensions of the table.
@@ -178,16 +292,24 @@
   (define (hsep)   (assoc-ref style-description 'hsep))
   (define (csep)   (assoc-ref style-description 'csep))
 
-  ;;  ;; Return nth item from list, otherwise #f.
-  ;;  (define (nth lst n)
-  ;;    (if (>= n (length lst))
-  ;;        #f
-  ;;        (list-ref lst n)))
 
+  ;; Extend "align" definition to match the number of columns.
+  ;;
+  ;; * If align is symbol, repeat symbol to column count.
+  ;;
+  ;; * If align is list and matches column count, no action.
+  ;;
+  ;; * If align is list, but short, extend list with last element.
+  ;;
   (define (expand-align align)
-    (if (list? align)
-        align
-        (make-list (length column-geometry) align)))
+    (let ((g-len (length column-geometry)))
+      (if (list? align)
+          (let ((a-len (length align)))
+            (if (> g-len a-len)
+                (append align
+                        (make-list (- g-len a-len) (car (last-pair align))))
+                align))
+          (make-list g-len align))))
 
 
   ;; Format one cell-line.
@@ -339,6 +461,7 @@
 
 
 
+;; Main user function for table creation.
 (define* (table-render table
                        #:key
                        (set-style #f)
@@ -375,6 +498,10 @@
                         column-geometry
                         final-style)))
 
+
+
+;; ------------------------------------------------------------
+;; Quick tests:
 
 #;
 (define (test-basics)
