@@ -4,6 +4,8 @@
 (use-modules (ubu))
 (use-modules (ubu-lib path))
 
+(path-refresh)
+
 (ubu-default "install")
 (action install
         (let ((files (get-files "tuile/*.scm")))
