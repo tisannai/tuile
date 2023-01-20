@@ -12,6 +12,7 @@
 (define-module (tuile dbg)
   #:use-module (system repl debug)
   #:use-module (system vm vm)
+  #:use-module (system vm trace)
   #:use-module (system vm trap-state)
   #:use-module (system repl repl)
   #:use-module (system vm program)
@@ -30,7 +31,12 @@
   #:use-module (ice-9 control)
 
   #:export
-  (dbg-proc
+  (
+;;    dbg-fin
+
+   dbg-proc
+   dbg-trace
+   dbg-trace-all
    dbg-with-break
    dbg-break
    dbg-welcome
@@ -38,6 +44,11 @@
 
 ;; Make Readline active.
 (activate-readline)
+
+
+;; (define (current-frame)
+;;   (stack-ref (make-stack #t) 0))
+
 
 (define my-start-repl #f)
 
@@ -77,9 +88,21 @@
 ;;               (format #t "Type `,bt' for a backtrace or `,q' to continue.\n")
               ))
         ;;((@ (system repl repl) start-repl) #:debug debug)
-        ;;(print-frame (frame-previous (frame-previous frame)))
+        (print-frame frame #:index 0)
         (my-start-repl #:debug debug)
        ))))
+
+
+(define (debug-frame-handler frame)
+  (debug-trap-handler frame #f #f))
+
+(define (ensure-trace)
+  (when (< (vm-trace-level) 1)
+    (set-vm-trace-level! 1)))
+
+
+;; (define (dbg-fin)
+;;   (add-ephemeral-trap-at-frame-finish! (current-frame) debug-frame-handler))
 
 
 ;; Set a breakpoint at proc.
@@ -90,9 +113,22 @@
 ;; NOTE: You must do ",next" before you are in the proc and can see locals.
 ;;
 (define (dbg-proc proc)
-  (set-vm-trace-level! (1+ (vm-trace-level)))
+  ;; (set-vm-trace-level! (1+ (vm-trace-level)))
+  (ensure-trace)
   (install-trap-handler! debug-trap-handler)
   (add-trap-at-procedure-call! proc))
+
+
+(define (dbg-trace . proc)
+  (ensure-trace)
+  (let loop ((proc proc))
+    (when (pair? proc)
+      (trace-calls-to-procedure (car proc))
+      (loop (cdr proc)))))
+
+
+(define (dbg-trace-all thunk)
+  (call-with-trace thunk))
 
 
 ;; Set a breakpoint at callpoint.
