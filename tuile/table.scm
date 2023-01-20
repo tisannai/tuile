@@ -188,7 +188,7 @@
                      (cons 'bgap 0)      ; Bottom gap for cell line.
                      (cons 'vsep #\|) ; Vertical separator (runs vertically).
                      (cons 'hsep #\-) ; Horizontal separator (runs horizontally).
-                     (cons 'csep #\+))) ; Corner separator (cell corner marker).
+                     (cons 'csep #\-))) ; Corner separator (cell corner marker).
     ((gfm) (list (cons 'style 'gfm)
                  (cons 'indent 0)
                  (cons 'align 'left)))
