@@ -86,7 +86,7 @@
 ;;                           (list "foobar was here" "foobar was"))
 ;;
 ;; is in formated table (default style) as:
-;;     
+;;
 ;;         +--------------+------+
 ;;         | foobar was   | foob |
 ;;         | here         | ar w |
@@ -113,7 +113,7 @@
 ;;     tgap:            0
 ;;     bgap:            0
 ;;
-;; 
+;;
 
 
 (define-module (tuile table)
@@ -227,17 +227,51 @@
                                (count 0)
                                (ret '()))
                 (if (pair? words)
-                    (if (> (+ count (string-length (car words)) 1)
-                           geometry)
-                        (loop-words words
-                                    '()
-                                    0
-                                    (cons (string-join (reverse line) " ")
-                                          ret))
-                        (loop-words (cdr words)
-                                    (cons (car words) line)
-                                    (+ count (string-length (car words)) (if (null? line) 0 1))
-                                    ret))
+                    (cond
+                     ((and (= count 0) (= (string-length (car words)) geometry))
+                      ;; Word fills the complete line.
+                      ;;
+                      ;;     |-- line width --|
+                      ;;                         ; line
+                      ;;     wordwordwordwordwo  ; cur word
+                      ;;
+                      (loop-words (cdr words)
+                                  '()
+                                  0
+                                  (cons (car words)
+                                        ret)))
+                     ((> (+ count (string-length (car words)) 1) geometry)
+                      ;; Current word does not fit (with the required
+                      ;; space separator) to current line, hence
+                      ;; proceed to next line.
+                      ;;
+                      ;;     |-- line width --|
+                      ;;     word1 wordwor2      ; line
+                      ;;     word3               ; cur word
+                      ;;
+                      (loop-words words
+                                  '()
+                                  0
+                                  (cons (string-join (reverse line) " ")
+                                        ret)))
+                     (else
+                      ;; Add current word (and space) to current line.
+                      ;;
+                      ;; Before:
+                      ;;
+                      ;;     |-- line width --|
+                      ;;     word1 word2         ; line
+                      ;;     word3               ; cur word
+                      ;;
+                      ;; After:
+                      ;;
+                      ;;     |-- line width --|
+                      ;;     word1 word2 word3   ; line
+                      ;;
+                      (loop-words (cdr words)
+                                  (cons (car words) line)
+                                  (+ count (string-length (car words)) (if (null? line) 0 1))
+                                  ret)))
                     (if (null? line)
                         (reverse ret)
                         (reverse (cons (string-join (reverse line) " ")
@@ -531,16 +565,17 @@
                                       'indent
                                       4))))
 #;
-(define (test-renderer)
+(define (test-renderer c1 c2)
 
   (use-modules (tuile pr))
 
   (define table (list (list "foobar was here" "foobar was here")
                       (list "foobar wasn't here")
-                      (list "foobar was here" "foobar was")))
+                      (list "foobar was here" "foobar was")
+                      ))
 
   (pr (table-render table
-                    #:create-geometry (lambda (g) (list 12 4))
+                    #:create-geometry (lambda (g) (list c1 c2))
                     #:create-aligns (lambda (a g) (make-list (length g) 'left))
                     #:set-style-options (list (cons 'tgap 2)
                                               (cons 'bgap 1)))))
@@ -558,5 +593,12 @@
                     #:set-style-name 'gfm)))
 
 ;; (test-basics)
-;; (test-renderer)
+#;
+(let lp ((a 14)
+         (b 4))
+  (when (>= a b)
+    (test-renderer a b)
+    (lp (1- a)
+        (1+ b))))
+;; (test-renderer 7 7)
 ;; (test-gfm)
