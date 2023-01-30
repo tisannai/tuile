@@ -125,6 +125,7 @@
   #:export
   (
    table-geometry
+   table-column-geometry
    table-style
    table->cells
    table-render-cells
@@ -529,8 +530,6 @@
                           (assoc-set! (table-style 'default)
                                       'indent
                                       4))))
-
-
 #;
 (define (test-renderer)
 
@@ -558,6 +557,6 @@
   (pr (table-render table
                     #:set-style-name 'gfm)))
 
-;;(test-basics)
-;;(test-renderer)
-;;(test-gfm)
+;; (test-basics)
+;; (test-renderer)
+;; (test-gfm)

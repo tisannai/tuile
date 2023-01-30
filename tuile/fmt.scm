@@ -53,7 +53,9 @@
    ((symbol? arg)
     (object->string arg))
    ((list? arg)
-    (string-concatenate (map ->str arg)))))
+    (string-concatenate (map ->str arg)))
+   ((boolean? arg)
+    (if arg "true" "false"))))
 
 ;; Tail recursive full flatten.
 (define (flatten . rest)
@@ -287,7 +289,7 @@
 ;;  (max   fmt-info-max)
 ;;  (min   fmt-info-min)
 ;;  (total fmt-info-total))
-(define-record-type fmt-info
+(define-record-type fmt-info-rec
   (fields count
           max
           min
@@ -309,13 +311,13 @@
             prop)))
 
     (let ((str-args (map ->str args)))
-      (make-fmt-info (length args)
-                     (find-length-prop > str-args)
-                     (find-length-prop < str-args)
-                     (fold (lambda (i s)
-                             (+ s (string-length i)))
-                           0
-                           str-args))))
+      (make-fmt-info-rec (length args)
+                         (find-length-prop > str-args)
+                         (find-length-prop < str-args)
+                         (fold (lambda (i s)
+                                 (+ s (string-length i)))
+                               0
+                               str-args))))
 
   (if (list? (car args))
       ;; List argument.
@@ -353,7 +355,7 @@
                                          (loop2 (cdr rest)
                                                 (cdr cols)
                                                 (append ret
-                                                        (list (append (car rest) (list (car cols)))))))
+                                                        (list (append (car rest) (list (->str (car cols))))))))
                                      (append ret cols))))
                     ret))
         (reverse ret))))
