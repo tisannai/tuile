@@ -41,7 +41,7 @@
    list-range
    list-pick
    list-compact
-   list-clean
+   clean
    list-randomize
    list-update
    list-update!
@@ -386,9 +386,9 @@
 
 
 ;; Create a clean list, excluding any unspecified entries.
-(define (list-clean . lst)
+(define (clean . lst)
   (let lp ((lst lst)
-           (ret '()))
+           (ret (list)))
     (if (pair? lst)
         (lp (cdr lst)
             (if (unspecified? (car lst))
