@@ -41,6 +41,7 @@
    list-range
    list-pick
    list-compact
+   list-clean
    list-randomize
    list-update
    list-update!
@@ -382,6 +383,18 @@
                   (lambda (item) (not (or (unspecified? item)
                                           (not item)))))))
     (filter pred lst)))
+
+
+;; Create a clean list, excluding any unspecified entries.
+(define (list-clean . lst)
+  (let lp ((lst lst)
+           (ret '()))
+    (if (pair? lst)
+        (lp (cdr lst)
+            (if (unspecified? (car lst))
+                ret
+                (cons (car lst) ret)))
+        (reverse ret))))
 
 ;; Randomize the list ordering.
 ;;
