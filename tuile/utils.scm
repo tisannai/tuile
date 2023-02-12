@@ -41,7 +41,7 @@
    list-range
    list-pick
    list-compact
-   clean
+   list-clean
    list-randomize
    list-update
    list-update!
@@ -386,15 +386,16 @@
 
 
 ;; Create a clean list, excluding any unspecified entries.
-(define (clean . lst)
-  (let lp ((lst lst)
+(define (list-clean . lst)
+  (let loop ((lst lst)
            (ret (list)))
     (if (pair? lst)
-        (lp (cdr lst)
+        (loop (cdr lst)
             (if (unspecified? (car lst))
                 ret
                 (cons (car lst) ret)))
         (reverse ret))))
+
 
 ;; Randomize the list ordering.
 ;;
@@ -417,14 +418,16 @@
             (loop (1+ cnt)))
           (vector->list vec)))))
 
+
 ;; Update list content and return a new list with updated content.
 ;;
 ;; Modify the list item at position "index" with "modifier" proc.
 ;;
 (define (list-update lst index modifier)
   (cond
-   ((= index 0) (cons (modifier (list-ref lst index))
-                      (cdr lst)))
+   ((= index 0)
+    (cons (modifier (list-ref lst index))
+          (cdr lst)))
    ((= index (- (length lst) 1))
     (append (take lst index)
             (list (modifier (list-ref lst index)))))
@@ -434,6 +437,7 @@
     (append (take lst index)
             (list (modifier (list-ref lst index)))
             (drop lst (1+ index))))))
+
 
 ;; Update list content by mutation.
 ;;
