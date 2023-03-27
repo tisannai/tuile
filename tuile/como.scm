@@ -117,10 +117,15 @@
           ))
 
 
-(define (opt-sopt rec)
-  (if (opt-sopt-rec rec)
-      (opt-sopt-rec rec)
+(define (opt-sopt opt)
+  (if (opt-sopt-rec opt)
+      (opt-sopt-rec opt)
       ""))
+
+(define (opt-dash-opt opt)
+  (cond
+   ((opt-sopt-rec opt) (opt-sopt-rec opt))
+   (else (ss "--" (opt-name opt)))))
 
 
 (define opt-given? opt-given)
@@ -358,7 +363,7 @@
 
 ;; Common formatter for most of the options.
 (define (opt-info-common opt)
-  (ss (ljust 13 (opt-sopt opt)) (opt-desc opt)))
+  (ss (ljust 13 (opt-dash-opt opt)) (opt-desc opt)))
 
 
 (define (opt-cli-help opt) #f)
@@ -366,43 +371,43 @@
 
 
 (define (opt-cli-switch opt)
-  (opt-sopt opt))
+  (opt-dash-opt opt))
 
 
 (define (opt-cli-single opt)
-  (ss (opt-sopt opt) " <" (opt-name opt) ">"))
+  (ss (opt-dash-opt opt) " <" (opt-name opt) ">"))
 
 
 (define (opt-cli-opt-single opt)
-  (ss "[" (opt-sopt opt) " <" (opt-name opt) ">" "]"))
+  (ss "[" (opt-dash-opt opt) " <" (opt-name opt) ">" "]"))
 
 
 (define (opt-cli-repeat opt)
-  (ss (opt-sopt opt) " <" (opt-name opt) ">#"))
+  (ss (opt-dash-opt opt) " <" (opt-name opt) ">#"))
 
 
 (define (opt-cli-opt-repeat opt)
-  (ss "[" (opt-sopt opt) " <" (opt-name opt) ">#" "]"))
+  (ss "[" (opt-dash-opt opt) " <" (opt-name opt) ">#" "]"))
 
 
 (define (opt-cli-multi opt)
-  (ss (opt-sopt opt) " <" (opt-name opt) ">+"))
+  (ss (opt-dash-opt opt) " <" (opt-name opt) ">+"))
 
 
 (define (opt-cli-opt-multi opt)
-  (ss "[" (opt-sopt opt) " <" (opt-name opt) ">+" "]"))
+  (ss "[" (opt-dash-opt opt) " <" (opt-name opt) ">+" "]"))
 
 
 (define (opt-cli-any opt)
-  (ss (opt-sopt opt) " <" (opt-name opt) ">*"))
+  (ss (opt-dash-opt opt) " <" (opt-name opt) ">*"))
 
 
 (define (opt-cli-opt-any opt)
-  (ss "[" (opt-sopt opt) " <" (opt-name opt) ">*" "]"))
+  (ss "[" (opt-dash-opt opt) " <" (opt-name opt) ">*" "]"))
 
 
 (define (opt-cli-priority opt)
-  (ss "[" (opt-sopt opt) " !" "]"))
+  (ss "[" (opt-dash-opt opt) " !" "]"))
 
 
 (define (opt-cli-default opt)
