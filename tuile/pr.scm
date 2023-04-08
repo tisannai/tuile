@@ -59,9 +59,10 @@
 
 ;; Convert obj to string type.
 (define (to-string obj)
-  (if (string? obj)
-      obj
-      (object->string obj)))
+  (cond
+   ((string? obj) obj)
+   ((char? obj) (string obj))
+   (else (object->string obj))))
 
 ;; Macro to flatten args and convert all arguments to strings.
 (define-syntax fa

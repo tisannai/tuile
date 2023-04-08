@@ -115,6 +115,8 @@
    with-output-to-filename
    file->lines
    lines->file
+   file-read-line
+   file-write-line
    ;;   file->line-list
    ;;   line-list->file
 
@@ -1302,6 +1304,15 @@
                     lines)))))
     #:binary binary))
 
+
+(define (file-read-line filename)
+  (car (file->lines filename #:with-newline #f)))
+
+(define (file-write-line filename line)
+  (with-output-to-file filename
+    (lambda ()
+      (display line)
+      (newline))))
 
 ;;;; Get all lines from file to list (including newlines).
 ;;(define* (file->line-list filename #:key (binary #f))
