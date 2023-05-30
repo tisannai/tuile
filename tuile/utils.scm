@@ -102,6 +102,7 @@
    assoc-update!
    assoc-repeat!
    assoc-merge
+   assoc-ref-deep
 
    hash-has-key?
    hash-keys
@@ -136,6 +137,9 @@
    find-member
 
    with-exception-terminate
+   char-separator?
+   char-nonseparator?
+   string-ref-safe
    string-clip
    string-escape
    string-unscape
@@ -249,7 +253,8 @@
 ;;     res: (3 2 1)
 ;;     stack: ()
 ;;     res: (4 3 2 1)
-;; (1 2 3 4)
+;;
+;;     => (1 2 3 4)
 ;;
 (define (flatten . rest)
   (let loop ((stack rest)
@@ -259,11 +264,11 @@
       ;; We are done, reverse the result.
       (reverse res))
      ((null? (car stack))
-      ;; Eat out empty tails.
+      ;; Eat out empty heads.
       (loop (cdr stack)
             res))
      ((pair? (car stack))
-      ;; Convert stack into: (head tail rest-of-stack).
+      ;; Convert stack into: (<head> <tail> <rest-of-stack>).
       (loop (cons (caar stack)
                   (cons (cdar stack)
                         (cdr stack)))
@@ -1156,6 +1161,23 @@
   (amerge (amerge (list) a) b))
 
 
+(define (assoc-ref-deep alist key . rest)
+  (define (return res)
+    (if res
+        (cdr res)
+        *unspecified*))
+  (let ((keys (cons key rest)))
+    (if (null? (cdr keys))
+        (return (assoc (car keys) alist))
+        (let lp ((alist alist)
+                 (keys keys))
+          (if (list? alist)
+              (if (null? (cdr keys))
+                  (return (assoc (car keys) alist))
+                  (lp (return (assoc (car keys) alist))
+                      (cdr keys)))
+              *unspecified*)))))
+
 ;; Hash table has key?
 (define (hash-has-key? hsh key)
   (hash-get-handle hsh key))
@@ -1486,6 +1508,18 @@
     proc
     #:unwind? #t))
 
+
+(define (char-separator? char)
+  (or (not char) (char-whitespace? char)))
+
+(define (char-nonseparator? char)
+  (or (not char) (not (char-whitespace? char))))
+
+;; Return char or #f, if past string end.
+(define (string-ref-safe s i)
+  (if (>= i (string-length s))
+      #f
+      (string-ref s i)))
 
 ;; Return substring with possibly negative indeces.
 ;;

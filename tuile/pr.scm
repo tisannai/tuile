@@ -13,11 +13,14 @@
    ss
    sp
    si
+   pri
    ds
    pd
    pde
-   ppe
    pp
+   ppe
+   ppr
+   ppre
    :lj
    :rj
    :cj
@@ -99,6 +102,89 @@
                            (pretty-print datum))))
 
 
+;; Expand interpolation for a string.
+;;
+;; "Hello #{my-friend}!" -> ("Hello " my-friend "!")
+;;
+(define (expand-string-interpolation str)
+
+  (define (update-words words word)
+    (if (pair? word)
+        (cons (list->string (reverse word)) words)
+        words))
+
+  (let loop ((chars (string->list str))
+             (words '())
+             (word '())
+             (state 'in-string))
+
+    (if (null? chars)
+
+        ;; Done.
+        (reverse (update-words words word))
+
+        ;; Continue.
+        (let ((ch (car chars)))
+
+          (case state
+
+            ((in-string)
+             (cond
+
+              ;; Escape.
+              ((char=? ch #\\)
+               (loop (cddr chars)
+                     words
+                     (cons (cadr chars) word)
+                     state))
+
+              ;; Interpolation (potentially).
+              ((char=? ch #\#)
+               (if (char=? (cadr chars)
+                           #\{)
+                   ;; Interpolation.
+                   (loop (cddr chars)
+                         (update-words words word)
+                         '()
+                         'in-interpolation)
+                   (loop (cdr chars)
+                         words
+                         (cons ch word)
+                         state)))
+
+              (else
+               (loop (cdr chars)
+                     words
+                     (cons ch word)
+                     state))))
+
+            ((in-interpolation)
+
+             (cond
+
+              ;; Escape.
+              ((char=? ch #\\)
+               (loop (cddr chars)
+                     words
+                     (cons (cadr chars) word)
+                     state))
+
+              ;; Terminate interpolation.
+              ((char=? ch #\})
+               (let ((expr (read (open-input-string
+                                  (list->string (reverse word))))))
+                 (loop (cdr chars)
+                       (cons expr words)
+                       '()
+                       'in-string)))
+
+              (else
+               (loop (cdr chars)
+                     words
+                     (cons ch word)
+                     state)))))))))
+
+
 ;; String interpolation (ruby style).
 ;;
 ;;     (si "Hello #{my-friend}!")
@@ -111,6 +197,7 @@
     ;;
     ;; "Hello #{my-friend}!" -> ("Hello " my-friend "!")
     ;;
+    #;
     (define (expand str)
 
       (define (update-words words word)
@@ -190,7 +277,16 @@
                          state)))))))))
 
     (let ((stx (syntax->datum x)))
-      #`(ss #,@(datum->syntax x (expand (cadr stx)))))))
+      #`(ss #,@(datum->syntax x (expand-string-interpolation (cadr stx)))))))
+
+
+(define-syntax pri
+  (lambda (x)
+    (let ((stx (syntax->datum x)))
+      #`(pr #,@(datum->syntax x (expand-string-interpolation (cadr stx)))))))
+
+;; (define-syntax-rule (pri s ...)
+;;   (pr (si s ...)))
 
 
 ;; Datum to string.
@@ -247,6 +343,13 @@
 
 (define (ppe . datums)
   (apply pp datums)
+  (exit 0))
+
+(define (ppr . datums)
+  (for-each pretty-print datums))
+
+(define (ppre . datums)
+  (apply ppr datums)
   (exit 0))
 
 ;; Line print from args.

@@ -6,7 +6,8 @@
 ;;     in POSIX.
 ;;
 ;; fn: proper or improper list of path parts in reverse order,
-;;     i.e. the filename is the first entry in this list.
+;;     i.e. the filename is the first entry in this list: (list
+;;     <abs-path?> <file> <dir1> <dir2> ...)
 ;;
 ;; filename: filename without path.
 ;;
@@ -143,25 +144,47 @@
 
 ;; Make directory and all parents, if needed.
 (define (fs-mkdir-p fs)
-  (letrec ((is-dir? (lambda (path)
-                      (and (file-exists? path)
-                           (file-is-directory? path))))
-           (create-if-missing (lambda (path)
-                                (when (not (is-dir? path))
-                                  (mkdir path))))
-           (mkdir-p (lambda (path segments)
-                      (if (null? segments)
-                          (create-if-missing path)
-                          (begin
-                            (create-if-missing path)
-                            (mkdir-p (string-append path "/" (car segments))
-                                     (cdr segments))))))
-           (segments (string-split (if (and (> (string-length fs) 1)
-                                            (string=? "./" (substring fs 0 2)))
-                                       (substring fs 2)
-                                       fs)
-                                   #\/)))
-    (mkdir-p (car segments) (cdr segments))))
+
+  (define (advance-dir base new-dir)
+    (let ((path (string-append base "/" new-dir)))
+      (if (file-exists? path)
+          (if (file-is-directory? path)
+              path
+              #f)
+          (begin
+            (mkdir path)
+            path))))
+
+  (let ((fn (fs->fn fs)))
+    (let lp ((base (if (car fn) "" "."))
+             (tail (reverse (cdr fn))))
+      (when (pair? tail)
+        (let ((ret (advance-dir base (car tail))))
+          (if ret
+              (lp ret (cdr tail))
+              #f))))))
+
+
+;; (define (fs-mkdir-p fs)
+;;   (letrec ((is-dir? (lambda (path)
+;;                       (and (file-exists? path)
+;;                            (file-is-directory? path))))
+;;            (create-if-missing (lambda (path)
+;;                                 (when (not (is-dir? path))
+;;                                   (mkdir path))))
+;;            (mkdir-p (lambda (path segments)
+;;                       (if (null? segments)
+;;                           (create-if-missing path)
+;;                           (begin
+;;                             (create-if-missing path)
+;;                             (mkdir-p (string-append path "/" (car segments))
+;;                                      (cdr segments))))))
+;;            (segments (string-split (if (and (> (string-length fs) 1)
+;;                                             (string=? "./" (substring fs 0 2)))
+;;                                        (substring fs 2)
+;;                                        fs)
+;;                                    #\/)))
+;;     (mkdir-p (car segments) (cdr segments))))
 
 
 ;; Make directory and all parents, if needed.

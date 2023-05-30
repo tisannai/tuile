@@ -242,10 +242,14 @@
 (define (check-required como)
   (call/cc
    (lambda (cc)
+     ;; First check if we have a "priority" option in use.
      (for-each (lambda (opt)
                  (when (and (exclusive-opt? opt)
                             (opt-given? opt))
-                   (cc #f))
+                   (cc #f)))
+               (spec-opts como))
+     ;; Check for required options.
+     (for-each (lambda (opt)
                  (when (and (required-opt? opt)
                             (not (opt-given? opt)))
                    (parse-error (ss "Missing required options: \"" (opt-name opt) "\""))))
@@ -610,8 +614,8 @@
 ;;                     [option    file      "File name."       "foobar.txt"]
 ;;                     [option    dir       "Directory."       "."]
 ;;                     [default   dir       "Directory."       "."]
-;;                     ))
-;;
+;;                     )
+;;                   '(revert . create))
 ;;
 ;; If option default value is "false" or "true" the option is of switch type.
 ;;
@@ -623,14 +627,18 @@
 ;;     label-gap   Gap between action/option label and description in
 ;;                 help (default: 2).
 ;;
+;;     setup       Apply lambda before action is executed (default: #f).
+;;
+(use-modules (tuile pr))
 (define (como-actions program author year action-list . opts)
 
   (define (option key . default)
     (if (assoc key opts)
         (assoc-ref opts key)
         (and (pair? default) (car default))))
-  (define (opt-revert)     (option 'revert))
+  (define (opt-revert)     (option 'revert #f))
   (define (opt-label-gap)  (option 'label-gap 2))
+  (define (opt-setup)      (option 'setup #f))
 
   ;; Convert object to string if it is not yet.
   (define (->string obj)
@@ -697,10 +705,20 @@
                                                   actions
                                                   options))))
            (width (+ longest-label (opt-label-gap)))
-           (formatters (list (cons 'revert-action (lambda (f1 f2)       (ss "  * " (ljust width f1) f2)))
-                             (cons 'normal-action (lambda (f1 f2)       (ss "    " (ljust width f1) f2)))
-                             (cons 'option        (lambda (f1 f2 f3 f4) (ss "    " (ljust width f1) f2 "\n" f3 "= \"" f4 "\"")))
-                             (cons 'default       (lambda (f1 f2)       (ss "    " (ljust width f1) f2)))))
+           (f2-expand (lambda (f2)
+                        (if (member #\newline (string->list f2))
+                            (let ((lines (string-split f2 #\newline)))
+                              (string-join
+                               (cons (first lines)
+                                     (map (lambda (line)
+                                            (ss (ljust (+ width 4) "") line))
+                                          (cdr lines)))
+                               "\n"))
+                            f2)))
+           (formatters (list (cons 'revert-action (lambda (f1 f2)       (ss "  * " (ljust width f1) (f2-expand f2))))
+                             (cons 'normal-action (lambda (f1 f2)       (ss "    " (ljust width f1) (f2-expand f2))))
+                             (cons 'option        (lambda (f1 f2 f3 f4) (ss "    " (ljust width f1) (f2-expand f2) "\n" f3 "= \"" f4 "\"")))
+                             (cons 'default       (lambda (f1 f2)       (ss "    " (ljust width f1) (f2-expand f2))))))
            (action-lines (map (lambda (def)
                                 (let ((formatter (if (and (opt-revert)
                                                           (equal? (second def)
@@ -775,6 +793,9 @@
           (if (str-match? (car rest) "=")
 
               (let ((parts (str-split-with (car rest) "=")))
+                ;; Ensure that option exists.
+                (when (not (assoc-ref (map cdr options) (string->symbol (first parts))))
+                  (parse-error (ss "Option \"" (first parts) "\" is not declared")))
                 (como-var-set! (first parts)
                                (if (is-switch-type? (first parts))
                                    (switch-str->value (second parts))
@@ -805,5 +826,6 @@
           (parse-error "No actions given")))
 
     (for-each (lambda (action)
+                (when (opt-setup) ((opt-setup)))
                 (comp:eval (list action)))
               used-actions)))
