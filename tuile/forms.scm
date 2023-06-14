@@ -32,21 +32,34 @@
 ;;     (rectangle cv (p. 5 3) (p. 16 7)
 ;;
 (define (rectangle cv pa pb)
-  (let ((w (1- (r-width pa pb)))
-        (h (1- (r-height pa pb))))
-    (let loop ((len (list w h w h))
-               (pos (r-corners pa pb))
-               (str (list "+-" "+|" "+-" "+|"))
-               (diridx 0))
-      (when (< diridx 4)
-        (cv.put-str-in-dir cv
-                           (stretch-string (car str) (car len))
-                           (car pos)
-                           (diridx->dir diridx))
-        (loop (cdr len)
-              (cdr pos)
-              (cdr str)
-              (1+ diridx))))))
+  (let ((sides (list "+-" "+|" "+-" "+|")))
+    (cond
+     ((equal? pa pb) (cv.put-ch cv #\+ pa))
+     ((equal? (px pa) (px pb)) (cv.put-str-in-dir cv
+                                                  (ss (stretch-string (second sides) (1- (r-height pa pb))) "+")
+                                                  pa
+                                                  'down))
+     ((equal? (py pa) (py pb)) (cv.put-str-in-dir cv
+                                                  (ss (stretch-string (first sides) (1- (r-width pa pb))) "+")
+                                                  pa
+                                                  'right))
+     (else (let ((w (1- (r-width pa pb)))
+                 (h (1- (r-height pa pb))))
+             (let loop ((len (list w h w h))
+                        (pos (r-corners pa pb))
+                        (str sides)
+                        (diridx 0))
+               (when (< diridx 4)
+                 (cv.put-str-in-dir cv
+                                    (stretch-string (car str) (car len))
+                                    (car pos)
+                                    (diridx->dir diridx))
+                 (loop (cdr len)
+                       (cdr pos)
+                       (cdr str)
+                       (1+ diridx))))))))
+
+  )
 
 
 ;; Draw text to position in direction.

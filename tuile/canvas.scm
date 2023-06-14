@@ -26,15 +26,20 @@
   (
    create
    use-layer
+   push-layer
+   clear-layer
    del-layer
 
    put-ch
    put-str
    put-str-in-dir
-   del-ch
+   del-pos
+   del-area
 
    get-lines-vector
    get-lines-list
+   put-lines-list
+   canvas-size
 
    layer-index
    layer-indeces
@@ -67,6 +72,23 @@
 (define (use-layer cv li)
   (ensure-layer cv li)
   (make-proxy (proxy-canvas cv) li))
+
+
+;; Create proxy for "cv" at next layer index.
+(define (push-layer cv)
+  (if cv
+      (let ((li (1+ (proxy-lindex cv))))
+        (ensure-layer cv li)
+        (make-proxy (proxy-canvas cv) li))
+      (create)))
+
+
+;; Empty layer content.
+(define (clear-layer cv)
+  (let ((layer (get-current-layer cv)))
+    (layer-xmax-set! layer -1)
+    (layer-ymax-set! layer -1)
+    (layer-chars-set! layer '())))
 
 
 ;; Delete given layer (through proxy). The last layer is never
@@ -127,8 +149,7 @@
             (step pos dir)))))
 
 
-;; Delete char from position (on active layer).
-(define (del-ch cv pos)
+(define (del-by-pred cv pred)
   (let* ((layer (get-current-layer cv))
          (chars-and-dims (let lp ((chars (layer-chars layer))
                                   (xmax -1)
@@ -138,16 +159,26 @@
                                (let* ((char (car chars))
                                       (x (vector-ref char 0))
                                       (y (vector-ref char 1)))
-                                 (if (equal? (p. x y) pos)
+                                 (if (pred (p. x y))
                                      (lp (cdr chars) xmax ymax ret)
                                      (lp (cdr chars)
                                          (if (> x xmax) x xmax)
                                          (if (> y ymax) y ymax)
                                          (cons char ret))))
-                               (list (reverse chars) xmax ymax)))))
+                               (list (reverse ret) xmax ymax)))))
     (layer-chars-set! layer (first chars-and-dims))
     (layer-xmax-set! layer (second chars-and-dims))
     (layer-ymax-set! layer (third chars-and-dims))))
+
+
+;; Delete char from position (on active layer).
+(define (del-pos cv pos)
+  (del-by-pred cv (lambda (p) (equal? p pos))))
+
+
+;; Delete char from position (on active layer).
+(define (del-area cv a b)
+  (del-by-pred cv (lambda (p) (p-contained? p a b))))
 
 
 ;; Get canvas content (lines) as vector of strings.
@@ -181,6 +212,28 @@
 ;; Get canvas content (lines) as list of strings.
 (define (get-lines-list cv)
   (vector->list (get-lines-vector cv)))
+
+(define (put-lines-list cv lines)
+  (let lp ((lines lines)
+           (y 0))
+    (if (pair? lines)
+        (let lp2 ((x 0))
+          (if (< x (string-length (car lines)))
+              (let ((ch (string-ref (car lines) x)))
+                (when (not (char=? ch #\ ))
+                  (put-ch cv ch (p. x y)))
+                (lp2 (1+ x)))
+              (lp (cdr lines)
+                  (1+ y)))))))
+
+
+(define (canvas-size cv)
+  (let lp ((layers (proxy-canvas cv))
+           (size 0))
+    (if (pair? layers)
+        (lp (cdr layers)
+            (+ size (length (layer-chars (cdar layers)))))
+        size)))
 
 
 (define (layer-index cv)

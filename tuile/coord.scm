@@ -295,12 +295,12 @@
 (define (dir-orientation dir)
   (case dir
     ((left right) 'horizontal)
-    ((down up) 'vertical)))
+    ((down up)    'vertical)))
 
 
 (define (dir-opposite dir)
   (case dir
-    ((left) 'right)
+    ((left)  'right)
     ((right) 'left)
     ((up)    'down)
     ((down)  'up)))
