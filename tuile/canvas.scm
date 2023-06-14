@@ -1,3 +1,18 @@
+;;; module:
+;;
+;; Canvas is a library for drawing characters to multiple layers.
+;;
+;; Each layer includes characters as triplet: (x y ch). We store only
+;; individual character triplets, but since we need to know what is
+;; the maximum x-coord and y-coord for each layer, we maintain that
+;; information per layer.
+;;
+;; Layers are combined in order to create the canvas content. The
+;; widest layer defines the canvas width and the tallest layer defines
+;; the canvas height.
+;;
+;; Layers are accessed through a proxy.
+;;
 (define-module (tuile canvas)
   #:use-module (tuile record-r6rs)
   #:use-module (tuile massoc)
@@ -5,21 +20,24 @@
   #:use-module (tuile pr)
   #:use-module (tuile coord)
   #:use-module (rnrs bytevectors)
+  #:use-module ((srfi srfi-1) #:select (first second third))
   #:use-module (srfi srfi-43)
   #:export
   (
    create
-;;    create-proxy
    use-layer
-   layer-index
-   layer-indeces
-;;    set-layer
-;;    get-layer-index
+   del-layer
+
    put-ch
    put-str
    put-str-in-dir
+   del-ch
+
    get-lines-vector
    get-lines-list
+
+   layer-index
+   layer-indeces
    dimensions
    ))
 
@@ -31,16 +49,6 @@
           (mutable ymax)
           ))
 
-
-;; ;; Multilayer canvas state.
-;; (define-record-type canvas
-;;   (fields (mutable layers)              ; Canvas layers '((0 . '(<chars>))), <char> = #(x y ch).
-;;           (mutable lindex)              ; Layer index (li).
-;; ;;           (mutable xmax)                ; Maximum x within canvas.
-;; ;;           (mutable ymax)                ; Maximum y within canvas.
-;;           ))
-
-
 ;; Proxy to specified canvas layer.
 (define-record-type proxy
   (fields canvas
@@ -48,10 +56,9 @@
           ))
 
 
+
 ;; Create canvas at layer 0.
 (define (create)
-  ;; (make-canvas (create-layer 0) 0 0 0)
-  ;; (make-canvas (make-massoc (list (cons 0 (create-layer 0)))) 0)
   (make-proxy (make-massoc (list (cons 0 (create-layer 0))))
               0))
 
@@ -62,50 +69,15 @@
   (make-proxy (proxy-canvas cv) li))
 
 
-;; ;; Reference canvas directly or indirectly with canvas-proxy.
-;; (define (r/ cv)
-;;   (case (record-type cv)
-;;     ((canvas) cv)
-;;     ((proxy) (proxy-canvas cv))))
-;;
-;;
-;; ;; Reference layer directly or indirectly with canvas-proxy.
-;; (define (l/ cv li)
-;;   (massoc-ref (canvas-layers (r/ cv)) li))
+;; Delete given layer (through proxy). The last layer is never
+;; deleted, but it is emptied if delete is requested for it. Also the
+;; layer lindex is turned into 0.
+(define (del-layer cv)
+  (massoc-del! (proxy-canvas cv) (proxy-lindex cv))
+  (if (massoc-empty? (proxy-canvas cv))
+      (create)
+      (make-proxy (proxy-canvas cv) (car (first (proxy-canvas cv))))))
 
-
-;; ;; Set active layer.
-;; (define (set-layer cv li)
-;;   (ensure-layer cv li)
-;;   (canvas-lindex-set! cv li))
-
-
-;; ;; Return layer index.
-;; (define (get-layer-index cv)
-;;   (case (record-type cv)
-;;     ((canvas) (canvas-lindex cv))
-;;     ((proxy) (proxy-lindex cv))))
-
-
-(define (layer-index cv)
-  (proxy-lindex cv))
-
-(define (layer-indeces cv)
-  (massoc-keys (proxy-canvas cv)))
-
-
-;; Put char to position (on active layer).
-#;
-(define (put-ch cv ch pos)
-  (let ((x (px pos))
-        (y (py pos)))
-    (when (> x (canvas-xmax (r/ cv))) (canvas-xmax-set! (r/ cv) x))
-    (when (> y (canvas-ymax (r/ cv))) (canvas-ymax-set! (r/ cv) y))
-    (massoc-update! (canvas-layers (r/ cv))
-                    (get-layer-index cv)
-                    (lambda (oldval)
-                      (cons (vector (px pos) (py pos) ch)
-                            oldval)))))
 
 ;; Put char to position (on active layer).
 (define (put-ch cv ch pos)
@@ -155,27 +127,27 @@
             (step pos dir)))))
 
 
-;; Get canvas content (lines) as vector of strings.
-#;
-(define (get-lines-vector cv)
-  (let ((lines (apply vector (repeat (lambda (i)
-                                       (make-bytevector (1+ (canvas-xmax (r/ cv)))
-                                                        (char->integer #\ )))
-                                     (1+ (canvas-ymax (r/ cv)))))))
-    (let loop-layers ((sorted-li (stable-sort (massoc-keys (canvas-layers (r/ cv)))
-                                              <)))
-      (when (pair? sorted-li)
-        (let loop ((chars (reverse (canvas-chars (r/ cv) (car sorted-li)))))
-          (when (pair? chars)
-            (let ((x (vector-ref (car chars) 0))
-                  (y (vector-ref (car chars) 1))
-                  (ch (vector-ref (car chars) 2)))
-              (bytevector-u8-set! (vector-ref lines y) x (char->integer ch))
-              (loop (cdr chars)))))
-        (loop-layers (cdr sorted-li))))
-    (vector-map (lambda (i line)
-                  (utf8->string line))
-                lines)))
+;; Delete char from position (on active layer).
+(define (del-ch cv pos)
+  (let* ((layer (get-current-layer cv))
+         (chars-and-dims (let lp ((chars (layer-chars layer))
+                                  (xmax -1)
+                                  (ymax -1)
+                                  (ret '()))
+                           (if (pair? chars)
+                               (let* ((char (car chars))
+                                      (x (vector-ref char 0))
+                                      (y (vector-ref char 1)))
+                                 (if (equal? (p. x y) pos)
+                                     (lp (cdr chars) xmax ymax ret)
+                                     (lp (cdr chars)
+                                         (if (> x xmax) x xmax)
+                                         (if (> y ymax) y ymax)
+                                         (cons char ret))))
+                               (list (reverse chars) xmax ymax)))))
+    (layer-chars-set! layer (first chars-and-dims))
+    (layer-xmax-set! layer (second chars-and-dims))
+    (layer-ymax-set! layer (third chars-and-dims))))
 
 
 ;; Get canvas content (lines) as vector of strings.
@@ -193,7 +165,7 @@
     (let loop-layers ((sorted-li (stable-sort (massoc-keys (proxy-canvas cv))
                                               <)))
       (when (pair? sorted-li)
-        (let loop ((chars (reverse (canvas-chars cv (car sorted-li)))))
+        (let loop ((chars (reverse (get-chars cv (car sorted-li)))))
           (when (pair? chars)
             (let ((x (vector-ref (car chars) 0))
                   (y (vector-ref (car chars) 1))
@@ -211,6 +183,12 @@
   (vector->list (get-lines-vector cv)))
 
 
+(define (layer-index cv)
+  (proxy-lindex cv))
+
+(define (layer-indeces cv)
+  (massoc-keys (proxy-canvas cv)))
+
 ;; Return canvas dimensions (size pair).
 (define (dimensions cv)
   (let lp ((layers (massoc-values (proxy-canvas cv)))
@@ -223,20 +201,15 @@
         (p. (1+ xmax) (1+ ymax)))))
 
 
+
 ;; ------------------------------------------------------------
 ;; Support:
 
-
-(define (canvas-chars cv li)
+(define (get-chars cv li)
   (layer-chars (get-layer cv li)))
-
-
-;; (define (create-layer li)
-;;   (make-massoc (list (cons li '()))))
 
 (define (create-layer li)
   (make-layer '() -1 -1))
-
 
 (define (ensure-layer cv li)
   (unless (massoc-has-key? (proxy-canvas cv) li)
@@ -248,16 +221,6 @@
 ;; Get active layer.
 (define (get-layer cv li)
   (massoc-ref (proxy-canvas cv) li))
-
-
-;;;; x-coord of pos.
-;;(define px car)
-;;
-;;;; y-coord of pos.
-;;(define py cdr)
-;;
-;;;; x and y to pos.
-;;(define pos cons)
 
 
 #;
