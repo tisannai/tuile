@@ -9,9 +9,12 @@
   #:export
   (
    create
-   create-proxy
-   set-layer
-   get-layer-index
+;;    create-proxy
+   use-layer
+   layer-index
+   layer-indeces
+;;    set-layer
+;;    get-layer-index
    put-ch
    put-str
    put-str-in-dir
@@ -21,13 +24,21 @@
    ))
 
 
-;; Multilayer canvas state.
-(define-record-type canvas
-  (fields (mutable layers)              ; Canvas layers '((0 . '(<chars>))), <char> = #(x y ch).
-          (mutable lindex)              ; Layer index (li).
-          (mutable xmax)                ; Maximum x within canvas.
-          (mutable ymax)                ; Maximum y within canvas.
+;; Layer state.
+(define-record-type layer
+  (fields (mutable chars)
+          (mutable xmax)
+          (mutable ymax)
           ))
+
+
+;; ;; Multilayer canvas state.
+;; (define-record-type canvas
+;;   (fields (mutable layers)              ; Canvas layers '((0 . '(<chars>))), <char> = #(x y ch).
+;;           (mutable lindex)              ; Layer index (li).
+;; ;;           (mutable xmax)                ; Maximum x within canvas.
+;; ;;           (mutable ymax)                ; Maximum y within canvas.
+;;           ))
 
 
 ;; Proxy to specified canvas layer.
@@ -39,40 +50,52 @@
 
 ;; Create canvas at layer 0.
 (define (create)
-  (make-canvas (create-layer 0) 0 0 0))
+  ;; (make-canvas (create-layer 0) 0 0 0)
+  ;; (make-canvas (make-massoc (list (cons 0 (create-layer 0)))) 0)
+  (make-proxy (make-massoc (list (cons 0 (create-layer 0))))
+              0))
 
 
 ;; Create proxy for "cv" at layer index "lindex".
-(define (create-proxy cv li)
+(define (use-layer cv li)
   (ensure-layer cv li)
-  (make-proxy cv li))
+  (make-proxy (proxy-canvas cv) li))
 
 
-;; Reference canvas directly or indirectly a canvas-proxy.
-(define (r/ cv)
-  (case (record-type cv)
-    ((canvas) cv)
-    ((proxy) (proxy-canvas cv))))
+;; ;; Reference canvas directly or indirectly with canvas-proxy.
+;; (define (r/ cv)
+;;   (case (record-type cv)
+;;     ((canvas) cv)
+;;     ((proxy) (proxy-canvas cv))))
+;;
+;;
+;; ;; Reference layer directly or indirectly with canvas-proxy.
+;; (define (l/ cv li)
+;;   (massoc-ref (canvas-layers (r/ cv)) li))
 
 
-(define (ensure-layer cv li)
-  (unless (massoc-has-key? (canvas-layers cv) li)
-    (massoc-set! (canvas-layers cv) li '())))
-
-;; Set active layer.
-(define (set-layer cv li)
-  (ensure-layer cv li)
-  (canvas-lindex-set! cv li))
+;; ;; Set active layer.
+;; (define (set-layer cv li)
+;;   (ensure-layer cv li)
+;;   (canvas-lindex-set! cv li))
 
 
-;; Return layer index.
-(define (get-layer-index cv)
-  (case (record-type cv)
-    ((canvas) (canvas-lindex cv))
-    ((proxy) (proxy-lindex cv))))
+;; ;; Return layer index.
+;; (define (get-layer-index cv)
+;;   (case (record-type cv)
+;;     ((canvas) (canvas-lindex cv))
+;;     ((proxy) (proxy-lindex cv))))
+
+
+(define (layer-index cv)
+  (proxy-lindex cv))
+
+(define (layer-indeces cv)
+  (massoc-keys (proxy-canvas cv)))
 
 
 ;; Put char to position (on active layer).
+#;
 (define (put-ch cv ch pos)
   (let ((x (px pos))
         (y (py pos)))
@@ -83,6 +106,15 @@
                     (lambda (oldval)
                       (cons (vector (px pos) (py pos) ch)
                             oldval)))))
+
+;; Put char to position (on active layer).
+(define (put-ch cv ch pos)
+  (let ((layer (get-current-layer cv))
+        (x (px pos))
+        (y (py pos)))
+    (when (> x (layer-xmax layer)) (layer-xmax-set! layer x))
+    (when (> y (layer-ymax layer)) (layer-ymax-set! layer y))
+    (layer-chars-set! layer (cons (vector (px pos) (py pos) ch) (layer-chars layer)))))
 
 
 ;; Put string of chars starting from position (on active layer).
@@ -123,7 +155,8 @@
             (step pos dir)))))
 
 
-;; Get canvas content (lines) as vector.
+;; Get canvas content (lines) as vector of strings.
+#;
 (define (get-lines-vector cv)
   (let ((lines (apply vector (repeat (lambda (i)
                                        (make-bytevector (1+ (canvas-xmax (r/ cv)))
@@ -145,21 +178,49 @@
                 lines)))
 
 
-;; Get canvas content (lines) as list.
+;; Get canvas content (lines) as vector of strings.
+(define (get-lines-vector cv)
+  (let* ((dims (dimensions cv))
+         (lines (make-vector (py dims))))
+
+    ;; Pre-fill bytevectors with spaces.
+    (let lp ((i 0))
+      (when (< i (py dims))
+        (vector-set! lines i (make-bytevector (px dims) (char->integer #\ )))
+        (lp (1+ i))))
+
+    ;; Overwrite bytevectros with chars from layers in order.
+    (let loop-layers ((sorted-li (stable-sort (massoc-keys (proxy-canvas cv))
+                                              <)))
+      (when (pair? sorted-li)
+        (let loop ((chars (reverse (canvas-chars cv (car sorted-li)))))
+          (when (pair? chars)
+            (let ((x (vector-ref (car chars) 0))
+                  (y (vector-ref (car chars) 1))
+                  (ch (vector-ref (car chars) 2)))
+              (bytevector-u8-set! (vector-ref lines y) x (char->integer ch))
+              (loop (cdr chars)))))
+        (loop-layers (cdr sorted-li))))
+
+    (vector-map (lambda (i line) (utf8->string line))
+                lines)))
+
+
+;; Get canvas content (lines) as list of strings.
 (define (get-lines-list cv)
-  (vector->list (get-lines-vector (r/ cv))))
+  (vector->list (get-lines-vector cv)))
 
+
+;; Return canvas dimensions (size pair).
 (define (dimensions cv)
-  (p. (canvas-xmax cv)
-      (canvas-ymax cv)))
-
-#;
-(begin
-  (define cv (create))
-  (put-ch cv #\a '(3 . 1))
-  (put-ch cv #\b '(10 . 10))
-  ;;(get-lines cv)
-  (for-each pr (get-lines-as-string-list cv)))
+  (let lp ((layers (massoc-values (proxy-canvas cv)))
+           (xmax -1)
+           (ymax -1))
+    (if (pair? layers)
+        (lp (cdr layers)
+            (if (> (layer-xmax (car layers)) xmax) (layer-xmax (car layers)) xmax)
+            (if (> (layer-ymax (car layers)) ymax) (layer-ymax (car layers)) ymax))
+        (p. (1+ xmax) (1+ ymax)))))
 
 
 ;; ------------------------------------------------------------
@@ -167,11 +228,27 @@
 
 
 (define (canvas-chars cv li)
-  (massoc-ref (canvas-layers (r/ cv)) li))
+  (layer-chars (get-layer cv li)))
 
+
+;; (define (create-layer li)
+;;   (make-massoc (list (cons li '()))))
 
 (define (create-layer li)
-  (make-massoc (list (cons li '()))))
+  (make-layer '() -1 -1))
+
+
+(define (ensure-layer cv li)
+  (unless (massoc-has-key? (proxy-canvas cv) li)
+    (massoc-set! (proxy-canvas cv) li (create-layer li))))
+
+(define (get-current-layer cv)
+  (get-layer cv (proxy-lindex cv)))
+
+;; Get active layer.
+(define (get-layer cv li)
+  (massoc-ref (proxy-canvas cv) li))
+
 
 ;;;; x-coord of pos.
 ;;(define px car)
@@ -181,3 +258,12 @@
 ;;
 ;;;; x and y to pos.
 ;;(define pos cons)
+
+
+#;
+(begin
+  (define cv (create))
+  (put-ch cv #\a (p. 3 1))
+  (put-ch cv #\b (p. 10 10))
+  ;;(get-lines cv)
+  (for-each pr (get-lines-list cv)))
