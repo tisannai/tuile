@@ -29,12 +29,18 @@
    push-layer
    clear-layer
    del-layer
+   map-layer
 
    put-ch
    put-str
    put-str-in-dir
    del-pos
    del-area
+
+   make-ch
+   ch-x
+   ch-y
+   ch-c
 
    get-lines-vector
    get-lines-list
@@ -61,6 +67,22 @@
           ))
 
 
+(define make-ch vector)
+(define (ch-x ch) (vector-ref ch 0))
+(define (ch-y ch) (vector-ref ch 1))
+(define (ch-c ch) (vector-ref ch 2))
+
+
+(define (layer-max-reset layer)
+  (layer-xmax-set! layer -1)
+  (layer-ymax-set! layer -1))
+
+(define (layer-max-update layer char)
+  (let ((x (ch-x char))
+        (y (ch-y char)))
+    (when (> x (layer-xmax layer)) (layer-xmax-set! layer x))
+    (when (> y (layer-ymax layer)) (layer-ymax-set! layer y))))
+
 
 ;; Create canvas at layer 0.
 (define (create)
@@ -86,8 +108,7 @@
 ;; Empty layer content.
 (define (clear-layer cv)
   (let ((layer (get-current-layer cv)))
-    (layer-xmax-set! layer -1)
-    (layer-ymax-set! layer -1)
+    (layer-max-reset layer)
     (layer-chars-set! layer '())))
 
 
@@ -101,6 +122,28 @@
       (make-proxy (proxy-canvas cv) (car (first (proxy-canvas cv))))))
 
 
+;; Map layer characters to new state with proc. Proc is provided with
+;; the char and it should return a new char. If return value is #f,
+;; the char will be removed.
+(define (map-layer cv proc)
+  (let* ((layer (get-current-layer cv))
+         (chars (layer-chars layer)))
+    (layer-max-reset layer)
+    (layer-chars-set! layer
+                      (let lp ((chars chars)
+                               (ret '()))
+                        (if (pair? chars)
+                            (let ((new-char (proc (car chars))))
+                              (if new-char
+                                  (begin
+                                    (layer-max-update layer new-char)
+                                    (lp (cdr chars)
+                                        (cons new-char ret)))
+                                  (lp (cdr chars)
+                                      ret)))
+                            (reverse ret))))))
+
+
 ;; Put char to position (on active layer).
 (define (put-ch cv ch pos)
   (let ((layer (get-current-layer cv))
@@ -108,7 +151,7 @@
         (y (py pos)))
     (when (> x (layer-xmax layer)) (layer-xmax-set! layer x))
     (when (> y (layer-ymax layer)) (layer-ymax-set! layer y))
-    (layer-chars-set! layer (cons (vector (px pos) (py pos) ch) (layer-chars layer)))))
+    (layer-chars-set! layer (cons (make-ch (px pos) (py pos) ch) (layer-chars layer)))))
 
 
 ;; Put string of chars starting from position (on active layer).
@@ -149,36 +192,20 @@
             (step pos dir)))))
 
 
-(define (del-by-pred cv pred)
-  (let* ((layer (get-current-layer cv))
-         (chars-and-dims (let lp ((chars (layer-chars layer))
-                                  (xmax -1)
-                                  (ymax -1)
-                                  (ret '()))
-                           (if (pair? chars)
-                               (let* ((char (car chars))
-                                      (x (vector-ref char 0))
-                                      (y (vector-ref char 1)))
-                                 (if (pred (p. x y))
-                                     (lp (cdr chars) xmax ymax ret)
-                                     (lp (cdr chars)
-                                         (if (> x xmax) x xmax)
-                                         (if (> y ymax) y ymax)
-                                         (cons char ret))))
-                               (list (reverse ret) xmax ymax)))))
-    (layer-chars-set! layer (first chars-and-dims))
-    (layer-xmax-set! layer (second chars-and-dims))
-    (layer-ymax-set! layer (third chars-and-dims))))
+(define (del-by-pos-pred cv pred)
+  (map-layer cv (lambda (ch) (if (pred (p. (ch-x ch) (ch-y ch)))
+                                 #f
+                                 ch))))
 
 
 ;; Delete char from position (on active layer).
 (define (del-pos cv pos)
-  (del-by-pred cv (lambda (p) (equal? p pos))))
+  (del-by-pos-pred cv (lambda (p) (equal? p pos))))
 
 
 ;; Delete char from position (on active layer).
 (define (del-area cv a b)
-  (del-by-pred cv (lambda (p) (p-contained? p a b))))
+  (del-by-pos-pred cv (lambda (p) (p-contained? p a b))))
 
 
 ;; Get canvas content (lines) as vector of strings.
@@ -198,9 +225,9 @@
       (when (pair? sorted-li)
         (let loop ((chars (reverse (get-chars cv (car sorted-li)))))
           (when (pair? chars)
-            (let ((x (vector-ref (car chars) 0))
-                  (y (vector-ref (car chars) 1))
-                  (ch (vector-ref (car chars) 2)))
+            (let ((x (ch-x (car chars)))
+                  (y (ch-y (car chars)))
+                  (ch (ch-c (car chars))))
               (bytevector-u8-set! (vector-ref lines y) x (char->integer ch))
               (loop (cdr chars)))))
         (loop-layers (cdr sorted-li))))
