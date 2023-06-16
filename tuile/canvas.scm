@@ -30,6 +30,7 @@
    clear-layer
    del-layer
    map-layer
+   from-layer
 
    put-ch
    put-str
@@ -38,6 +39,7 @@
    del-area
 
    make-ch
+   ch-p
    ch-x
    ch-y
    ch-c
@@ -49,6 +51,7 @@
 
    layer-index
    layer-indeces
+   layer-content
    dimensions
    ))
 
@@ -68,6 +71,7 @@
 
 
 (define make-ch vector)
+(define (ch-p ch) (p. (ch-x ch) (ch-y ch)))
 (define (ch-x ch) (vector-ref ch 0))
 (define (ch-y ch) (vector-ref ch 1))
 (define (ch-c ch) (vector-ref ch 2))
@@ -142,6 +146,22 @@
                                   (lp (cdr chars)
                                       ret)))
                             (reverse ret))))))
+
+
+;; Select layer characters that match pred.
+(define (from-layer cv pred)
+  (let* ((layer (get-current-layer cv))
+         (chars (layer-chars layer)))
+    (let lp ((chars chars)
+             (ret '()))
+      (if (pair? chars)
+          (let ((res (pred (car chars))))
+            (if res
+                (lp (cdr chars)
+                    (cons (car chars) ret))
+                (lp (cdr chars)
+                    ret)))
+          (reverse ret)))))
 
 
 ;; Put char to position (on active layer).
@@ -268,6 +288,9 @@
 
 (define (layer-indeces cv)
   (massoc-keys (proxy-canvas cv)))
+
+(define (layer-content cv)
+  (layer-chars (get-current-layer cv)))
 
 ;; Return canvas dimensions (size pair).
 (define (dimensions cv)
