@@ -31,6 +31,7 @@
    del-layer
    map-layer
    from-layer
+   hide-layer
 
    put-ch
    put-str
@@ -61,6 +62,7 @@
   (fields (mutable chars)
           (mutable xmax)
           (mutable ymax)
+          (mutable hide)
           ))
 
 ;; Proxy to specified canvas layer.
@@ -163,6 +165,9 @@
                     ret)))
           (reverse ret)))))
 
+
+(define (hide-layer cv state)
+  (layer-hide-set! (get-current-layer cv) state))
 
 ;; Put char to position (on active layer).
 (define (put-ch cv ch pos)
@@ -309,10 +314,13 @@
 ;; Support:
 
 (define (get-chars cv li)
-  (layer-chars (get-layer cv li)))
+  (let ((layer (get-layer cv li)))
+    (if (layer-hide layer)
+        '()
+        (layer-chars layer))))
 
 (define (create-layer li)
-  (make-layer '() -1 -1))
+  (make-layer '() -1 -1 #f))
 
 (define (ensure-layer cv li)
   (unless (massoc-has-key? (proxy-canvas cv) li)
