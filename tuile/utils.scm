@@ -35,7 +35,7 @@
    flatten
    flatten-0
    flatten-1
-   delete-ref
+   delete-nth
    list/
    list-slice
    list-range
@@ -320,7 +320,7 @@
 
 
 ;; Delete nth element from list.
-(define (delete-ref lst nth)
+(define (delete-nth lst nth)
   (let loop ((head '())
              (tail lst)
              (i 0))
@@ -569,7 +569,7 @@
 ;; Convert filename to absolute, and canonicalize it (as in Emacs).
 (define (expand-file-name filename)
   (if (eq? (string-ref filename 0) #\~)
-      (string-append (getenv "HOME") (comp:substring filename 1))
+      (string-append (getenv "HOME") (substring filename 1))
       (canonicalize-path filename)))
 
 (define (is-file? name)
@@ -578,14 +578,17 @@
 (define (is-directory? name)
   (eq? (stat:type (stat name)) 'directory))
 
-(define datum->string comp:datum->string)
+(define (datum->string datum)
+  (with-output-to-string (lambda ()
+                           (write datum))))
+;; (define datum->string comp:datum->string)
 
 ;; Convert string to procedure.
 (define (string->procedure str)
   (eval (read (open-input-string str)) (interaction-environment)))
 
 ;; Eval datum.
-(define common-eval comp:eval)
+(define common-eval primitive-eval)
 
 ;; Anaphoric if macro.
 ;;

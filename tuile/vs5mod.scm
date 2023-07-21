@@ -148,7 +148,7 @@
   value
   )
 (define-method (initialize (self <reg>) initargs)
-  (initialize-variable self (delete-ref initargs 4))
+  (initialize-variable self (delete-nth initargs 4))
   (slot-set! self 'value (list-ref initargs 4)))
 (define-method (vl-basetype (self <reg>)) "reg")
 (define-method (sv-basetype (self <reg>)) "logic")

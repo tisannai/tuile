@@ -1,9 +1,9 @@
 (define-module (tuile tree)
+  #:use-module (common base)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
   #:use-module (tuile pr)
   #:use-module (tuile log)
-  #:use-module (tuile compatible)
   #:export (
             tree-node-create
             tree-node-create-with-name

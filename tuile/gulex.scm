@@ -18,10 +18,12 @@
 ;; For usage and further documentation: see `gulex`, the Gulex CLI tool README.md.
 
 (define-module (tuile gulex)
+  #:use-module (common base)
   #:use-module (tuile pr)
+  #:use-module ((tuile utils) #:select (datum->string))
   #:use-module (srfi srfi-1)
   #:use-module ((ice-9 textual-ports) #:select (get-string-all))
-  #:use-module (tuile compatible)
+;;   #:use-module (tuile compatible)
   #:use-module ((ice-9 pretty-print) #:select (pretty-print))
   #:export
   (
@@ -100,7 +102,7 @@
                         0
                         0
                         0)
-      (comp:error (ss "char-stream: File not found: \"" filename "\" ..."))))
+      (error (ss "char-stream: File not found: \"" filename "\" ..."))))
 
 
 (define (char-stream-open-with-text text)
@@ -240,7 +242,7 @@
                     line
                     column)))
     (when token-stream-show-token-active
-      (pr "Token Stream: " (comp:datum->string ret)))
+      (pr "Token Stream: " (datum->string ret)))
     ret))
 
 ;; Get next token (from lexer or from buf).
@@ -595,7 +597,7 @@
            ;;      ^
            ((cur-is? #\+)
             (dbug "OOM")
-            ;; (dbug (comp:datum->string lexers))
+            ;; (dbug (datum->string lexers))
             (get)
             (loop #f
                   (if lookahead
@@ -765,7 +767,7 @@
 
         (begin
 
-          (dbug (ss "Start: token: " token ", lexer: " (comp:datum->string lexer) ", char: " (cur)))
+          (dbug (ss "Start: token: " token ", lexer: " (datum->string lexer) ", char: " (cur)))
 
           (cond
 
@@ -905,7 +907,7 @@
             (let ((opt-return (lambda (opts)
                                 (if (pair? opts)
                                     (begin
-                                      (dbug (ss "Option matches: " (comp:datum->string opts)))
+                                      (dbug (ss "Option matches: " (datum->string opts)))
                                       (let* ((best (apply max (map (lambda (ret)
                                                                      (length (second ret)))
                                                                    opts)))
@@ -1128,16 +1130,16 @@
 
   (define (show-lnode lnode)
     (pr "label: " (lnode-label lnode))
-    (pr "    rule: " (comp:datum->string (lnode-rule lnode)))
+    (pr "    rule: " (datum->string (lnode-rule lnode)))
     (if (lnode-terminal? lnode)
         (pr "    <term>")
-        (pr "    next: " (comp:datum->string (lnode-next lnode)))))
+        (pr "    next: " (datum->string (lnode-next lnode)))))
 
   (define (show-lnode-list)
     (for-each show-lnode lnode-list))
 
   (define (try ir)
-    (pr "IR: " (comp:datum->string ir))
+    (pr "IR: " (datum->string ir))
     (set! lnode-index 0)
     (set! lnode-list (list))
     (let ((res (let ((next (lnode-create-terminal)))
@@ -1198,10 +1200,10 @@
     ;; (pretty-print lnode-list)
     (make-fsm token
               (list->vector
-               (comp:sort lnode-list
-                          (lambda (a b)
-                            (< (lnode-label a)
-                               (lnode-label b)))))
+               (stable-sort lnode-list
+                            (lambda (a b)
+                              (< (lnode-label a)
+                                 (lnode-label b)))))
               start
               (list)
               0

@@ -3,7 +3,6 @@
   )
 
 (module-forward '(tuile como)
-;;                '(tuile compatible)
                 '(tuile dbg)
                 '(tuile fmt)
                 '(tuile fn)

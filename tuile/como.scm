@@ -30,10 +30,11 @@
 
 
 (define-module (tuile como)
+  #:use-module (common base)
   #:use-module ((ice-9 control) #:select (call/ec))
   #:use-module ((srfi srfi-1)   #:select (find first second third last fold))
   #:use-module ((srfi srfi-13)  #:select (string-contains))
-  #:use-module (tuile compatible)
+;;   #:use-module (tuile compatible)
   #:export ( ;; Como classic:
             como-command
             como-usage
@@ -75,9 +76,9 @@
              0)
           (if (string-contains tail pat)
               (let ((pos (string-contains tail pat)))
-                (loop (comp:substring tail
+                (loop (substring tail
                                       (+ pos pat-len))
-                      (append lst (list (comp:substring tail 0 pos)))))
+                      (append lst (list (substring tail 0 pos)))))
               (append lst (list tail)))
           lst))))
 
@@ -213,13 +214,13 @@
   (cond
 
    ;; Match long opt "--".
-   ((string=? "--" (comp:substring cli 0 2))
+   ((string=? "--" (substring cli 0 2))
     (find-opt-with como
-                   (comp:substring cli 2)
+                   (substring cli 2)
                    opt-name))
 
    ;; Match short opt "-".
-   ((string=? "-" (comp:substring cli 0 1))
+   ((string=? "-" (substring cli 0 1))
     (find-opt-with como
                    cli
                    opt-sopt))
@@ -584,12 +585,12 @@
 ;; ------------------------------------------------------------
 ;; Como actions API:
 
-(define como-vars (comp:hash-make 'string))
+(define como-vars (make-hash-table 'string))
 
 (define como-used-actions '())
 
 (define (como-var name)
-  (comp:hash-ref como-vars name))
+  (hash-ref como-vars name))
 
 
 ;;
@@ -667,23 +668,23 @@
   ;; Initialize variables to specified value or #f.
   (define (como-vars-init defs)
     (for-each (lambda (def)
-                (comp:hash-set! como-vars (->string (second def))
-                                (if (> (length def) 3)
-                                    ;; Has default, use it.
-                                    (if (is-switch-value? (last def))
-                                        (begin
-                                          (set! switches (cons (->string (second def)) switches))
-                                          (switch-str->value (last def)))
-                                        (last def))
-                                    ;; No default.
-                                    #f)))
+                (hash-set! como-vars (->string (second def))
+                           (if (> (length def) 3)
+                               ;; Has default, use it.
+                               (if (is-switch-value? (last def))
+                                   (begin
+                                     (set! switches (cons (->string (second def)) switches))
+                                     (switch-str->value (last def)))
+                                   (last def))
+                               ;; No default.
+                               #f)))
               defs)
     (when default
-      (comp:hash-set! como-vars "default" '())))
+      (hash-set! como-vars "default" '())))
 
   ;; Set como-var a value.
   (define (como-var-set! name val)
-    (comp:hash-set! como-vars name val))
+    (hash-set! como-vars name val))
 
   ;; Check if cli item is of queried type.
   (define (type-is? type entry)
@@ -827,5 +828,5 @@
 
     (for-each (lambda (action)
                 (when (opt-setup) ((opt-setup)))
-                (comp:eval (list action)))
+                (primitive-eval (list action)))
               used-actions)))

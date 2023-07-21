@@ -118,7 +118,7 @@
 
 (define-module (tuile table)
   #:use-module ((srfi srfi-1)  #:select (first second third fold drop take))
-  #:use-module (tuile compatible)
+;;   #:use-module (tuile compatible)
   #:use-module ((srfi srfi-11) #:select (let-values))
   #:use-module ((ice-9 match) #:select (match))
   #:use-module (tuile re)

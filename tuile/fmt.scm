@@ -5,6 +5,7 @@
 ;;   #:use-module (tuile compatible)
   #:use-module ((srfi srfi-11) #:select (let-values))
   #:use-module ((ice-9 match) #:select (match))
+  #:use-module ((tuile utils) #:select (delete-nth))
   #:export
   (
    fmt
@@ -23,13 +24,16 @@
 
 ;; Formatters (with space as default pad):
 ;;
+;; ind - indent
 ;; lal - left-align
 ;; ral - right-align
 ;; cal - center-align
-;; lai - left-align-with-indent
-;; rai - right-align-with-indent
+;; laf - left-align-fill
+;; raf - right-align-fill
+;; caf - center-align-fill
 ;; dis - distribute
 ;; gap - gap
+;; cat - concatenate
 
 ;; Converters (with zero as default pad):
 ;;
@@ -92,11 +96,11 @@
                             cal
                             dis
                             gap
+                            cat
                             bin
                             oct
                             hex
-                            dec
-                            cat))
+                            dec))
 
   (define (format-atom atom)
 
@@ -172,7 +176,7 @@
       (num-to-string 10 " " rest))
 
     ;; Return values: str/str-list, width, pad.
-    (define (handle-align-or-clip-args atom)
+    (define (handle-align-or-clip-args atom fill)
       (apply values (cons (if (= (length atom) 3)
                               (if (list? (third atom))
                                   ;; List argument.
@@ -183,10 +187,10 @@
                               (map format-atom (drop atom 2)))
                           (if (pair? (second atom))
                               (second atom)
-                              (list (second atom) " ")))))
-
-    (define (call-align fn atom)
-      (let-values (((str-def width pad) (handle-align-or-clip-args atom)))
+                              (list (second atom) (string fill))))))
+    
+    (define (call-align fn atom fill)
+      (let-values (((str-def width pad) (handle-align-or-clip-args atom fill)))
         (if (list? str-def)
             (map (lambda (str)
                    (fn str width pad))
@@ -214,13 +218,22 @@
          (ind (second atom)))
 
         ((lal)
-         (call-align left-align-or-clip atom))
+         (call-align left-align-or-clip atom #\ ))
 
         ((ral)
-         (call-align right-align-or-clip atom))
+         (call-align right-align-or-clip atom #\ ))
 
         ((cal)
-         (call-align center-align-or-clip atom))
+         (call-align center-align-or-clip atom #\ ))
+
+        ((laf)
+         (call-align left-align-or-clip (delete-nth atom 2) (third atom)))
+
+        ((raf)
+         (call-align right-align-or-clip (delete-nth atom 2) (third atom)))
+
+        ((caf)
+         (call-align center-align-or-clip (delete-nth atom 2) (third atom)))
 
         ((gap)
          (gap (cdr atom)))
@@ -368,4 +381,5 @@
 
 ;; (use-modules (tuile pr))
 ;; (when #t
-;;   (pr (fmt `(ind 10) `(cal 12 "foobar") `(put "--"))))
+;;   (pr (fmt `(ind 10) `(cal 12 "foobar") `(put "--")))
+;;   (pr (fmt `(ind 10) `(caf 12 #\* "foobar") `(put "--"))))

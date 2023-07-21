@@ -239,7 +239,7 @@
   value
   )
 (define-method (initialize (self <reg>) initargs)
-  (initialize-variable self (delete-ref initargs 2))
+  (initialize-variable self (delete-nth initargs 2))
   (slot-set! self 'value (list-ref initargs 2)))
 (define-method (vardef (self <reg>)) (ss "reg    " (sizedef self) ";"))
 
