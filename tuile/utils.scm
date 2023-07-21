@@ -16,7 +16,7 @@
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
   #:use-module (tuile re)
   #:use-module ((tuile pr) #:select (si :in :rj))
-  #:use-module (tuile compatible)
+;;   #:use-module (tuile compatible)
   #:export
   (
    any?

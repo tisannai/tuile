@@ -425,9 +425,9 @@
         (if (pair? mod)
             (loop (cdr mod)
                   (string-append (substring str
-                                                 0
-                                                 (caar mod))
-                                      (cdar mod)
-                                      (substring str
-                                                 (+ (caar mod) (string-length (cdar mod))))))
+                                            0
+                                            (caar mod))
+                                 (cdar mod)
+                                 (substring str
+                                            (+ (caar mod) (string-length (cdar mod))))))
             str))))

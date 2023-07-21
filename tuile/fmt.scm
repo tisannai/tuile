@@ -64,7 +64,7 @@
 
 ;; Tail recursive full flatten.
 (define (flatten . rest)
-  (let loop ((stack rest)
+  (let lp ((stack rest)
              (res '()))
     (cond
      ((null? stack)
@@ -268,7 +268,7 @@
   (define (format-shorthand atoms)
 
     (define (group-atoms atoms)
-      (let loop ((items '())
+      (let lp ((items '())
                  (groups '())
                  (atoms atoms))
         (cond
@@ -355,15 +355,15 @@
 ;;                   ("#" "bar" "Second dummy name.")))
 ;;
 (define (fmt-group format lines)
-  (let loop ((lines lines)
-             (ret '()))
+  (let lp ((lines lines)
+           (ret '()))
     (if (pair? lines)
         ;; Example:
         ;;     (fmt '(lal 6 "#") '(lal 12 "foo") "First dummy name.")
         (loop (cdr lines)
-              (cons (apply fmt (let loop2 ((rest format)
-                                           (cols (car lines))
-                                           (ret '()))
+              (cons (apply fmt (let lp2 ((rest format)
+                                         (cols (car lines))
+                                         (ret '()))
                                  (if (pair? rest)
                                      (if (eq? (caar rest) 'ind)
                                          (loop2 (cdr rest)
