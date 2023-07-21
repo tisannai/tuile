@@ -716,10 +716,12 @@
 (define -> fn-pipe)
 
 (define (repeat fn cnt)
-  (let loop ((i 0))
+  (let lp ((i 0)
+           (ret '()))
     (if (< i cnt)
-        (cons (fn i) (loop (1+ i)))
-        '())))
+        (lp (1+ i)
+            (cons (fn i) ret))
+        (reverse ret))))
 
 (define-syntax repeat-times
   (lambda (x)

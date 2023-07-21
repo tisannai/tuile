@@ -1,7 +1,8 @@
 (define-module (tuile fmt)
+  #:use-module (common base)
   #:use-module ((srfi srfi-1)  #:select (first second third fold drop))
 ;;  #:use-module ((srfi srfi-9)  #:select (define-record-type))
-  #:use-module (tuile compatible)
+;;   #:use-module (tuile compatible)
   #:use-module ((srfi srfi-11) #:select (let-values))
   #:use-module ((ice-9 match) #:select (match))
   #:export
@@ -94,7 +95,8 @@
                             bin
                             oct
                             hex
-                            dec))
+                            dec
+                            cat))
 
   (define (format-atom atom)
 
@@ -235,6 +237,9 @@
         ((dec)
          (dec (cdr atom)))
 
+        ((cat)
+         (map fmt (cdr atom)))
+
         (else
          (map fmt atom))))
 
@@ -359,3 +364,8 @@
                                      (append ret cols))))
                     ret))
         (reverse ret))))
+
+
+;; (use-modules (tuile pr))
+;; (when #t
+;;   (pr (fmt `(ind 10) `(cal 12 "foobar") `(put "--"))))
