@@ -19,7 +19,6 @@
 ;; 0123456789012301234567890123012345678901230
 ;; |      :      |      :      |      :      |
 ;; foo                 bar                 dii  ; left-align, center-align, right-align
-;; foo          bar          dii                ; distribute to 28
 ;; foo       bar       dii                      ; gap with 7
 
 ;; Formatters (with space as default pad):
@@ -31,7 +30,6 @@
 ;; laf - left-align-fill
 ;; raf - right-align-fill
 ;; caf - center-align-fill
-;; dis - distribute
 ;; gap - gap
 ;; cat - concatenate
 
@@ -42,7 +40,6 @@
 ;; hex - hex    code (default pad: 0)
 ;; dec - decimal     (default pad: #\ )
 
-;;(use-modules (tuile pr))
 
 
 ;; ------------------------------------------------------------
@@ -65,27 +62,28 @@
 ;; Tail recursive full flatten.
 (define (flatten . rest)
   (let lp ((stack rest)
-             (res '()))
+           (res '()))
     (cond
      ((null? stack)
       ;; We are done, reverse the result.
       (reverse res))
      ((null? (car stack))
       ;; Eat out empty tails.
-      (loop (cdr stack)
-            res))
+      (lp (cdr stack)
+          res))
      ((pair? (car stack))
       ;; Convert stack into: (head tail rest-of-stack).
-      (loop (cons (caar stack)
-                  (cons (cdar stack)
-                        (cdr stack)))
-            res))
+      (lp (cons (caar stack)
+                (cons (cdar stack)
+                      (cdr stack)))
+          res))
      (else
       ;; Add head to result.
-      (loop (cdr stack)
-            (cons (car stack) res))))))
+      (lp (cdr stack)
+          (cons (car stack) res))))))
 
-;; ------------------------------------------------------------=
+
+;; ------------------------------------------------------------
 ;; User API:
 
 (define (fmt . args)
@@ -94,7 +92,6 @@
                             lal
                             ral
                             cal
-                            dis
                             gap
                             cat
                             bin
@@ -141,28 +138,23 @@
           (substring str 0 width)))
 
     (define (num-to-string radix pad rest)
-      (if (= 1 (length rest))
-          (let ((str (number->string (first rest) radix)))
-            (right-align-or-clip str
-                                 (string-length str)
-                                 pad))
-          (let-values (((width pad num) (if (pair? (first rest))
-                                            (values (caar rest)
-                                                    (cadar rest)
-                                                    (second rest))
-                                            (values (first rest)
-                                                    pad
-                                                    (second rest)))))
-            (right-align-or-clip (number->string num radix)
-                                 width
-                                 pad))))
+      (let-values (((width pad num) (match rest
+                                      (((width pad) num) (values width pad num))
+                                      ((width num) (values width pad num))
+                                      ((num) (values (string-length (number->string num radix))
+                                                     pad
+                                                     num)))))
+        (right-align-or-clip (number->string num radix)
+                             width
+                             pad)))
 
 
     ;; Convert number to binary.
     ;;
-    ;; '(bin 123)
-    ;; '(bin 10 123)
-    ;; '(bin (10 " ") 123)
+    ;;     '(bin 123)
+    ;;     '(bin 10 123)
+    ;;     '(bin (10 " ") 123)
+    ;;
     (define (bin rest)
       (num-to-string 2 "0" rest))
 
@@ -197,16 +189,17 @@
                  str-def)
             (fn str-def width pad))))
 
+    ;; Separate fields with sized gap.
+    ;;
+    ;;     (gap 4 "foo" "bar")
+    ;;     (gap (4 "-") "foo "bar")
+    ;;
     (define (gap rest)
-      (let ((size (if (pair? (first rest))
-                      (first (first rest))
-                      (first rest)))
-            (char (if (pair? (first rest))
-                      (second (first rest))
-                      " ")))
+      (let-values (((size char fields) (match rest
+                                         (((size char) field ...) (values size char field))
+                                         ((size field ...) (values size " " field)))))
         (string-join (flatten (map format-atom (cdr rest)))
                      (string-repeat size char))))
-
 
     (cond
 
@@ -269,8 +262,8 @@
 
     (define (group-atoms atoms)
       (let lp ((items '())
-                 (groups '())
-                 (atoms atoms))
+               (groups '())
+               (atoms atoms))
         (cond
 
          ((null? atoms)
@@ -280,16 +273,16 @@
 
          ((member (car atoms)
                   format-commands)
-          (loop (list (car atoms))
-                (cons (reverse items)
-                      groups)
-                (cdr atoms)))
+          (lp (list (car atoms))
+              (cons (reverse items)
+                    groups)
+              (cdr atoms)))
 
          (else
-          (loop (cons (car atoms)
-                      items)
-                groups
-                (cdr atoms))))))
+          (lp (cons (car atoms)
+                    items)
+              groups
+              (cdr atoms))))))
 
     (if (and (symbol? (first atoms))
              (member (first atoms)
@@ -300,13 +293,6 @@
   (string-concatenate (flatten (format-atoms (format-shorthand args)))))
 
 
-;;(define-record-type fmt-info-rec
-;;  (make-fmt-info count max min total)
-;;  fmt-info?
-;;  (count fmt-info-count)
-;;  (max   fmt-info-max)
-;;  (min   fmt-info-min)
-;;  (total fmt-info-total))
 (define-record-type fmt-info-rec
   (fields count
           max
@@ -360,26 +346,29 @@
     (if (pair? lines)
         ;; Example:
         ;;     (fmt '(lal 6 "#") '(lal 12 "foo") "First dummy name.")
-        (loop (cdr lines)
-              (cons (apply fmt (let lp2 ((rest format)
-                                         (cols (car lines))
-                                         (ret '()))
-                                 (if (pair? rest)
-                                     (if (eq? (caar rest) 'ind)
-                                         (loop2 (cdr rest)
-                                                cols
-                                                (append ret
-                                                        (list (append (car rest)))))
-                                         (loop2 (cdr rest)
-                                                (cdr cols)
-                                                (append ret
-                                                        (list (append (car rest) (list (->str (car cols))))))))
-                                     (append ret cols))))
-                    ret))
+        (lp (cdr lines)
+            (cons (apply fmt (let lp2 ((rest format)
+                                       (cols (car lines))
+                                       (ret '()))
+                               (if (pair? rest)
+                                   (if (eq? (caar rest) 'ind)
+                                       (lp2 (cdr rest)
+                                            cols
+                                            (append ret
+                                                    (list (append (car rest)))))
+                                       (lp2 (cdr rest)
+                                            (cdr cols)
+                                            (append ret
+                                                    (list (append (car rest) (list (->str (car cols))))))))
+                                   (append ret cols))))
+                  ret))
         (reverse ret))))
 
 
 ;; (use-modules (tuile pr))
-;; (when #t
-;;   (pr (fmt `(ind 10) `(cal 12 "foobar") `(put "--")))
-;;   (pr (fmt `(ind 10) `(caf 12 #\* "foobar") `(put "--"))))
+#;
+(when #t
+  (pr (fmt `(ind 10) `(cal 12 "foobar") `(put "--")))
+  (pr (fmt `(ind 10) `(caf 12 #\* "foobar") `(put "--")))
+  (pr (fmt '(bin 12 "-" 6)))
+  (pr (fmt '(gap 4 "foo" "bar"))))

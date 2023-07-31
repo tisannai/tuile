@@ -19,8 +19,6 @@
    ))
 
 
-(use-modules (tuile pr))
-
 ;; Create an empty massoc (default) or pre-fill it with given entries
 ;; (alist).
 ;;

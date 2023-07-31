@@ -585,7 +585,7 @@
 ;; ------------------------------------------------------------
 ;; Como actions API:
 
-(define como-vars (make-hash-table 'string))
+(define como-vars (make-hash-table))
 
 (define como-used-actions '())
 
