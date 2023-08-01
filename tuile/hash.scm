@@ -17,7 +17,7 @@
 ;;
 ;; NOTE: key-type is not in active use, currently.
 ;;
-(define (hash-make key-type)
+(define (hash-make . key-type)
   (make-hash-table))
 
 (define hash-ref hash-ref)

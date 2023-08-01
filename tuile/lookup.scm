@@ -1,6 +1,6 @@
 (define-module (tuile lookup)
   #:use-module (common base)
-  #:use-module ((tuile hash) #:prefix hash:)
+  #:use-module ((tuile hash) #:prefix #{hash:}#)
 ;;  #:use-module ((srfi srfi-9) #:select (define-record-type))
 ;;   #:use-module (tuile compatible)
   #:export
