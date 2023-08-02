@@ -5,6 +5,7 @@
    hash-make
    hash-ref
    hash-set!
+   hash-update!
    hash-contains?
    hash-remove!
    hash-keys
@@ -24,10 +25,17 @@
 
 (define hash-set! hash-set!)
 
-(define (hash-contains? hsh key)
-  (pair? (hash-get-handle hsh key)))
+;; Update value of key with proc, original value passed to proc.
+(define (hash-update! hsh key proc)
+  (let* ((org (hash-ref hsh key))
+         (new (proc org)))
+    (hash-set! hsh key new)
+    hsh))
 
 (define hash-remove! hash-remove!)
+
+(define (hash-contains? hsh key)
+  (pair? (hash-get-handle hsh key)))
 
 (define (hash-keys hsh)
   (hash-map->list (lambda (k v) k) hsh))

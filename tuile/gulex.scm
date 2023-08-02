@@ -344,7 +344,15 @@
 
     (define cs (cons 0 (string->list regexp)))
 
+    ;;;
+    ;;
     ;; Recursive regexp parser.
+    ;;
+    ;; params:
+    ;;
+    ;;     group?        Inside group.
+    ;;     opt?          Inside selection.
+    ;;
     (define (parse-regexp group? opt?)
 
       ;; Debug is expensive, hence do dbug with a macro.
@@ -352,8 +360,8 @@
         (lambda (x)
           (syntax-case x ()
             ((_ msg)
-             #'#t
-             ;; #'(pr "PARSE: " msg)
+             ;; #'#t
+             #'(pr "PARSE: " msg)
              ))))
 
       (define special (string->list "*+.[]"))
@@ -474,10 +482,16 @@
           (use #\])
           ret))
 
-      ;; "lookahead" is lookahead non-terminal.
+      (dbug "parse-regexp")
+
+      ;; "lookahead" is a lookahead non-terminal.
       ;; "lexers" is a sequence of match atoms.
       (let loop ((lookahead #f)
                  (lexers    '()))
+
+        (dbug (ss "cur: " (cur)))
+        (dbug (ss "state: " (ds (list group? opt? lookahead))))
+        (dbug (ss "lexer: " (ds lexers)))
 
         (cond
 
@@ -491,8 +505,6 @@
                     (reverse lexers))))
 
          (else
-
-          (dbug (ss "cur: " (cur)))
 
           (cond
 
@@ -515,7 +527,7 @@
             (if opt?
                 ;; Part of options.
                 (if (not lookahead)
-                    (err "Missing lookahead for option")
+                    (err "Missing lookahead for option, 1")
                     ;; (a|b|c|d)
                     ;;         ^
                     (cons 'seq (reverse (cons lookahead lexers))))
@@ -535,7 +547,7 @@
              ((not opt?)
               ;; First part of non-group opt.
               (if (not lookahead)
-                  (err "Missing lookahead for option")
+                  (err "Missing lookahead for option, 2")
                   (let loop-opt ((opts '()))
                     (let ((opt (parse-regexp group? #t)))
                       (if (or (cur-is? 'eof)
@@ -552,7 +564,7 @@
              (else
               ;; Rest part of non-group opt.
               (if (not lookahead)
-                  (err "Missing lookahead for option")
+                  (err "Missing lookahead for option, 3")
                   ;; a|b|c|d
                   ;;    ^
                   (cons 'seq (reverse (cons lookahead lexers)))))))
@@ -560,6 +572,7 @@
            ;; [a-...
            ;; ^
            ((cur-is? #\[)
+            (dbug "SEL")
             (loop (parse-sel)
                   (if lookahead (cons lookahead lexers) lexers)))
 
@@ -604,7 +617,8 @@
                       (cons (list 'oom lookahead)
                             lexers)
                       (cons (list 'oom (car lexers))
-                            (cdr lexers)))))
+                            (cdr lexers))))
+            )
 
            ;; abc...
            ;; a.c...

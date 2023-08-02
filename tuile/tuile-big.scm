@@ -19,4 +19,5 @@
                 '(tuile record-r6rs)
                 '(tuile re)
                 '(tuile utils)
+                '(tuile hash)
                 )
