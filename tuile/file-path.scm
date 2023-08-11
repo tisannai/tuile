@@ -103,6 +103,9 @@
             fpd->fps
 
             fpl
+
+            fpa
+
             ))
 
 
@@ -112,12 +115,32 @@
       (string-drop-right fps 1)
       fps))
 
-(define (fps-end fps)
+(define (fps-end-index fps)
   (let ((len (string-length fps)))
     (if (and (> len 1)
              (char=? (string-ref fps (1- len)) #\/))
         (- len 1)
         len)))
+
+(define (fps-file-parts fps)
+  (define (return ret)
+    (let lp ((ends (cdr ret))
+             (start (car ret)))
+      (if (pair? ends)
+          (cons (substring fps start (car ends)) (lp (cdr ends)
+                                                     (1+ (car ends))))
+          '())))
+  (if (= (string-length fps) 0)
+      #f
+      (let ((end (fps-end-index fps)))
+        (let lp ((idx (1- end))
+                 (ret (list end)))
+          (if (> idx -1)
+              (cond
+               ((char=? (string-ref fps idx) #\.) (lp (1- idx) (cons idx ret)))
+               ((char=? (string-ref fps idx) #\/) (return (cons (1+ idx) ret)))
+               (else (lp (1- idx) ret)))
+              (return (cons 0 ret)))))))
 
 
 ;; ------------------------------------------------------------
@@ -151,7 +174,7 @@
         #f))
   (if (= (string-length fps) 0)
       #f
-      (let ((end (fps-end fps)))
+      (let ((end (fps-end-index fps)))
         (let lp ((idx (1- end)))
           (if (> idx 1)
               (cond
@@ -172,7 +195,7 @@
         #f))
   (if (= (string-length fps) 0)
       #f
-      (let ((end (fps-end fps)))
+      (let ((end (fps-end-index fps)))
         (let lp ((idx (1- end))
                  (dot #f))
           (if (> idx 1)
@@ -180,7 +203,9 @@
                ((char=? (string-ref fps idx) #\.) (lp (1- idx) idx))
                ((char=? (string-ref fps idx) #\/) (return dot end))
                (else (lp (1- idx) dot)))
-              #f)))))
+              (if dot
+                  (return dot end)
+                  #f))))))
 
 
 ;; Return "unresolved" directory name.
@@ -368,6 +393,10 @@
       (second fpd)
       #f))
 
+;; Return filepath part of fpd.
+(define (fpd-path fpd)
+  (fpd->fps (fpd-dir fpd)))
+
 ;; Return directory part of fpd.
 (define (fpd-dir fpd)
   (if (pair? (fpd-body fpd))
@@ -493,6 +522,7 @@
 ;;     f          - filename
 ;;     b          - basename
 ;;     e          - extname
+;;     u          - fullext
 ;;     d          - dir (relative path)
 ;;     p          - path (absolute path)
 ;;     [0-9]      - slice (from end by count)
@@ -622,6 +652,7 @@
                   ((#\f) (lp (cdr chars) args (cons 'filename ret)))
                   ((#\b) (lp (cdr chars) args (cons 'basename ret)))
                   ((#\e) (lp (cdr chars) args (cons 'extname ret)))
+                  ((#\u) (lp (cdr chars) args (cons 'fullext ret)))
                   ((#\d) (lp (cdr chars) args (cons 'dir ret)))
                   ((#\p) (lp (cdr chars) args (cons 'path ret)))
                   ((#\i) (lp (cdr chars) (cdr args) (cons (cons 'dir-argument (car args)) ret)))
@@ -727,6 +758,9 @@
                              ((extname) (lp (cdr commands)
                                             (cons (fps-ext (fpd-file fpd)) ret)))
 
+                             ((fullext) (lp (cdr commands)
+                                            (cons (fps-fullext (fpd-file fpd)) ret)))
+
                              ((dir) (lp (cdr commands)
                                         (cons (fpd->fps (fpd-dir fpd)) ret)))
 
@@ -746,8 +780,38 @@
         res)))
 
 
-;; (define test-1 #f)
-;; (define test-2 #f)
+;; Return full file information in an alist.
+;;
+;;     '((dir-type 'rel|'abs)
+;;       (dir (<p0> <p1> ...))
+;;       (file <filename>)
+;;       (base <basename>)
+;;       (ext <extname>)
+;;       (fullext <extname>)
+;;       (parts (<base> <e0> <e1> ...)))
+;;
+(define (fpa fps)
+  (let* ((fpd (fps->fpd fps))
+         (dir-type (fpd-type fpd))
+         (dir (fpd-path fpd))
+         (file (fpd-file fpd))
+         (parts (fps-file-parts fps))
+         (base (car parts))
+         (ext (car (last-pair parts)))
+         (fullext (string-join (cdr parts) ".")))
+
+    `((dir-type ,dir-type)
+      (dir ,dir)
+      (file ,file)
+      (base ,base)
+      (ext ,ext)
+      (fullext ,fullext)
+      (parts ,parts))))
+
+
+
+;; (define test-1 #t)
+;; (define test-2 #t)
 
 #;
 (when test-1
