@@ -149,6 +149,7 @@
    range
    span
 
+   with-file-or-fail
    ))
 
 
@@ -1834,3 +1835,8 @@
 ;;(define todo 100)
 ;;;;(pr (progress-bar done todo #:terminal-width (car (terminal-dimensions)) #:gap-right 6 #:gap-left 6))
 ;;(pr (progress-bar done todo #:terminal-width (car (terminal-dimensions))))
+
+(define (with-file-or-fail filename proc)
+  (if (file-exists? filename)
+      (proc filename)
+      (raise-exception &error)))

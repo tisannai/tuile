@@ -595,6 +595,41 @@ p
 ;; ## Prompt:
 ;; ------------------------------------------------------------
 
+;; ------------------------------------------------------------
+;; ## Delimited continuation:
+
+(let* ((prn (lambda (name phase)
+              (display (string-append "  "
+                                      name
+                                      " phase: "
+                                      (number->string phase)
+                                      "\n"))))
+       (make-task (lambda (name)
+                    (lambda ()
+                      (let lp ()
+                        (prn name 1)
+                        (abort-to-prompt 'scheduler)
+                        (prn name 2)
+                        (abort-to-prompt 'scheduler)
+                        (lp)))))
+       (procs (vector (make-task "task1")
+                      (make-task "task2"))))
+  (let lp ((i 0)
+           (p 0))
+    (when (< i 10)
+      (call-with-prompt 'scheduler
+        (vector-ref procs p)
+        (lambda (k)
+          (vector-set! procs p k)))
+      (lp (1+ i)
+          (case p
+            ((0) 1)
+            (else 0))))))
+
+
+;; ## Delimited continuation:
+;; ------------------------------------------------------------
+
 
 ;; ------------------------------------------------------------
 ;; ## Exception:

@@ -19,20 +19,25 @@
    '("[a-b]?k"               LEFTCHAR1)
    '("[c-d]+n"               LEFTCHAR2)
    '("[e-f]*n"               LEFTCHAR3)
-   '("(ab|cd)+"              PREFIX)
+    '("(ab|cd)+"              PREFIX)
    '("[a-z][a-z_]+"          ID)
    '("[0-9]+"                NUM)
    '("[0-9]+(\\.[0-9]+)?"    FLOAT)
-   '("[0-9]+'[bh][0-9A-Za-z]+" BASENUM)
+   '("(#|[0-9]+)'[bh][0-9A-Za-z]+" BASENUM)
+;;    '("(a|b)" FOOBAR)
+;;    '("(a|[0-9]+)" FOOBAR)
+;;    '("([0-9]+|a)*" FOOBAR2)
    '("[ \t]+"                SPACE)
    '("."                     UNKNOWN)
    ))
 
 
 (define test-lexer gulex-create-lexer-interp)
-;;(define test-lexer gulex-create-lexer-fsm)
+;; (define test-lexer gulex-create-lexer-fsm)
 
 (define lexer (test-lexer gulex-token-table))
+
+;; (ppre (gulex-token-table->lexer-ir gulex-token-table))
 
 ;;(define (get-token-for string)
 ;;  (let* ((cs (char-stream-open-with-text string))

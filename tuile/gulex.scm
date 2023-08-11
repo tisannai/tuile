@@ -360,8 +360,8 @@
         (lambda (x)
           (syntax-case x ()
             ((_ msg)
-             ;; #'#t
-             #'(pr "PARSE: " msg)
+             #'#t
+             ;; #'(pr "PARSE: " msg)
              ))))
 
       (define special (string->list "*+.[]"))
@@ -489,9 +489,24 @@
       (let loop ((lookahead #f)
                  (lexers    '()))
 
+        (define (do-multiples op)
+          (if (or group? opt?)
+              (if lookahead
+                  (loop (list op lookahead)
+                        lexers)
+                  (loop (list op (car lexers))
+                        (cdr lexers)))
+              (loop #f
+                    (if lookahead
+                        (cons (list op lookahead)
+                              lexers)
+                        (cons (list op (car lexers))
+                              (cdr lexers))))))
+
         (dbug (ss "cur: " (cur)))
         (dbug (ss "state: " (ds (list group? opt? lookahead))))
         (dbug (ss "lexer: " (ds lexers)))
+
 
         (cond
 
@@ -584,27 +599,14 @@
             ;;          (when (not lookahead)
             ;;            (err "Missing repeatable item"))
             (get)
-            (loop #f
-                  (if lookahead
-                      (cons (list 'zom lookahead)
-                            lexers)
-                      (cons (list 'zom (car lexers))
-                            (cdr lexers)))))
+            (do-multiples 'zom))
 
            ;; [a-z]?
            ;;      ^
            ((cur-is? #\?)
             (dbug "ZOO")
-            ;; TODO 210610_1209: Is it ok to comment out?
-            ;;          (when (not lookahead)
-            ;;            (err "Missing repeatable item"))
             (get)
-            (loop #f
-                  (if lookahead
-                      (cons (list 'zoo lookahead)
-                            lexers)
-                      (cons (list 'zoo (car lexers))
-                            (cdr lexers)))))
+            (do-multiples 'zoo))
 
            ;; [a-z]+
            ;;      ^
@@ -612,13 +614,7 @@
             (dbug "OOM")
             ;; (dbug (datum->string lexers))
             (get)
-            (loop #f
-                  (if lookahead
-                      (cons (list 'oom lookahead)
-                            lexers)
-                      (cons (list 'oom (car lexers))
-                            (cdr lexers))))
-            )
+            (do-multiples 'oom))
 
            ;; abc...
            ;; a.c...
