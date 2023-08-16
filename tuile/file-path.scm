@@ -532,8 +532,8 @@
 ;;     [0-9][0-9] - slice (between indeces, higher is exclusive)
 ;;     <          - index begin (follow by number)
 ;;     >          - index end (follow by number)
-;;     a          - argument (append directory part)
-;;     x          - argument (extend filename part)
+;;     a          - argument (add/append directory part)
+;;     c          - argument (concatenate filename part)
 ;;     h          - home path
 ;;
 ;; Indeces are plain number (e.g. "3") or a multi-digit number
@@ -856,7 +856,7 @@
     (pr (fps-dir p))
 
     (pr "-- fpl")
-    (pr (fpl p '("dbx" ".gtkw")))
+    (pr (fpl p '("dbc" ".gtkw")))
     (pr (fpl p "3"))
 ;;     (pr (fpl "/foo/bar/jii.haa" "df"))
 ;;     (pr (fpl "/foo/bar/jii.haa" "db"))
@@ -869,8 +869,8 @@
     (use-modules (tuile pr))
     (define p "foo/bar/hii.haa.txt")
 ;;      (pr (fpl p "db"))
-;;     (pr (fpl p "dbx" ".foo"))
-;;     (pr (fpl p '("dbx" ".foo")))
+;;     (pr (fpl p "dbc" ".foo"))
+;;     (pr (fpl p '("dbc" ".foo")))
 ;;     (pr (fpl p "1"))
 ;;     (pr (fpl p "10"))
 ;;     (pr (fpl p "02"))
