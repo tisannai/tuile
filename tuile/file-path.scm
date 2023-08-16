@@ -32,8 +32,8 @@
 ;;
 ;; ext: filename extension (last suffix).
 ;;
-;; fullext: complete filename extension, i.e. longer than ext if
-;;          there are multiple suffices.
+;; end: complete filename extension, i.e. longer than ext if there are
+;;      multiple suffices.
 ;;
 ;; host: directory name of host level.
 ;;
@@ -60,11 +60,12 @@
 ;;
 (define-module (tuile file-path)
   #:use-module ((srfi srfi-1) #:select (first second fold take drop take-right drop-right))
+  #:use-module (tuile pr)
   #:export (
             fps-file
             fps-base
             fps-ext
-            fps-fullext
+            fps-end
             fps-dir
             fps-type
             fps-clean
@@ -95,6 +96,7 @@
             fpd-body
             fpd-parts
             fpd-file
+            fpd-path
             fpd-dir
 ;;             fpd-to-type
             fpd-up
@@ -185,7 +187,7 @@
 
 
 ;; Return "full" extension of file-string.
-(define (fps-fullext fps)
+(define (fps-end fps)
   ;; NOTE: "return" is same as in fps-ext.
   (define (return dot end)
     (if (and dot
@@ -519,17 +521,18 @@
 ;; One-character commands:
 ;;
 ;;     s          - self
+;;     S          - self (absolute path)
 ;;     f          - filename
 ;;     b          - basename
 ;;     e          - extname
-;;     u          - fullext
+;;     u          - endname (fullext)
 ;;     d          - dir (relative path)
 ;;     p          - path (absolute path)
 ;;     [0-9]      - slice (from end by count)
 ;;     [0-9][0-9] - slice (between indeces, higher is exclusive)
 ;;     <          - index begin (follow by number)
 ;;     >          - index end (follow by number)
-;;     i          - argument (insert directory part)
+;;     a          - argument (append directory part)
 ;;     x          - argument (extend filename part)
 ;;     h          - home path
 ;;
@@ -649,13 +652,14 @@
                                (cons (cons 'index-end (cdr res))
                                      ret))))
                   ((#\s) (lp (cdr chars) args (cons 'self ret)))
+                  ((#\S) (lp (cdr chars) args (cons 'self-absolute ret)))
                   ((#\f) (lp (cdr chars) args (cons 'filename ret)))
                   ((#\b) (lp (cdr chars) args (cons 'basename ret)))
                   ((#\e) (lp (cdr chars) args (cons 'extname ret)))
-                  ((#\u) (lp (cdr chars) args (cons 'fullext ret)))
+                  ((#\u) (lp (cdr chars) args (cons 'endname ret)))
                   ((#\d) (lp (cdr chars) args (cons 'dir ret)))
                   ((#\p) (lp (cdr chars) args (cons 'path ret)))
-                  ((#\i) (lp (cdr chars) (cdr args) (cons (cons 'dir-argument (car args)) ret)))
+                  ((#\a) (lp (cdr chars) (cdr args) (cons (cons 'dir-argument (car args)) ret)))
                   ((#\x) (lp (cdr chars) (cdr args) (cons (cons 'ext-argument (car args)) ret)))
                   ((#\h) (lp (cdr chars) args (cons 'homepath ret)))))
 
@@ -749,6 +753,9 @@
                              ((self) (lp (cdr commands)
                                          (cons (fpd->fps fpd) ret)))
 
+                             ((self-absolute) (lp (cdr commands)
+                                                  (cons (fpd->fps (fpd->abs fpd)) ret)))
+
                              ((filename) (lp (cdr commands)
                                              (cons (fpd-file fpd) ret)))
 
@@ -758,8 +765,8 @@
                              ((extname) (lp (cdr commands)
                                             (cons (fps-ext (fpd-file fpd)) ret)))
 
-                             ((fullext) (lp (cdr commands)
-                                            (cons (fps-fullext (fpd-file fpd)) ret)))
+                             ((endname) (lp (cdr commands)
+                                            (cons (fps-end (fpd-file fpd)) ret)))
 
                              ((dir) (lp (cdr commands)
                                         (cons (fpd->fps (fpd-dir fpd)) ret)))
@@ -770,7 +777,11 @@
                              ((homepath) (lp (cdr commands)
                                              (cons (getenv "HOME") ret)))
                              ))
-                       (string-join (reverse ret) "/"))))
+                       (let ((parts (reverse ret)))
+                         (string-join (if (unspecified? (car parts))
+                                          (cdr parts)
+                                          parts)
+                                      "/")))))
                (if (list? (car expr-list))
                    expr-list
                    (list expr-list)))))
@@ -787,26 +798,28 @@
 ;;       (file <filename>)
 ;;       (base <basename>)
 ;;       (ext <extname>)
-;;       (fullext <extname>)
+;;       (end <endname>)
 ;;       (parts (<base> <e0> <e1> ...)))
 ;;
 (define (fpa fps)
   (let* ((fpd (fps->fpd fps))
          (dir-type (fpd-type fpd))
          (dir (fpd-path fpd))
+         (abs (fpd-path (fpd->abs fpd)))
          (file (fpd-file fpd))
          (parts (fps-file-parts fps))
          (base (car parts))
          (ext (car (last-pair parts)))
-         (fullext (string-join (cdr parts) ".")))
+         (end (string-join (cdr parts) ".")))
 
-    `((dir-type ,dir-type)
-      (dir ,dir)
-      (file ,file)
-      (base ,base)
-      (ext ,ext)
-      (fullext ,fullext)
-      (parts ,parts))))
+    `((dir-type . ,dir-type)
+      (dir      . ,dir)
+      (abs      . ,abs)
+      (file     . ,file)
+      (base     . ,base)
+      (ext      . ,ext)
+      (end      . ,end)
+      (parts    . ,parts))))
 
 
 
@@ -829,7 +842,7 @@
     (pr (fps-file p))
     (pr (fps-base p))
     (pr (fps-ext p))
-    (pr (fps-fullext p))
+    (pr (fps-end p))
     (pr (fps-dir p))
     (pr (fps-host p))
     ;; (pr (fps-host p 2))
@@ -870,3 +883,5 @@
 ;;     (pr (fpl p "51"))
 ;;     (pr (fpl p ">"))
     ))
+
+;; (pr (fpl "" "sa" "gu.c"))

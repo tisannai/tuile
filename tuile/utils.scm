@@ -105,8 +105,9 @@
    assoc-ref-deep
 
    hash-has-key?
-   hash-keys
-   hash-values
+   ;; Now in hash.scm
+;;    hash-keys
+;;    hash-values
 
    read-lines-from-port
    with-each-line-from-port
@@ -145,9 +146,9 @@
    string-unscape
    string-split-unscape
    make-string-list
-   sequence
-   range
-   span
+   number-sequence
+   number-range
+   number-span
 
    with-file-or-fail
    ))
@@ -1189,12 +1190,12 @@
   (hash-get-handle hsh key))
 
 ;; Return list of hash table keys.
-(define (hash-keys hsh)
-  (hash-map->list (lambda (k v) k) hsh))
+;; (define (hash-keys hsh)
+;;   (hash-map->list (lambda (k v) k) hsh))
 
 ;; Return list of hash table keys.
-(define (hash-values hsh)
-  (hash-map->list (lambda (k v) v) hsh))
+;; (define (hash-values hsh)
+;;   (hash-map->list (lambda (k v) v) hsh))
 
 
 ;; Read all lines from port to list (or vector).
@@ -1630,7 +1631,7 @@
 
 
 ;; Create sequence of numbers from start by length.
-(define (sequence start len . rest)
+(define (number-sequence start len . rest)
   (let ((step (if (pair? rest) (car rest) 1)))
     (let loop ((num start))
       (if (< num (+ len start))
@@ -1639,7 +1640,7 @@
 
 
 ;; Create sequence of numbers from start to end (exclusive).
-(define (range start end . rest)
+(define (number-range start end . rest)
   (let ((step (if (pair? rest) (car rest) 1)))
     (if (< start end)
         (let loop ((num start))
@@ -1653,7 +1654,7 @@
 
 
 ;; Create sequence of numbers from start to end (inclusive).
-(define (span start end . rest)
+(define (number-span start end . rest)
   (let ((step (if (pair? rest) (car rest) 1)))
     (if (< start end)
         (let loop ((num start))

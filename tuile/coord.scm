@@ -1,5 +1,5 @@
 (define-module (tuile coord)
-  #:use-module ((tuile utils) #:select (span list-range))
+  #:use-module ((tuile utils) #:select (number-span list-range))
   #:use-module ((srfi srfi-1) #:select (fold first second))
   #:export
   (
@@ -201,8 +201,8 @@
 (define (p-p->trace p0 p1)
   (let* ((dist (p-p-distance p0 p1)))
     (case (p-p-dir p0 p1)
-      ((left right) (map p. (span (px p0) (px p1)) (make-list dist (py p0))))
-      ((up down) (map p. (make-list dist (px p0)) (span (py p0) (py p1)))))))
+      ((left right) (map p. (number-span (px p0) (px p1)) (make-list dist (py p0))))
+      ((up down) (map p. (make-list dist (px p0)) (number-span (py p0) (py p1)))))))
 
 ;; Return nth point between endpoints.
 (define (p-p-point p0 p1 nth)

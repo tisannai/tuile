@@ -20,4 +20,5 @@
                 '(tuile re)
                 '(tuile utils)
                 '(tuile hash)
+                '(tuile file-path)
                 )

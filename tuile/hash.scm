@@ -1,13 +1,20 @@
 (define-module (tuile hash)
   #:use-module ((ice-9 hash-table) #:select (alist->hash-table))
+  #:re-export
+  (
+   make-hash-table
+   hash-ref
+   hash-set!
+   hash-remove!
+   )
   #:export
   (
    hash-make
-   hash-ref
-   hash-set!
+;;    hash-ref
+;;    hash-set!
    hash-update!
    hash-contains?
-   hash-remove!
+;;    hash-remove!
    hash-keys
    hash-values
    hash-copy
@@ -21,9 +28,9 @@
 (define (hash-make . key-type)
   (make-hash-table))
 
-(define hash-ref hash-ref)
+;; (define hash-ref hash-ref)
 
-(define hash-set! hash-set!)
+;; (define hash-set! hash-set!)
 
 ;; Update value of key with proc, original value passed to proc.
 (define (hash-update! hsh key proc)
@@ -32,7 +39,7 @@
     (hash-set! hsh key new)
     hsh))
 
-(define hash-remove! hash-remove!)
+;; (define hash-remove! hash-remove!)
 
 (define (hash-contains? hsh key)
   (pair? (hash-get-handle hsh key)))
