@@ -19,6 +19,9 @@
    hash-values
    hash-copy
    hash-size
+
+   alist->hash
+   hash->alist
    ))
 
 ;; Make hash table with define key-type: symbol, string.
@@ -55,3 +58,9 @@
 
 (define (hash-size hsh)
   (hash-count (const #t) hsh))
+
+(define (alist->hash alist)
+  (alist->hash-table alist))
+
+(define (hash->alist hsh)
+  (hash-map->list cons hsh))

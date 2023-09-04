@@ -371,4 +371,5 @@
   (pr (fmt `(ind 10) `(cal 12 "foobar") `(put "--")))
   (pr (fmt `(ind 10) `(caf 12 #\* "foobar") `(put "--")))
   (pr (fmt '(bin 12 "-" 6)))
-  (pr (fmt '(gap 4 "foo" "bar"))))
+  (pr (fmt '(gap 4 "foo" "bar")))
+  (pr (fmt `(raf 10 #\- "x"))))

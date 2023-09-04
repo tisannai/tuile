@@ -660,8 +660,11 @@
                   ((#\d) (lp (cdr chars) args (cons 'dir ret)))
                   ((#\p) (lp (cdr chars) args (cons 'path ret)))
                   ((#\a) (lp (cdr chars) (cdr args) (cons (cons 'dir-argument (car args)) ret)))
-                  ((#\x) (lp (cdr chars) (cdr args) (cons (cons 'ext-argument (car args)) ret)))
-                  ((#\h) (lp (cdr chars) args (cons 'homepath ret)))))
+                  ((#\c) (lp (cdr chars) (cdr args) (cons (cons 'ext-argument (car args)) ret)))
+                  ((#\h) (lp (cdr chars) args (cons 'homepath ret)))
+                  (else (pro (current-error-port)
+                             (si "file-path: unknown command character: \"#{(car chars)}\""))
+                        (lp (cdr chars) args ret))))
 
             (reverse ret)))))
 
@@ -830,8 +833,6 @@
 (when test-1
   (let ()
 
-    (use-modules (tuile pr))
-
     ;; (define p "")
     ;; (define p "/foo/bar/")
     (define p "foo/bar/hii.haa.txt")
@@ -866,7 +867,6 @@
 #;
 (when test-2
   (let ()
-    (use-modules (tuile pr))
     (define p "foo/bar/hii.haa.txt")
 ;;      (pr (fpl p "db"))
 ;;     (pr (fpl p "dbc" ".foo"))
@@ -885,3 +885,7 @@
     ))
 
 ;; (pr (fpl "" "sa" "gu.c"))
+
+;; (pr (fpl "tmp/gen-mmap-csr" "sac" "csr_1" ".v"))
+;; (pr (fpl "tmp/gen-mmap-csr" "sac" "csr_1" ".v"))
+;; (pr (fpl "/foo/bar/jii.haa" "df"))

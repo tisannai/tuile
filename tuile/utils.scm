@@ -140,6 +140,7 @@
    with-exception-terminate
    char-separator?
    char-nonseparator?
+   string-whitespace?
    string-ref-safe
    string-clip
    string-escape
@@ -1521,6 +1522,16 @@
 
 (define (char-nonseparator? char)
   (or (not char) (not (char-whitespace? char))))
+
+;; Check if string is either empty or has only whitespace characters?
+(define (string-whitespace? str)
+  (or (string-null? str)
+      (let lp ((i 0))
+        (if (< i (string-length str))
+            (if (char-whitespace? (string-ref str i))
+                (lp (1+ i))
+                #f)
+            #t))))
 
 ;; Return char or #f, if past string end.
 (define (string-ref-safe s i)

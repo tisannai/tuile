@@ -641,6 +641,24 @@ p
     (+ 1 2))
   #:unwind? #t)
 
+
+;; Exception with message details:
+
+(define (my-error message)
+  (raise-exception (make-exception-with-message message)))
+
+(with-exception-handler
+    (lambda (exn)
+      (pr (ss "my-system ERROR: " (exception-message exn)))
+      (pr "Exiting...")
+      (exit 1))
+  (lambda ()
+    (let ((n (+ 1 2)))
+      (my-error (si "Not happy with how this turned out!"))))
+  #:unwind? #t)
+
+
+
 ;; ## Exception:
 ;; ------------------------------------------------------------
 
