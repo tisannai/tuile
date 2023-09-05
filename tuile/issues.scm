@@ -155,7 +155,6 @@
                                                     (case (car (cdr spaces-and-rest))
                                                       ((#\e) (do-error error-message (car spaces-and-rest) (cddr spaces-and-rest)))
                                                       ((#\m) (do-message message (car spaces-and-rest) (cddr spaces-and-rest)))
-
                                                       (else (lp (cdr chars) ; Failure, output as is.
                                                                 (cons #\@ ret))))))
                             (else (lp (cdr chars)
@@ -167,46 +166,67 @@
           (list->string (reverse (cons #\newline ret)))))))
 
 
+;; Raise Issue Exception with message.
+;;
+;; Type is: info, warn, problem, or error.
+;;
 (define (issue-raise type message)
   (raise-exception (make-exception (make-exception-with-irritants type)
                                    (make-exception-with-message message))
                    #:continuable? #t))
 
-
+;; Issue info exception with message.
 (define (issue-info message . with-parts)
   (issue-raise 'info (build-message message with-parts)))
 
+;; Issue warning exception with message.
 (define (issue-warning message . with-parts)
   (issue-raise 'warning (build-message message with-parts)))
 
+;; Issue problem exception with message.
+;;
+;; Increase Issue Count.
+;;
 (define (issue-problem message . with-parts)
   (set! *issue-count* (1+ *issue-count*))
   (issue-raise 'problem (build-message message with-parts)))
 
+;; Issue error exception with message.
+;;
+;; By default exists the program, but can be also catched with
+;; 'issue-handle-thunk'.
+;;
 (define (issue-error message . with-parts)
   (issue-raise 'error (build-message message with-parts)))
 
+;; Report issue.
 (define (issue-report message)
   (when message
-    (display (format-message message #f) (current-error-port)))
-  #t)
+    (display (format-message message #f) (current-error-port))))
 
+;; Report issue and exit.
 (define (issue-report-error message)
   (when message
     (display (format-message message "ERROR") (current-error-port)))
   (primitive-exit 1))
 
+;; Report fatal issue and exit.
 (define (fatal-issue message . with-parts)
   (when message
     (display (format-message (build-message message with-parts) "FATAL ERROR") (current-error-port)))
   (primitive-exit 1))
 
+;; Handle exceptions raised from thunk.
+;;
+;; User can specify the list of exception types to ignore in
+;; 'ignore-types'. The default list is: info, warning, problem.
+;;
 (define (issue-handle-thunk thunk . ignore-types)
   (with-exception-handler
       (lambda (exn)
         (let ((ignore-types (match ignore-types
-                             ((types) types)
-                             (else (list 'info 'warning 'problem)))))
+                              ((types) types)
+                              (else (list 'info 'warning 'problem)))))
           (if (member (exception-irritants exn) ignore-types)
               (issue-report (exception-message exn))
               (if (list? (exception-irritants exn))
