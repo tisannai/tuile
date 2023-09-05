@@ -9,7 +9,7 @@
 ;; * issue-problem: Issue problem and accumulate Issue Count (exception).
 ;; * issue-errro:   Issue error and exit by default (exception).
 ;; * fatal-issue:   Immediate fatal error and exit (non-exception).
-;; 
+;;
 ;; The exceptions are handled with '(issue-handle <body> ...)' macro
 ;; and exceptions are raise within the '<body> ...'. By default info,
 ;; warn, and problem exceptions are catched and only the message is
@@ -32,7 +32,7 @@
 ;; entry. Space count is 0, if there is no number present. For
 ;; multiline messages, the specified number of spaces are inserted
 ;; before each line.
-;; 
+;;
 (define-module (tuile issues)
   #:use-module (tuile pr)
   #:use-module (ice-9 match)
@@ -55,7 +55,7 @@
 
    issue-count
    issue-reset
-   
+
    take-issue
    issue-raise
 
@@ -89,7 +89,6 @@
 
 ;; Turn non-zero accumulation of issues into reset.
 (define (take-issue)
-  ;; (ppre "take-issue")
   (when (> *issue-count* 0)
     (let ((issue-count *issue-count*))
       (issue-reset)
@@ -130,7 +129,6 @@
                                                                 (else (cons (space-count (reverse ret)) chars))))
                                                              (cons "" chars)))))
                                 (do-error (lambda (error-message spaces rest)
-                                            ;; (ppre error-message)
                                             (if error-message
                                                 (lp rest
                                                     (append (reverse (string->list error-message))
@@ -148,17 +146,16 @@
                                                   (append (reverse (string->list (prefix-message spaces message)))
                                                           ret))))
                                 (next (cadr chars)))
-                           (cond 
+                           (cond
                             ((char=? next #\@) (lp (cddr chars)
                                                    (cons #\@ ret)))
                             ((char=? next #\e) (do-error error-message 0 (cddr chars)))
                             ((char=? next #\m) (do-message message 0 (cddr chars)))
                             ((char-numeric? next) (let ((spaces-and-rest (get-spaces-and-rest)))
-                                                    ;; (ppre spaces-and-rest)
                                                     (case (car (cdr spaces-and-rest))
                                                       ((#\e) (do-error error-message (car spaces-and-rest) (cddr spaces-and-rest)))
                                                       ((#\m) (do-message message (car spaces-and-rest) (cddr spaces-and-rest)))
-                                 
+
                                                       (else (lp (cdr chars) ; Failure, output as is.
                                                                 (cons #\@ ret))))))
                             (else (lp (cdr chars)
@@ -190,7 +187,6 @@
   (issue-raise 'error (build-message message with-parts)))
 
 (define (issue-report message)
-;;   (ppre "issue-report")
   (when message
     (display (format-message message #f) (current-error-port)))
   #t)
