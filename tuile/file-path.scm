@@ -86,6 +86,10 @@
             fps-mkdir-p
             fps-mkpath-p
             fps-ls
+            fps-recurse
+            fps-find
+            fps-copy
+            fps-copy-r
 
             fpd-abs?
             fpd-rel?
@@ -245,10 +249,21 @@
 
 ;; Return cleaned file-path string.
 (define (fps-clean fps)
-  ;; TODO: clean-up code:
-  ;; * remove trailing slash.
-  ;; * remove double slashes.
-  fps)
+  (if (string-null? fps)
+      fps
+      (let ((len (1- (string-length fps))))
+        (let lp ((i 0)
+                 (ret '()))
+          (if (< i len)
+              (let ((ch (string-ref fps i)))
+                (if (char=? ch #\/)
+                    (if (not (char=? (string-ref fps (+ i 1)) #\/))
+                        (lp (1+ i) (cons ch ret))
+                        (lp (1+ i) ret))
+                    (lp (1+ i) (cons ch ret))))
+              (list->string (reverse (if (char=? (string-ref fps i) #\/)
+                                         ret
+                                         (cons (string-ref fps i) ret)))))))))
 
 
 ;; ------------------------------------------------------------
@@ -356,6 +371,40 @@
         #f)))
 
 
+(define (fps-recurse fps f)
+  (define (loop fps f)
+    (if (file-is-directory? fps)
+        (let lp ((listing (fps-ls fps)))
+          (when (pair? listing)
+            (loop (ss fps "/" (car listing)) f)
+            (lp (cdr listing))))
+        (f fps)))
+  (loop fps f))
+
+
+(define (fps-find fps)
+  (let ((files '()))
+    (fps-recurse fps (lambda (file) (set! files (cons file files))))
+    (reverse files)))
+
+
+(define (fps-copy from to)
+  (fps-mkpath-p to)
+  (copy-file from to))
+
+(define (fps-copy-r from to)
+  (if (file-is-directory? from)
+      (let* ((clean-from (fps-clean from))
+             (files (fps-find clean-from))
+             (drop-count (string-length (ss (fps-clean clean-from) "/"))))
+        (for-each (lambda (file)
+                    (let* ((rel-file (substring file drop-count))
+                           (dest-file (ss to "/" rel-file)))
+                      (fps-copy file dest-file)))
+                  files))
+      (fps-copy from to)))
+
+
 ;; ------------------------------------------------------------
 ;; fpd, file-path descriptor:
 
@@ -441,6 +490,7 @@
              ((string=? (car tail) ".") (lp (cdr tail) base))
              (else (cons 'abs (append (reverse tail) base))))))))
 
+
 ;; File-path-string to file-path-descriptor (fpd).
 (define (fps->fpd fps)
 
@@ -506,7 +556,9 @@
     ((abs) (string-append "/" (string-join (reverse (fpd-body fpd)) "/")))
     ((rel) (string-join (reverse (fpd-body fpd)) "/"))
     ((dot) (string-append "./" (string-join (reverse (fpd-body fpd)) "/")))
-    ((off) (string-append "../" (string-join (reverse (fpd-body fpd)) "/")))))
+    ;; ((off) (string-append "../" (string-join (reverse (fpd-body fpd)) "/")))
+    ((off) (string-join (reverse (fpd-body fpd)) "/"))
+    ))
 
 
 
@@ -562,13 +614,13 @@
           (char=? ch #\.)))
 
     #;
-    (define (parse-ref chars)           ; ;
-    (let lp ((chars chars)              ; ;
-    (digits '()))                       ; ;
-    (if (and (pair? chars)              ; ;
-    (char-numeric? (car chars)))        ; ;
-    (lp (cdr chars)                     ; ;
-    (cons (car chars) digits))          ; ;
+    (define (parse-ref chars)           ; ; ;
+    (let lp ((chars chars)              ; ; ;
+    (digits '()))                       ; ; ;
+    (if (and (pair? chars)              ; ; ;
+    (char-numeric? (car chars)))        ; ; ;
+    (lp (cdr chars)                     ; ; ;
+    (cons (car chars) digits))          ; ; ;
     (cons chars (string->number (list->string (reverse digits)))))))
 
     ;; Return: (<chars> . <number>)
@@ -659,7 +711,12 @@
                   ((#\u) (lp (cdr chars) args (cons 'endname ret)))
                   ((#\d) (lp (cdr chars) args (cons 'dir ret)))
                   ((#\p) (lp (cdr chars) args (cons 'path ret)))
-                  ((#\a) (lp (cdr chars) (cdr args) (cons (cons 'dir-argument (car args)) ret)))
+                  ((#\a) (lp (cdr chars)
+                             (cdr args)
+                             ;; Null-string is not concatenated to the path.
+                             (if (string-null? (car args))
+                                 ret
+                                 (cons (cons 'dir-argument (car args)) ret))))
                   ((#\c) (lp (cdr chars) (cdr args) (cons (cons 'ext-argument (car args)) ret)))
                   ((#\h) (lp (cdr chars) args (cons 'homepath ret)))
                   (else (pro (current-error-port)
@@ -884,8 +941,31 @@
 ;;     (pr (fpl p ">"))
     ))
 
-;; (pr (fpl "" "sa" "gu.c"))
-
 ;; (pr (fpl "tmp/gen-mmap-csr" "sac" "csr_1" ".v"))
 ;; (pr (fpl "tmp/gen-mmap-csr" "sac" "csr_1" ".v"))
 ;; (pr (fpl "/foo/bar/jii.haa" "df"))
+
+;; (pr (fpl "" "sa" "gu.c"))
+;; (pr (fpl "gu.c" "abc" "" ".o"))
+;; (pd (fpl "../dii/duu.daa" "d"))
+;; (pd (fpl "../duu.daa" "d"))
+;; (pd (fpd->fps (fps->fpd "../duu.daa")))
+;; (pd (fps->fpd "./duu.daa"))
+;; (pd (fps->fpd "../duu.daa"))
+;; (pd (fps->fpd "../dii/duu.daa"))
+;; (pd (fpd->fps (fps->fpd "./duu.daa")))
+
+
+;; (ppre (fps-file "diiduu/"))
+;; (pd (fps-find "diiduu"))
+
+;; (let ((files '()))
+;;   (fps-recurse "test" (lambda (file) (set! files (cons file files))))
+;;   (pd (reverse files)))
+;; (fps-copy-r "diiduu" "foobar")
+
+;; (pd (fps-clean "//foo////bar/dii/"))
+;; (pd (fps-clean "//foo////bar/dii/foo.txt"))
+;; (pd (fps-clean "dii/foo.txt"))
+
+

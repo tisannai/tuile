@@ -672,6 +672,10 @@ p
 ;; ------------------------------------------------------------
 ;; # Macros:
 
+;; Macro debugging
+;;   scheme@(guile-user)> (use-modules (language tree-il))
+;;   scheme@(guile-user)> (tree-il->scheme (macroexpand '(foo bar)))
+
 ;; define-syntax-rule macro:
 ;;
 ;;     (create-string-list foo bar dii)

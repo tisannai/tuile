@@ -26,6 +26,11 @@
   (define (+ch ch field) (cons ch field))
   (define (+field field line) (cons (list->string (reverse field)) line))
   (define (+line line lines) (cons (reverse line) lines))
+  (define (finalize field line lines)
+    (reverse (if (null? line)
+                 lines
+                 (+line (+field field line)
+                        lines))))
 
   (let parse-char ((state 'in-field)
                    (field '())
@@ -34,7 +39,7 @@
     (let ((ch (get-char port)))
       (cond
        ((eof-object? ch)                ; End of file.
-        (reverse lines))
+        (finalize field line lines))
        ((string-index ignores ch)       ; Ignored char.
         (parse-char state field line lines))
        (else                            ; Regular input.

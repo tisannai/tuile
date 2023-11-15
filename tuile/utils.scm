@@ -37,6 +37,7 @@
    flatten-1
    delete-nth
    list/
+   list-split
    list-slice
    list-range
    list-pick
@@ -57,6 +58,7 @@
    dir-list
    dir-glob
    dir-glob-re
+   dir-glob-with-path
    extname
    expand-file-name
    is-file?
@@ -117,6 +119,7 @@
    with-output-to-filename
    file->lines
    lines->file
+   file->code
    file-read-line
    file-write-line
    ;;   file->line-list
@@ -124,6 +127,7 @@
 
    capture-shell-command-values
    capture-shell-command
+   capture-shell-command-alist
    capture-shell-command-stdout
 
    timestamp
@@ -350,6 +354,24 @@
           (reverse ret))))))
 
 
+;; Split list from Nth element and return results as pair.
+(define (list-split lst n)
+  (cond
+   ((>= n (length lst)) (cons '() lst))
+   ((<= (length lst) 1)
+    (case n
+      ((0) (cons '() lst))
+      ((1) (cons lst '()))))
+   (else (let lp ((rest lst)
+                  (head '())
+                  (i 0))
+           (if (< i n)
+               (lp (cdr rest)
+                   (cons (car rest) head)
+                   (1+ i))
+               (cons (reverse head) rest))))))
+
+
 ;; Take a slice of the list.
 ;;
 ;; "list-slice" accepts negative indeces and they are taken as
@@ -564,6 +586,10 @@
   (let ((rx (re-comp pat)))
     (filter (lambda (x) (re-match rx x)) (dir-list dir))))
 
+
+(define (dir-glob-with-path dir pat)
+  (let ((files (dir-glob dir pat)))
+    (map (lambda (file) (string-append dir "/" file)) files)))
 
 ;; Return filename suffix (without the dot).
 (define (extname filename)
@@ -1335,6 +1361,16 @@
     #:binary binary))
 
 
+(define (file->code filename)
+  (call-with-input-file filename
+    (lambda (port)
+      (let lp ((ret '()))
+        (let ((datum (read port)))
+            (if (not (eof-object? datum))
+                (lp (cons datum ret))
+                (reverse ret)))))))
+
+
 (define (file-read-line filename)
   (car (file->lines filename #:with-newline #f)))
 
@@ -1390,6 +1426,17 @@
 (define (capture-shell-command cmd)
   (let-values (((status stdout stderr) (capture-shell-command-values cmd)))
     (list status stdout stderr)))
+
+
+;; Execute shell command and return responses as assoc.
+;;
+;; Responses: status-code stdout stderr
+;;
+(define (capture-shell-command-alist cmd)
+  (let-values (((status stdout stderr) (capture-shell-command-values cmd)))
+    (list (cons 'status status)
+          (cons 'stdout stdout)
+          (cons 'stderr stderr))))
 
 
 ;; Execute shell command and return only the stdout, or false if

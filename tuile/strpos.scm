@@ -124,7 +124,7 @@
               (lp (1+ b)))))))
 
 (define (strpos-ref sp index)
-  (string-ref-safe (strpos-text) index))
+  (string-ref-safe (strpos-text sp) index))
 
 (define (strpos-sub sp len)
   (if (strpos-step? sp len)
