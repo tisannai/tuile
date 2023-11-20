@@ -21,6 +21,7 @@
    ppe
    ppr
    ppre
+   ippr
    :lj
    :rj
    :cj
@@ -268,6 +269,10 @@
 (define (ppre . datums)
   (apply ppr datums)
   (exit 0))
+
+(define (ippr datum)
+  (pretty-print datum)
+  datum)
 
 ;; Line print from args.
 (define (pr . args)
