@@ -89,6 +89,7 @@
             fps-recurse
             fps-recurse-dir-before
             fps-recurse-dir-after
+            fps-find-files
             fps-find
             fps-copy
             fps-copy-r
@@ -412,10 +413,17 @@
   (loop fps f))
 
 
-(define (fps-find fps)
+(define (fps-find-files fps)
   (let ((files '()))
     (fps-recurse fps (lambda (file) (set! files (cons file files))))
     (reverse files)))
+
+
+(define (fps-find fps)
+  (let ((files '()))
+    (fps-recurse-dir-before fps (lambda (file) (set! files (cons file files))))
+    (reverse files)))
+
 
 (define (fps-copy from to)
   (fps-mkpath-p to)

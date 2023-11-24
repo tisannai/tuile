@@ -1,6 +1,7 @@
 (define-module (tuile file-utils)
   #:use-module (tuile pr)
   #:use-module (tuile file-path)
+  #:use-module ((tuile utils) #:select (dir-glob))
   #:export
   (
    file-copy
@@ -16,6 +17,11 @@
    file-directory?
    file-file?
    file-list
+   file-list-files
+   file-list-dirs
+   file-list-files-r
+   file-list-dirs-r
+   file-glob
    file-chdir
    file-remove
    file-dir-empty?
@@ -122,6 +128,34 @@
       #f))
 
 
+(define (file-list-files dir)
+  (filter (negate file-is-directory?) (file-list dir)))
+
+
+(define (file-list-dirs dir)
+  (filter file-is-directory? (file-list dir)))
+
+
+(define (file-list-files-r dir)
+  (let ((files '()))
+    (fps-recurse dir (lambda (file) (set! files (cons file files))))
+    (reverse files)))
+
+
+(define (file-list-dirs-r dir)
+  (let ((dirs '()))
+    (fps-recurse-dir-before dir
+                            (lambda (file)
+                              (when (file-is-directory? file)
+                                (set! dirs (cons file dirs)))))
+    (reverse dirs)))
+
+
+(define (file-glob pat)
+  (let ((fpd (fps->fpd pat)))
+    (dir-glob (fpd-dir fpd) (fpd-file fpd))))
+
+
 ;; Change directory "dir" and return true if directory existed,
 ;; otherwise return false.
 (define (file-chdir dir)
@@ -142,11 +176,11 @@
 
   (if (file-directory? file-or-dir)
       (begin
-        (fpl-recurse-dir-after file-or-dir
+        (fps-recurse-dir-after file-or-dir
                                (lambda (file-or-dir)
                                  (remove-item file-or-dir)))
         #t)
-      (if (file-exists?)
+      (if (file-exists? file-or-dir)
           (begin
             (delete-file file-or-dir)
             #t)
