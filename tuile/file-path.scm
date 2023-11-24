@@ -87,6 +87,8 @@
             fps-mkpath-p
             fps-ls
             fps-recurse
+            fps-recurse-dir-before
+            fps-recurse-dir-after
             fps-find
             fps-copy
             fps-copy-r
@@ -382,11 +384,38 @@
   (loop fps f))
 
 
+(define (fps-recurse-dir-before fps f)
+  (define (loop fps f)
+    (if (file-is-directory? fps)
+        (begin
+          (when (not (string=? fps "."))
+            (f fps))
+          (let lp ((listing (fps-ls fps)))
+            (when (pair? listing)
+              (loop (ss fps "/" (car listing)) f)
+              (lp (cdr listing)))))
+        (f fps)))
+  (loop fps f))
+
+
+(define (fps-recurse-dir-after fps f)
+  (define (loop fps f)
+    (if (file-is-directory? fps)
+        (begin
+          (let lp ((listing (fps-ls fps)))
+            (when (pair? listing)
+              (loop (ss fps "/" (car listing)) f)
+              (lp (cdr listing))))
+          (when (not (string=? fps "."))
+            (f fps)))
+        (f fps)))
+  (loop fps f))
+
+
 (define (fps-find fps)
   (let ((files '()))
     (fps-recurse fps (lambda (file) (set! files (cons file files))))
     (reverse files)))
-
 
 (define (fps-copy from to)
   (fps-mkpath-p to)
@@ -397,6 +426,7 @@
       (let* ((clean-from (fps-clean from))
              (files (fps-find clean-from))
              (drop-count (string-length (ss (fps-clean clean-from) "/"))))
+        (fps-mkdir-p to)
         (for-each (lambda (file)
                     (let* ((rel-file (substring file drop-count))
                            (dest-file (ss to "/" rel-file)))
@@ -967,5 +997,3 @@
 ;; (pd (fps-clean "//foo////bar/dii/"))
 ;; (pd (fps-clean "//foo////bar/dii/foo.txt"))
 ;; (pd (fps-clean "dii/foo.txt"))
-
-
