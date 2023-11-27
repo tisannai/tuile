@@ -22,6 +22,7 @@
    file-list-files-r
    file-list-dirs-r
    file-glob
+   file-filter
    file-chdir
    file-remove
    file-dir-empty?
@@ -154,6 +155,15 @@
 (define (file-glob pat)
   (let ((fpd (fps->fpd pat)))
     (dir-glob (fpd-dir fpd) (fpd-file fpd))))
+
+
+(define (file-filter dir proc)
+  (let ((files '()))
+    (fps-recurse-dir-before dir
+                            (lambda (file)
+                              (when (proc file)
+                                (set! dirs (cons file dirs)))))
+    (reverse files)))
 
 
 ;; Change directory "dir" and return true if directory existed,

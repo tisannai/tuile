@@ -432,7 +432,7 @@
 (define (fps-copy-r from to)
   (if (file-is-directory? from)
       (let* ((clean-from (fps-clean from))
-             (files (fps-find clean-from))
+             (files (fps-find-files clean-from))
              (drop-count (string-length (ss (fps-clean clean-from) "/"))))
         (fps-mkdir-p to)
         (for-each (lambda (file)
