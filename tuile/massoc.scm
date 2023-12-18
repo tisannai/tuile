@@ -7,11 +7,13 @@
    massoc-has-key?
    massoc-keys
    massoc-values
+   massoc-length
    massoc-ref
    massoc-add!
    massoc-val!
    massoc-set!
    massoc-del!
+   massoc-clear!
    massoc-update!
    massoc-repeat!
    massoc-copy
@@ -57,10 +59,15 @@
       (map cdr (reverse ma))))
 
 
+;; Return massoc length.
+(define (massoc-length ma)
+  (length ma))
+
+
 ;; Reference massoc value.
 (define (massoc-ref ma key)
   (if (massoc-empty? ma)
-      (if #f #f) ; unspecified
+      (if #f #f)                        ; unspecified
       (assoc-ref ma key)))
 
 
@@ -102,6 +109,11 @@
           (set-car! ma (car tmp))
           (set-cdr! ma (cdr tmp)))))
   ma)
+
+
+(define (massoc-clear! ma)
+  (set-car! ma '())
+  (set-cdr! ma '()))
 
 
 ;; Update pair value in massoc using "proc" with one argument.

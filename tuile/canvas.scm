@@ -1,4 +1,4 @@
-;;; module:
+;; module:
 ;;
 ;; Canvas is a library for drawing characters to multiple layers.
 ;;
@@ -22,18 +22,24 @@
   #:use-module (tuile pr)
   #:use-module (tuile coord)
   #:use-module (rnrs bytevectors)
-  #:use-module ((srfi srfi-1) #:select (first second third))
+  #:use-module ((srfi srfi-1) #:select (first second third last))
   #:use-module (srfi srfi-43)
   #:export
   (
    create
    use-layer
    push-layer
+   insert-layer
    clear-layer
    del-layer
    map-layer
    from-layer
+   set-layer
+   reset-layers
+   swap-layers
    hide-layer
+   toggle-layer
+   last-layer
 
    put-ch
    put-str
@@ -54,7 +60,10 @@
 
    layer-index
    layer-indeces
+   layer-list
+   layer-count
    layer-content
+   layer-visibility
    dimensions
    ))
 
@@ -95,7 +104,7 @@
     (when (> y (layer-ymax layer)) (layer-ymax-set! layer y))))
 
 
-;; Create canvas at layer 0.
+;; Create canvas as layer 0.
 (define (create)
   (make-proxy (make-massoc (list (cons 0 (create-layer 0))))
               0))
@@ -114,6 +123,26 @@
         (ensure-layer cv li)
         (make-proxy (proxy-canvas cv) li))
       (create)))
+
+
+;; Create proxy for "cv" at next layer index.
+(define (insert-layer cv)
+  (let* ((canvas (proxy-canvas cv))
+         (lindex (proxy-lindex cv))
+         (layers (massoc-values canvas)))
+    (massoc-clear! canvas)
+    (let lp ((layers layers)
+             (i 0)
+             (ret #f))
+      (if (pair? layers)
+          (if (= i lindex)
+              (begin
+                (massoc-add! canvas i (create-layer i))
+                (lp layers (1+ i) (make-proxy canvas i)))
+              (begin
+                (massoc-add! canvas i (car layers))
+                (lp (cdr layers) (1+ i) ret)))
+          ret))))
 
 
 ;; Empty layer content.
@@ -171,9 +200,53 @@
           (reverse ret)))))
 
 
+;; Set layer content
+(define (set-layer cv content)
+  (let ((canvas (proxy-canvas cv))
+        (lindex (proxy-lindex cv)))
+    (massoc-set! canvas lindex content)))
+
+
+;; Rename layer indeces to run from 0 to end, in order and with gaps.
+(define (reset-layers cv)
+  (let* ((canvas (proxy-canvas cv))
+         (layers (massoc-values canvas)))
+    (massoc-clear! canvas)
+    (let lp ((layers layers)
+             (i 0))
+      (when (pair? layers)
+        (massoc-add! canvas i (car layers))
+        (lp (cdr layers)
+            (1+ i))))))
+
+
+;; Swap content of layers.
+(define (swap-layers cv a b)
+  (let ((canvas (proxy-canvas cv)))
+    (if (and (massoc-ref canvas a)
+             (massoc-ref canvas b))
+        (let ((content-a (massoc-ref canvas a))
+              (content-b (massoc-ref canvas b)))
+          (massoc-set! canvas a content-b)
+          (massoc-set! canvas b content-a)
+          (make-proxy canvas b))
+        cv)))
+
+
 ;; Set layer "hide" status (false=visible, true=hidden).
 (define (hide-layer cv state)
   (layer-hide-set! (get-current-layer cv) state))
+
+
+;; Toggle layer "hide" status.
+(define (toggle-layer cv)
+  (let ((cur (get-current-layer cv)))
+    (layer-hide-set! cur (not (layer-hide cur)))))
+
+
+;; Return proxy for last layer.
+(define (last-layer cv)
+  (make-proxy (proxy-canvas cv) (car (last (proxy-canvas cv)))))
 
 
 ;; Put char to position (on active layer).
@@ -304,14 +377,28 @@
   (proxy-lindex cv))
 
 
-;; All canvas indeces.
+;; Return canvas indeces.
 (define (layer-indeces cv)
   (massoc-keys (proxy-canvas cv)))
 
 
+;; Return canvas layers.
+(define (layer-list cv)
+  (massoc-values (proxy-canvas cv)))
+
+
+;; Return the number of layers.
+(define (layer-count cv)
+  (massoc-length (proxy-canvas cv)))
+
+
 ;; Current layer content.
 (define (layer-content cv)
-  (layer-chars (get-current-layer cv)))
+  (reverse (layer-chars (get-current-layer cv))))
+
+;; Return layer hide status.
+(define (layer-visibility cv)
+  (layer-hide (get-current-layer cv)))
 
 
 ;; Return canvas dimensions (size pair).
