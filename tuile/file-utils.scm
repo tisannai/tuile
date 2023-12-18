@@ -7,6 +7,8 @@
    file-copy
    file-move
    file-touch
+   file-mkdir-p
+   file-path-p
    file-uid-of-name
    file-name-of-uid
    file-gid-of-name
@@ -62,6 +64,10 @@
         (if (pair? mode)
             (car mode)
             #o644)))
+
+(define file-mkdir-p fps-mkdir-p)
+
+(define file-path-p fps-mkpath-p)
 
 (define (file-uid-of-name name)
   (vector-ref (getpwnam name) 0))

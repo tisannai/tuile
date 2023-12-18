@@ -5,13 +5,15 @@
 ;; Each layer includes characters as triplet: (x y ch). We store only
 ;; individual character triplets, but since we need to know what is
 ;; the maximum x-coord and y-coord for each layer, we maintain that
-;; information per layer.
+;; information per layer. Char is stored as vector of size 3.
 ;;
 ;; Layers are combined in order to create the canvas content. The
 ;; widest layer defines the canvas width and the tallest layer defines
-;; the canvas height.
+;; the canvas height. Canvas content is an associative list with
+;; layer-index layer-content pairs.
 ;;
-;; Layers are accessed through a proxy.
+;; Layers are accessed through a proxy. The proxy is
+;; canvas/layer-index pair.
 ;;
 (define-module (tuile canvas)
   #:use-module (tuile record-r6rs)
@@ -59,30 +61,33 @@
 
 ;; Layer state.
 (define-record-type layer
-  (fields (mutable chars)
-          (mutable xmax)
-          (mutable ymax)
-          (mutable hide)
+  (fields (mutable chars)               ; Char list.
+          (mutable xmax)                ; Dimension x-max.
+          (mutable ymax)                ; Dimension y-max.
+          (mutable hide)                ; Hide layer (default: visible).
           ))
 
 ;; Proxy to specified canvas layer.
 (define-record-type proxy
-  (fields canvas
-          lindex
+  (fields canvas                        ; Canvas massoc.
+          lindex                        ; Current layer index.
           ))
 
 
 (define make-ch vector)
-(define (ch-p ch) (p. (ch-x ch) (ch-y ch)))
-(define (ch-x ch) (vector-ref ch 0))
-(define (ch-y ch) (vector-ref ch 1))
-(define (ch-c ch) (vector-ref ch 2))
+(define (ch-p ch) (p. (ch-x ch) (ch-y ch))) ; Char position.
+(define (ch-x ch) (vector-ref ch 0))    ; Char x.
+(define (ch-y ch) (vector-ref ch 1))    ; Char y.
+(define (ch-c ch) (vector-ref ch 2))    ; Char character.
 
 
+;; Reset layer dimension values.
 (define (layer-max-reset layer)
   (layer-xmax-set! layer -1)
   (layer-ymax-set! layer -1))
 
+
+;; Update layer dimensions.
 (define (layer-max-update layer char)
   (let ((x (ch-x char))
         (y (ch-y char)))
@@ -166,8 +171,10 @@
           (reverse ret)))))
 
 
+;; Set layer "hide" status (false=visible, true=hidden).
 (define (hide-layer cv state)
   (layer-hide-set! (get-current-layer cv) state))
+
 
 ;; Put char to position (on active layer).
 (define (put-ch cv ch pos)
@@ -217,6 +224,7 @@
             (step pos dir)))))
 
 
+;; Delete char using position-predicate.
 (define (del-by-pos-pred cv pred)
   (map-layer cv (lambda (ch) (if (pred (p. (ch-x ch) (ch-y ch)))
                                  #f
@@ -265,6 +273,8 @@
 (define (get-lines-list cv)
   (vector->list (get-lines-vector cv)))
 
+
+;; Put lines of text to canvas.
 (define (put-lines-list cv lines)
   (let lp ((lines lines)
            (y 0))
@@ -279,6 +289,7 @@
                   (1+ y)))))))
 
 
+;; Return the total number of characters for all layers combined.
 (define (canvas-size cv)
   (let lp ((layers (proxy-canvas cv))
            (size 0))
@@ -288,14 +299,20 @@
         size)))
 
 
+;; Current layer index.
 (define (layer-index cv)
   (proxy-lindex cv))
 
+
+;; All canvas indeces.
 (define (layer-indeces cv)
   (massoc-keys (proxy-canvas cv)))
 
+
+;; Current layer content.
 (define (layer-content cv)
   (layer-chars (get-current-layer cv)))
+
 
 ;; Return canvas dimensions (size pair).
 (define (dimensions cv)
@@ -313,19 +330,24 @@
 ;; ------------------------------------------------------------
 ;; Support:
 
+
+;; Return chars of indexed layer, if visible.
 (define (get-chars cv li)
   (let ((layer (get-layer cv li)))
     (if (layer-hide layer)
         '()
         (layer-chars layer))))
 
+;; Create data for new layer.
 (define (create-layer li)
   (make-layer '() -1 -1 #f))
 
+;; Make sure layer exists, before use.
 (define (ensure-layer cv li)
   (unless (massoc-has-key? (proxy-canvas cv) li)
     (massoc-set! (proxy-canvas cv) li (create-layer li))))
 
+;; Return current layer.
 (define (get-current-layer cv)
   (get-layer cv (proxy-lindex cv)))
 
