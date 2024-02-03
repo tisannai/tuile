@@ -185,9 +185,9 @@
       (let-values (((str-def width pad) (handle-align-or-clip-args atom fill)))
         (if (list? str-def)
             (map (lambda (str)
-                   (fn str width pad))
+                   (fn (->str str) width pad))
                  str-def)
-            (fn str-def width pad))))
+            (fn (->str str-def) width pad))))
 
     ;; Separate fields with sized gap.
     ;;
@@ -373,3 +373,6 @@
   (pr (fmt '(bin 12 "-" 6)))
   (pr (fmt '(gap 4 "foo" "bar")))
   (pr (fmt `(raf 10 #\- "x"))))
+
+;; (pr (fmt `(ral (5 "-") "foo")))
+;; (pr (fmt `(ral (5 "-") 123)))
