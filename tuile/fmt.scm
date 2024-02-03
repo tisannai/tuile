@@ -10,8 +10,6 @@
   (
    fmt
    fmt-group
-
-   fmt-info-rec
    fmt-info
    ))
 
@@ -180,7 +178,7 @@
                           (if (pair? (second atom))
                               (second atom)
                               (list (second atom) (string fill))))))
-    
+
     (define (call-align fn atom fill)
       (let-values (((str-def width pad) (handle-align-or-clip-args atom fill)))
         (if (list? str-def)
@@ -293,42 +291,6 @@
   (string-concatenate (flatten (format-atoms (format-shorthand args)))))
 
 
-(define-record-type fmt-info-rec
-  (fields count
-          max
-          min
-          total))
-
-
-(define (fmt-info . args)
-
-  (define (get-fmt-info args)
-
-    (define (find-length-prop cmp args)
-      (let find ((prop (string-length (car args)))
-                 (tail (cdr args)))
-        (if (pair? tail)
-            (let ((len (string-length (car tail))))
-              (if (cmp len prop)
-                  (find len  (cdr tail))
-                  (find prop (cdr tail))))
-            prop)))
-
-    (let ((str-args (map ->str args)))
-      (make-fmt-info-rec (length args)
-                         (find-length-prop > str-args)
-                         (find-length-prop < str-args)
-                         (fold (lambda (i s)
-                                 (+ s (string-length i)))
-                               0
-                               str-args))))
-
-  (if (list? (car args))
-      ;; List argument.
-      (get-fmt-info (car args))
-      (get-fmt-info args)))
-
-
 ;; Format multiple lines with the given "format".
 ;;
 ;; "format" includes a formatting rule for each column, and the
@@ -363,6 +325,36 @@
                                    (append ret cols))))
                   ret))
         (reverse ret))))
+
+
+;; Return field min/max/count info for args.
+(define (fmt-info . args)
+
+  (define (gen-fmt-info args)
+
+    (define (find-length-prop cmp args)
+      (let find ((prop (string-length (car args)))
+                 (tail (cdr args)))
+        (if (pair? tail)
+            (let ((len (string-length (car tail))))
+              (if (cmp len prop)
+                  (find len  (cdr tail))
+                  (find prop (cdr tail))))
+            prop)))
+
+    (let ((str-args (map ->str args)))
+      (list (cons 'count (length args))
+            (cons 'max (find-length-prop > str-args))
+            (cons 'min (find-length-prop < str-args))
+            (cons 'total (fold (lambda (i s)
+                                 (+ s (string-length i)))
+                               0
+                               str-args)))))
+
+  (if (list? (car args))
+      ;; List argument.
+      (gen-fmt-info (car args))
+      (gen-fmt-info args)))
 
 
 ;; (use-modules (tuile pr))
