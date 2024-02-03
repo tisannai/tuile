@@ -351,10 +351,15 @@
                                0
                                str-args)))))
 
-  (if (list? (car args))
-      ;; List argument.
-      (gen-fmt-info (car args))
-      (gen-fmt-info args)))
+  (gen-fmt-info (match args
+                  ((args) args)
+                  (else args)))
+
+;;   (if (list? (car args))
+;;       ;; List argument.
+;;       (gen-fmt-info (car args))
+;;       (gen-fmt-info args))
+  )
 
 
 ;; (use-modules (tuile pr))
