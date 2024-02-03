@@ -1,18 +1,9 @@
 (define-module (tuile gutermbox)
+  #:use-module (ice-9 match)
   #:export
   (
-   ;; API
-   init
-   shutdown
-   width
-   height
-   clear
-   present
-   set-cursor
-   hide-cursor
-   put-ch
-   poll-event
-   peek-event
+   ;; API - C-versions exported directly from libgutermbox
+
    get-key
    put-str
 
@@ -48,7 +39,7 @@
    TB_KEY_MOUSE_RELEASE
    TB_KEY_MOUSE_WHEEL_UP
    TB_KEY_MOUSE_WHEEL_DOWN
-   
+
    TB_KEY_CTRL_TILDE
    TB_KEY_CTRL_2
    TB_KEY_CTRL_A
@@ -130,7 +121,7 @@
    TB_OUTPUT_256
    TB_OUTPUT_216
    TB_OUTPUT_GRAYSCALE
-   
+
    ))
 
 
@@ -139,7 +130,7 @@
 
 (load-extension "libgutermbox" "init_gutermbox")
 
-;;;   .  /* Key constants. See also struct tb_event's key fi
+;;;   /* Key constants. See also struct tb_event's key fi
 ;;     *
 ;;     * These are a safe subset of terminfo keys, which exist on all popular
 ;;     * terminals. Termbox uses only them to stay truly portable.
@@ -295,14 +286,14 @@
 (define TB_KEY_BACKSPACE2       #x7F)
 (define TB_KEY_CTRL_8           #x7F) ; clash with 'BACKSPACE2'
 
-;;    
+;;
 ;;    /* These are non-existing ones.
 ;;     *
 ;;     * #define TB_KEY_CTRL_1 clash with '1'
 ;;     * #define TB_KEY_CTRL_9 clash with '9'
 ;;     * #define TB_KEY_CTRL_0 clash with '0'
 ;;     */
-;;    
+;;
 ;;    /*
 ;;     * Alt modifier constant, see tb_event.mod field and tb_select_input_mode function.
 ;;     * Mouse-motion modifier
@@ -313,7 +304,7 @@
 (define TB_MOD_ALT    #x01)
 (define TB_MOD_MOTION #x02)
 
-;;    
+;;
 ;;    /* Colors (see struct tb_cell's fg and bg fields). */
 ;;    #define TB_DEFAULT 0x00
 ;;    #define TB_BLACK   0x01
@@ -324,7 +315,7 @@
 ;;    #define TB_MAGENTA 0x06
 ;;    #define TB_CYAN    0x07
 ;;    #define TB_WHITE   0x08
-;;    
+;;
 
 (define TB_DEFAULT #x00)
 (define TB_BLACK   #x01)
@@ -349,7 +340,7 @@
 (define TB_UNDERLINE #x0200)
 (define TB_REVERSE   #x0400)
 
-;;    
+;;
 ;;    /* A cell, single conceptual entity on the terminal screen. The terminal screen
 ;;     * is basically a 2d array of cells. It has the following fields:
 ;;     *  - 'ch' is a unicode character
@@ -357,11 +348,11 @@
 ;;     *  - 'bg' background color and attributes
 ;;     */
 ;;    struct tb_cell {
-;;    	uint32_t ch;
-;;    	uint16_t fg;
-;;    	uint16_t bg;
+;;      uint32_t ch;
+;;      uint16_t fg;
+;;      uint16_t bg;
 ;;    };
-;;    
+;;
 ;;    #define TB_EVENT_KEY    1
 ;;    #define TB_EVENT_RESIZE 2
 ;;    #define TB_EVENT_MOUSE  3
@@ -370,7 +361,7 @@
 (define TB_EVENT_RESIZE 2)
 (define TB_EVENT_MOUSE  3)
 
-;;    
+;;
 ;;    /* An event, single interaction from the user. The 'mod' and 'ch' fields are
 ;;     * valid if 'type' is TB_EVENT_KEY. The 'w' and 'h' fields are valid if 'type'
 ;;     * is TB_EVENT_RESIZE. The 'x' and 'y' fields are valid if 'type' is
@@ -379,16 +370,16 @@
 ;;     * one of them can be non-zero at a time.
 ;;     */
 ;;    struct tb_event {
-;;    	uint8_t type;
-;;    	uint8_t mod; /* modifiers to either 'key' or 'ch' below */
-;;    	uint16_t key; /* one of the TB_KEY_* constants */
-;;    	uint32_t ch; /* unicode character */
-;;    	int32_t w;
-;;    	int32_t h;
-;;    	int32_t x;
-;;    	int32_t y;
+;;      uint8_t type;
+;;      uint8_t mod; /* modifiers to either 'key' or 'ch' below */
+;;      uint16_t key; /* one of the TB_KEY_* constants */
+;;      uint32_t ch; /* unicode character */
+;;      int32_t w;
+;;      int32_t h;
+;;      int32_t x;
+;;      int32_t y;
 ;;    };
-;;    
+;;
 ;;    /* Error codes returned by tb_init(). All of them are self-explanatory, except
 ;;     * the pipe trap error. Termbox uses unix pipes in order to deliver a message
 ;;     * from a signal handler (SIGWINCH) to the main event reading loop. Honestly in
@@ -402,7 +393,7 @@
 (define TB_EFAILED_TO_OPEN_TTY   -2)
 (define TB_EPIPE_TRAP_ERROR      -3)
 
-;;    
+;;
 ;;    /* Initializes the termbox library. This function should be called before any
 ;;     * other functions. Function tb_init is same as tb_init_file("/dev/tty").
 ;;     * After successful initialization, the library must be
@@ -412,7 +403,7 @@
 ;;    SO_IMPORT int tb_init_file(const char* name);
 ;;    SO_IMPORT int tb_init_fd(int inout);
 ;;    SO_IMPORT void tb_shutdown(void);
-;;    
+;;
 ;;    /* Returns the size of the internal back buffer (which is the same as
 ;;     * terminal's window size in characters). The internal buffer can be resized
 ;;     * after tb_clear() or tb_present() function calls. Both dimensions have an
@@ -421,30 +412,30 @@
 ;;     */
 ;;    SO_IMPORT int tb_width(void);
 ;;    SO_IMPORT int tb_height(void);
-;;    
+;;
 ;;    /* Clears the internal back buffer using TB_DEFAULT color or the
 ;;     * color/attributes set by tb_set_clear_attributes() function.
 ;;     */
 ;;    SO_IMPORT void tb_clear(void);
 ;;    SO_IMPORT void tb_set_clear_attributes(uint16_t fg, uint16_t bg);
-;;    
+;;
 ;;    /* Synchronizes the internal back buffer with the terminal. */
 ;;    SO_IMPORT void tb_present(void);
-;;    
+;;
 ;;    #define TB_HIDE_CURSOR -1
-;;    
+;;
 ;;    /* Sets the position of the cursor. Upper-left character is (0, 0). If you pass
 ;;     * TB_HIDE_CURSOR as both coordinates, then the cursor will be hidden. Cursor
 ;;     * is hidden by default.
 ;;     */
 ;;    SO_IMPORT void tb_set_cursor(int cx, int cy);
-;;    
+;;
 ;;    /* Changes cell's parameters in the internal back buffer at the specified
 ;;     * position.
 ;;     */
 ;;    SO_IMPORT void tb_put_cell(int x, int y, const struct tb_cell *cell);
 ;;    SO_IMPORT void tb_change_cell(int x, int y, uint32_t ch, uint16_t fg, uint16_t bg);
-;;    
+;;
 ;;    /* Copies the buffer from 'cells' at the specified position, assuming the
 ;;     * buffer is a two-dimensional array of size ('w' x 'h'), represented as a
 ;;     * one-dimensional buffer containing lines of cells starting from the top.
@@ -452,14 +443,14 @@
 ;;     * (DEPRECATED: use tb_cell_buffer() instead and copy memory on your own)
 ;;     */
 ;;    SO_IMPORT void tb_blit(int x, int y, int w, int h, const struct tb_cell *cells);
-;;    
+;;
 ;;    /* Returns a pointer to internal cell back buffer. You can get its dimensions
 ;;     * using tb_width() and tb_height() functions. The pointer stays valid as long
 ;;     * as no tb_clear() and tb_present() calls are made. The buffer is
 ;;     * one-dimensional buffer containing lines of cells starting from the top.
 ;;     */
 ;;    SO_IMPORT struct tb_cell *tb_cell_buffer(void);
-;;    
+;;
 ;;    #define TB_INPUT_CURRENT 0 /* 000 */
 ;;    #define TB_INPUT_ESC     1 /* 001 */
 ;;    #define TB_INPUT_ALT     2 /* 010 */
@@ -470,7 +461,7 @@
 (define TB_INPUT_ALT     2)  ; 010
 (define TB_INPUT_MOUSE   4)  ; 100
 
-;;    
+;;
 ;;    /* Sets the termbox input mode. Termbox has two input modes:
 ;;     * 1. Esc input mode.
 ;;     *    When ESC sequence is in the buffer and it doesn't match any known
@@ -490,7 +481,7 @@
 ;;     * Default termbox input mode is TB_INPUT_ESC.
 ;;     */
 ;;    SO_IMPORT int tb_select_input_mode(int mode);
-;;    
+;;
 ;;    #define TB_OUTPUT_CURRENT   0
 ;;    #define TB_OUTPUT_NORMAL    1
 ;;    #define TB_OUTPUT_256       2
@@ -503,7 +494,7 @@
 (define TB_OUTPUT_216       3)
 (define TB_OUTPUT_GRAYSCALE 4)
 
-;;    
+;;
 ;;    /* Sets the termbox output mode. Termbox has three output options:
 ;;     * 1. TB_OUTPUT_NORMAL     => [1..8]
 ;;     *    This mode provides 8 different colors:
@@ -540,20 +531,20 @@
 ;;     * Default termbox output mode is TB_OUTPUT_NORMAL.
 ;;     */
 ;;    SO_IMPORT int tb_select_output_mode(int mode);
-;;    
+;;
 ;;    /* Wait for an event up to 'timeout' milliseconds and fill the 'event'
 ;;     * structure with it, when the event is available. Returns the type of the
 ;;     * event (one of TB_EVENT_* constants) or -1 if there was an error or 0 in case
 ;;     * there were no event during 'timeout' period.
 ;;     */
 ;;    SO_IMPORT int tb_peek_event(struct tb_event *event, int timeout);
-;;    
+;;
 ;;    /* Wait for an event forever and fill the 'event' structure with it, when the
 ;;     * event is available. Returns the type of the event (one of TB_EVENT_*
 ;;     * constants) or -1 if there was an error.
 ;;     */
 ;;    SO_IMPORT int tb_poll_event(struct tb_event *event);
-;;    
+;;
 ;;    /* Utility utf8 functions. */
 ;;    #define TB_EOF -1
 ;;    SO_IMPORT int tb_utf8_char_length(char c);
@@ -566,6 +557,7 @@
 ;; Additional functions:
 
 
+;; Read key-press from terminal.
 (define (get-key)
 
   (define (map-key k)
@@ -573,22 +565,19 @@
                        (assoc-ref k 'key)
                        (assoc-ref k 'ch))))
 
-  (define (read-key)
-    (let ((k (poll-event)))
-      (if (eq? (assoc-ref k 'type) TB_EVENT_KEY)
-          (map-key k)
-          #f)))
-
-  (read-key))
+  (let ((k (poll-event)))
+    (if (eq? (assoc-ref k 'type) TB_EVENT_KEY)
+        (map-key k)
+        #f)))
 
 
 (define (put-str str x y)
-  (let loop ((chars (string->list str))
-             (x x))
-    (when (pair? chars)
-      (put-ch x y (car chars))
-      (loop (cdr chars)
-            (1+ x)))))
+  (let ((len (string-length str)))
+      (let loop ((i 0)
+                 (x x))
+        (when (< i len)
+          (put-ch x y (string-ref str i))
+          (loop (1+ i) (1+ x))))))
 
 
 ;; Read prompted input from "x" and "y".
@@ -604,19 +593,6 @@
 ;; line.
 ;;
 (define (readline prompt x y)
-
-  (define (map-key k)
-    (integer->char (if (= (assoc-ref k 'ch) 0)
-                       (assoc-ref k 'key)
-                       (assoc-ref k 'ch))))
-
-  (define (read-key)
-    (let ((k (poll-event)))
-      (let loop ()
-        (if (eq? (assoc-ref k 'type)
-                 TB_EVENT_KEY)
-            (map-key k)
-            (loop)))))
 
   (define (show ls rs)
 
@@ -669,11 +645,13 @@
 
   (let loop ((ls '())
              (rs '()))
-    
-    (show ls rs)
-    
 
-    (let ((key (read-key))
+    (show ls rs)
+
+
+    (let (
+;;           (key (read-key))
+          (key (get-key))
           (all (append ls rs)))
 
       (cond
@@ -745,11 +723,16 @@
         (loop (append ls (list key))
               rs))))))
 
+
+;; Display message to the given terminal position.
+;;
+;; Display time is 1M us (1s) by default. If 4th arguments is given,
+;; that is taken as display time.
+;;
 (define (message msg x y . rest)
-  (let ((time (if (and (pair? rest)
-                       (string->number (car rest)))
-                  (string->number (car rest))
-                  1000000)))
+  (let ((time (match rest
+                ((time) time)
+                (else 1000000))))
     (put-str msg x y)
     (present)
     (usleep time)
