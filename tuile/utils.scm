@@ -50,6 +50,7 @@
    clean-list
 
    pi
+   div
    ->integer-fraction
    specified?
 
@@ -508,6 +509,20 @@
 
 ;; PI = 3.141592653589793
 (define pi (* 2 (acos 0)))
+
+;; Perform either float or integer divisions, based on the divider
+;; type.
+(define (div divident . dividers)
+  (define (divide divident dividers)
+    (if (pair? dividers)
+      (if (or (inexact? (car dividers))
+              (inexact? divident))
+          (divide (/ divident (car dividers))
+               (cdr dividers))
+          (divide (quotient divident (car dividers))
+               (cdr dividers)))
+      divident))
+  (divide divident dividers))
 
 ;; Return integer and fractional parts of real as pair.
 (define (->integer-fraction real decimals)

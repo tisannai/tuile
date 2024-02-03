@@ -13,6 +13,7 @@
    lookup-each
    lookup-keys
    lookup-values
+   lookup-update!
    ))
 
 
@@ -75,3 +76,11 @@
   (map (lambda (key)
          (hash:hash-ref (lookup-hsh lup) key))
        (lookup-keys lup)))
+
+
+;; Update (or set if missing) value behind the key, with a proc
+;; that takes the current value as argument, or #f if missing.
+(define (lookup-update! lup key proc)
+  (if (lookup-has-key? lup key)
+      (lookup-set! lup key (proc (lookup-ref lup key)))
+      (lookup-set! lup key (proc #f))))

@@ -118,11 +118,11 @@
             ))
 
 
-(define (clean-fps fps)
-  (if (string=? (string-take-right fps 1)
-                "/")
-      (string-drop-right fps 1)
-      fps))
+;; (define (clean-fps fps)
+;;   (if (string=? (string-take-right fps 1)
+;;                 "/")
+;;       (string-drop-right fps 1)
+;;       fps))
 
 (define (fps-end-index fps)
   (let ((len (string-length fps)))
@@ -234,20 +234,67 @@
 
 
 ;; Return file-path path type.
+;;
+;;     abs    Absolute path starting with "/"
+;;     off    Offset path from current starting with ".."
+;;     dot    Relative path under current starting with "."
+;;     rel    Relative path under current starting with "<name>"
+;;
 (define (fps-type fps)
-  (define (prefixed? fps prefix)
-    (let ((len (string-length prefix)))
-      (if (>= (string-length fps) len)
-          (string=? (substring fps 0 len) prefix)
-          #f)))
+  ;;   (define (prefixed? fps prefix)
+  ;;     (let ((len (string-length prefix)))
+  ;;       (if (>= (string-length fps) len)
+  ;;           (string=? (substring fps 0 len) prefix)
+  ;;           #f)))
   (if (string-null? fps)
       #f
       (cond
        ((char=? (string-ref fps 0) #\/) 'abs)
        ((not (char=? (string-ref fps 0) #\.)) 'rel)
-       ((prefixed? fps "./") 'dot)
-       ((prefixed? fps "../") 'off)
+       ((and (>= (string-length fps) 2)
+             (char=? (string-ref fps 0) #\.)
+             (char=? (string-ref fps 1) #\.)) 'off)
+       ((char=? (string-ref fps 0) #\.) 'dot)
+       ;;        ((prefixed? fps "./") 'dot)
+       ;;        ((prefixed? fps "../") 'off)
+       ;;        ((prefixed? fps ".") 'dot)
+       ;;        ((prefixed? fps "..") 'off)
        (else 'rel))))
+
+;; (dot)
+;; (dot)
+;; (off "..")
+;; (dot "foo")
+;; (off "foo" "..")
+(define (new-fps-type fps)
+  (if (string-null? fps)
+      #f
+      (cond
+       ((char=? (string-ref fps 0) #\/) 'abs)
+       ((not (char=? (string-ref fps 0) #\.)) 'rel)
+       (else (let (
+                   (len (string-length fps))
+                   (->i (lambda (ch) (case ch
+                                       ((#\.) 0)
+                                       ((#\/) 1)
+                                       (else 2))))
+                   ;;  1   2   3   4  5
+                   ;;  .  ..  ./ ../  rel
+                   (state #(#(1 0 #f abs) ; 0
+                            #(2 3 #f dot) ; 1
+                            #(#f 4 #f off) ; 2
+                            #(#f #f #f dot) ; 3
+                            #(#f #f #f off) ; 4
+                            #f)))
+               ;; (ppre state)
+               (let lp ((i 0)
+                        (s 0))
+                 (if (and (< i len) (vector-ref state s))
+                     (lp (1+ i)
+                         (vector-ref (vector-ref state s) (->i (string-ref fps i))))
+                     (if (vector-ref state s)
+                         (vector-ref (vector-ref state s) 3)
+                         'rel))))))))
 
 
 ;; Return cleaned file-path string.
@@ -530,7 +577,7 @@
 
 
 ;; File-path-string to file-path-descriptor (fpd).
-(define (fps->fpd fps)
+(define (old-fps->fpd fps)
 
   (define (->part part) (list->string (reverse part)))
 
@@ -588,12 +635,79 @@
                     (cons (->part part) ret)
                     ret))))))
 
+(define (fps->fpd fps)
+
+;;   (define (->part part) (list->string (reverse part)))
+
+  (let ((type (fps-type fps))
+        (len (string-length fps)))
+
+    (if (and (eq? type 'dot)
+             (or (= len 1)
+                 (= len 2)))
+
+        (list type)                     ; Special case: (dot)
+
+        (let lp ((i (if (eq? type 'abs) 1 0))
+                 (s (if (eq? type 'abs) 1 0))
+                 (ret '()))
+
+          (if (< i len)
+
+              (let ((ch (string-ref fps i)))
+
+                (cond
+
+                 ;; Dir separator.
+                 ((char=? ch #\/)
+                  (if (> i s)
+                      (lp (1+ i)
+                          (1+ i)
+                          (cons (substring fps s i) ret))
+                      (lp (1+ i)
+                          (1+ i)
+                          ret)))
+
+                 ;; Relative to current.
+                 ((and (= i s)
+                       (char=? ch #\.)
+                       (< (1+ i) len))
+                  (cond
+                   ((char=? (string-ref fps (1+ i)) #\.)
+                    ;; Offset dir, upwards.
+                    (lp (+ i 2)
+                        (+ i 2)
+                        (cons ".." ret)))
+                   ((char=? (string-ref fps (1+ i)) #\/)
+                    ;; Dotted dir.
+                    (lp (1+ i)
+                        (1+ i)
+                        ret))
+                   (else
+                    ;; Hidden name.
+                    (lp (1+ i)
+                        s
+                        ret))))
+
+                 ;; Name part.
+                 (else (lp (1+ i)
+                           s
+                           ret))))
+
+              (cons type
+                    (if (> i s)
+                        (cons (substring fps s i) ret)
+                        ret)))))))
+
+
 ;; fpd to file-string.
 (define (fpd->fps fpd)
   (case (fpd-type fpd)
     ((abs) (string-append "/" (string-join (reverse (fpd-body fpd)) "/")))
     ((rel) (string-join (reverse (fpd-body fpd)) "/"))
-    ((dot) (string-append "./" (string-join (reverse (fpd-body fpd)) "/")))
+    ((dot) (if (pair? (cdr fpd))
+               (string-append "./" (string-join (reverse (fpd-body fpd)) "/"))
+               "."))
     ;; ((off) (string-append "../" (string-join (reverse (fpd-body fpd)) "/")))
     ((off) (string-join (reverse (fpd-body fpd)) "/"))
     ))
@@ -1005,3 +1119,21 @@
 ;; (pd (fps-clean "//foo////bar/dii/"))
 ;; (pd (fps-clean "//foo////bar/dii/foo.txt"))
 ;; (pd (fps-clean "dii/foo.txt"))
+
+
+;; (pd (fps->fpd "/"))
+;; (pd (fps->fpd "/foo"))
+;; (pd (fps->fpd "/foo/bar"))
+;; (pd (fps->fpd "."))
+;; (pd (fps->fpd "./"))
+;; (pd (fps->fpd "../"))
+;; (pd (fps->fpd "./foo"))
+;; (pd (fps->fpd "../foo"))
+;; (pd (fpd->fps (fps->fpd "/")))
+;; (pd (fpd->fps (fps->fpd "/foo")))
+;; (pd (fpd->fps (fps->fpd "/foo/bar")))
+;; (pd (fpd->fps (fps->fpd ".")))
+;; (pd (fpd->fps (fps->fpd "./")))
+;; (pd (fpd->fps (fps->fpd "../")))
+;; (pd (fpd->fps (fps->fpd "./foo")))
+;; (pd (fpd->fps (fps->fpd "../foo")))

@@ -11,6 +11,7 @@
    rectangle
    text
    poly
+   draw
    show
    ))
 
@@ -29,7 +30,7 @@
 
 ;; Draw rectangle to canvas.
 ;;
-;;     (rectangle cv (p. 5 3) (p. 16 7)
+;;     (rectangle cv (p. 5 3) (p. 16 7))
 ;;
 (define (rectangle cv pa pb)
   (let ((sides (list "+-" "+|" "+-" "+|")))
@@ -124,8 +125,18 @@
 ;;     cv        Canvas.
 ;;     [file]    Optional output file (default: stdout).
 ;;
+(define (draw cv)
+  (cv.get-lines-list cv))
+
+
+;; Show drawing from canvas.
+;;
+;; Args:
+;;     cv        Canvas.
+;;     [file]    Optional output file (default: stdout).
+;;
 (define (show cv . rest)
-  (let ((lines (cv.get-lines-list cv)))
+  (let ((lines (draw cv)))
     (if (and (pair? rest) (car rest))
         (with-output-to-file (car rest)
           (lambda ()

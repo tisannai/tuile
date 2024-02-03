@@ -598,6 +598,8 @@
 ;;
 ;; Return-key returns the current input.
 ;;
+;; Escape-key aborts and #f is returned.
+;;
 ;; EOF-type value (#f) is returned, when Ctrl-D is given on empty an
 ;; line.
 ;;
@@ -679,6 +681,10 @@
        ;; RETURN
        ((char=? key #\return)
         (clean-and-return (list->string (append ls rs))))
+
+       ;; ESCAPE
+       ((char=? key #\escape)
+        (clean-and-return #f))
 
        ;; DELETE / CTRL-H
        ((char=? key #\delete)

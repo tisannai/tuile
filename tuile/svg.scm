@@ -24,7 +24,7 @@
 (define-record-type svgctx
   (fields (mutable elems)               ; List of figure elements.
           (mutable ux)                  ; Scaling for x-dim.
-          (mutable uy)                  ; Scaling for y-dmi.
+          (mutable uy)                  ; Scaling for y-dim.
           (mutable line-color)          ; Default line color.
           (mutable line-width)          ; Default line width.
           (mutable font-size)           ; Default font size.

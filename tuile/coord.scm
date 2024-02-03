@@ -1,5 +1,5 @@
 (define-module (tuile coord)
-  #:use-module ((tuile utils) #:select (number-span list-range))
+  #:use-module ((tuile utils) #:select (number-span list-range div))
   #:use-module ((srfi srfi-1) #:select (fold first second))
   #:export
   (
@@ -19,6 +19,8 @@
    p+y
    p-x
    p-y
+   p*
+   p/
    p+dir
    p-dir
    p-p-dir
@@ -88,6 +90,8 @@
 (define (p+y p y) (p. (px p) (+ (py p) y)))
 (define (p-x p x) (p. (- (px p) x) (py p)))
 (define (p-y p y) (p. (px p) (- (py p) y)))
+(define (p* p s) (p. (* (px p) s) (* (py p) s)))
+(define (p/ p s) (p. (div (px p) s) (div (py p) s)))
 
 (define (p+dir p dir . step)
   (let ((count (if (pair? step) (car step) 1)))
