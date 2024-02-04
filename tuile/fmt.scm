@@ -1,6 +1,6 @@
 (define-module (tuile fmt)
   #:use-module (common base)
-  #:use-module ((srfi srfi-1)  #:select (first second third fold drop))
+  #:use-module ((srfi srfi-1)  #:select (first second third fold drop list-index))
   #:use-module ((srfi srfi-11) #:select (let-values))
   #:use-module ((ice-9 match) #:select (match))
   #:use-module ((tuile utils) #:select (delete-nth))
@@ -84,52 +84,51 @@
 ;; ------------------------------------------------------------
 ;; User API:
 
-(define (fmt . args)
+(define format-commands-spec '((ind . 2)
+                               (lal . 2)
+                               (ral . 2)
+                               (cal . 2)
+                               (laf . 2)
+                               (raf . 2)
+                               (caf . 2)
+                               (gap . 2)
+                               (lep . 2)
+                               (rip . 2)
+                               (cat . 1)
+                               (rev . 1)
+                               (bin . 2)
+                               (oct . 2)
+                               (hex . 2)
+                               (dec . 2)))
 
-  (define format-commands '(ind
-                            lal
-                            ral
-                            cal
-                            laf
-                            raf
-                            caf
-                            gap
-                            lep
-                            rip
-                            cat
-                            bin
-                            oct
-                            hex
-                            dec))
+(define format-commands (map car format-commands-spec))
+
+
+(define (fmt . args)
 
   (define (format-atom atom)
 
     (define (string-repeat n str)
       (fold string-append "" (make-list n str)))
 
+    (define (pad-common pad-fn atom)
+      (match atom
+        (((num char) str-list ..1) (string-concatenate (map (lambda (str) (pad-fn str num (string-ref char 0))) str-list)))
+        (((num char)) (make-string num (string-ref char 0)))
+        ((num str-list ..1) (string-concatenate (map (lambda (str) (pad-fn str num #\ )) str-list)))
+        ((num) (make-string num #\ ))))
+
     ;; Left-pad, indent.
     (define (left-pad-entry atom)
-
       (define (left-pad str count pad-elem)
         (string-append (make-string count pad-elem) (->str str)))
-
-      (match atom
-        (((num char) str-list ..1) (string-concatenate (map (lambda (str) (left-pad str num (string-ref char 0))) str-list)))
-        (((num char)) (make-string num (string-ref char 0)))
-        ((num str-list ..1) (string-concatenate (map (lambda (str) (left-pad str num #\ )) str-list)))
-        ((num) (make-string num #\ ))))
+      (pad-common left-pad atom))
 
     ;; Right-pad.
     (define (right-pad-entry atom)
-
       (define (right-pad str count pad-elem)
         (string-append (->str str) (make-string count pad-elem)))
-
-      (match atom
-        (((num char) str-list ..1) (string-concatenate (map (lambda (str) (right-pad str num (string-ref char 0))) str-list)))
-        (((num char)) (make-string num (string-ref char 0)))
-        ((num str-list ..1) (string-concatenate (map (lambda (str) (right-pad str num #\ )) str-list)))
-        ((num) (make-string num #\ ))))
+      (pad-common right-pad atom))
 
     (define (left-align-or-clip str width pad-elem)
       (if (< (string-length str) width)
@@ -274,6 +273,9 @@
         ((cat)
          (map fmt (cdr atom)))
 
+        ((rev)
+         (map fmt (reverse (cdr atom))))
+
         (else
          (map fmt atom))))
 
@@ -333,6 +335,13 @@
 ;;                   ("#" "bar" "Second dummy name.")))
 ;;
 (define (fmt-group format lines)
+
+  (define (wrap host expr)
+    (let ((sub-host-index (list-index list? host)))
+      (if sub-host-index
+          (append (list-head host sub-host-index) (list (wrap (list-ref host sub-host-index) expr)) (list-tail host (1+ sub-host-index)))
+          (append host (list expr)))))
+
   (let lp ((lines lines)
            (ret '()))
     (if (pair? lines)
@@ -350,7 +359,7 @@
                                        (lp2 (cdr rest)
                                             (cdr cols)
                                             (append ret
-                                                    (list (append (car rest) (list (->str (car cols))))))))
+                                                    (list (wrap (car rest) (->str (car cols)))))))
                                    (append ret cols))))
                   ret))
         (reverse ret))))
@@ -406,6 +415,6 @@
 ;; (pr (fmt `(ind (5 "+"))))
 ;; (pr (fmt `(ind 5) "**"))
 ;; (pr (fmt `(ind 5 "---") "**"))
-;; (pl (fmt-group '((ind (3 "-")) (lal 6) (lal 12))
+;; (pl (fmt-group '((ind (3 "-")) (lal 6 (cat "*")) (lal 12))
 ;;                '(("#" "foo" "First dummy name.")
 ;;                  ("#" "bar" "Second dummy name."))))
