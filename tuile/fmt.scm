@@ -1,8 +1,6 @@
 (define-module (tuile fmt)
   #:use-module (common base)
   #:use-module ((srfi srfi-1)  #:select (first second third fold drop))
-;;  #:use-module ((srfi srfi-9)  #:select (define-record-type))
-;;   #:use-module (tuile compatible)
   #:use-module ((srfi srfi-11) #:select (let-values))
   #:use-module ((ice-9 match) #:select (match))
   #:use-module ((tuile utils) #:select (delete-nth))
@@ -21,7 +19,7 @@
 
 ;; Formatters (with space as default pad):
 ;;
-;; ind - indent
+;; ind - indent, no string arguments
 ;; lal - left-align
 ;; ral - right-align
 ;; cal - center-align
@@ -29,6 +27,8 @@
 ;; raf - right-align-fill
 ;; caf - center-align-fill
 ;; gap - gap
+;; lep - left-pad (same as indent, with arguments in fmt-group)
+;; rip - right-pad
 ;; cat - concatenate
 
 ;; Converters (with zero as default pad):
@@ -90,7 +90,12 @@
                             lal
                             ral
                             cal
+                            laf
+                            raf
+                            caf
                             gap
+                            lep
+                            rip
                             cat
                             bin
                             oct
@@ -102,10 +107,29 @@
     (define (string-repeat n str)
       (fold string-append "" (make-list n str)))
 
-    (define (ind atom)
+    ;; Left-pad, indent.
+    (define (left-pad-entry atom)
+
+      (define (left-pad str count pad-elem)
+        (string-append (make-string count pad-elem) (->str str)))
+
       (match atom
-        ((num char) (make-string num (car (string->list char))))
-        (num (make-string num #\ ))))
+        (((num char) str-list ..1) (string-concatenate (map (lambda (str) (left-pad str num (string-ref char 0))) str-list)))
+        (((num char)) (make-string num (string-ref char 0)))
+        ((num str-list ..1) (string-concatenate (map (lambda (str) (left-pad str num #\ )) str-list)))
+        ((num) (make-string num #\ ))))
+
+    ;; Right-pad.
+    (define (right-pad-entry atom)
+
+      (define (right-pad str count pad-elem)
+        (string-append (->str str) (make-string count pad-elem)))
+
+      (match atom
+        (((num char) str-list ..1) (string-concatenate (map (lambda (str) (right-pad str num (string-ref char 0))) str-list)))
+        (((num char)) (make-string num (string-ref char 0)))
+        ((num str-list ..1) (string-concatenate (map (lambda (str) (right-pad str num #\ )) str-list)))
+        ((num) (make-string num #\ ))))
 
     (define (left-align-or-clip str width pad-elem)
       (if (< (string-length str) width)
@@ -206,7 +230,7 @@
       (case (first atom)
 
         ((ind)
-         (ind (second atom)))
+         (left-pad-entry (cdr atom)))
 
         ((lal)
          (call-align left-align-or-clip atom #\ ))
@@ -228,6 +252,12 @@
 
         ((gap)
          (gap (cdr atom)))
+
+        ((lep)
+         (left-pad-entry (cdr atom)))
+
+        ((rip)
+         (right-pad-entry (cdr atom)))
 
         ((bin)
          (bin (cdr atom)))
@@ -306,7 +336,6 @@
   (let lp ((lines lines)
            (ret '()))
     (if (pair? lines)
-        ;; Example:
         ;;     (fmt '(lal 6 "#") '(lal 12 "foo") "First dummy name.")
         (lp (cdr lines)
             (cons (apply fmt (let lp2 ((rest format)
@@ -353,13 +382,7 @@
 
   (gen-fmt-info (match args
                   ((args) args)
-                  (else args)))
-
-;;   (if (list? (car args))
-;;       ;; List argument.
-;;       (gen-fmt-info (car args))
-;;       (gen-fmt-info args))
-  )
+                  (else args))))
 
 
 ;; (use-modules (tuile pr))
@@ -367,9 +390,22 @@
 (when #t
   (pr (fmt `(ind 10) `(cal 12 "foobar") `(put "--")))
   (pr (fmt `(ind 10) `(caf 12 #\* "foobar") `(put "--")))
-  (pr (fmt '(bin 12 "-" 6)))
+  (pr (fmt '(bin (12 "-") 6)))
   (pr (fmt '(gap 4 "foo" "bar")))
   (pr (fmt `(raf 10 #\- "x"))))
 
-;; (pr (fmt `(ral (5 "-") "foo")))
+;; (use-modules (tuile pr))
+;; (pr (fmt `(ral (5 "-") "foo" "**")))
 ;; (pr (fmt `(ral (5 "-") 123)))
+;; (pr (fmt `(ind (5 "*") "dii") "---"))
+;; (pr (fmt `(ind 5 "dii") "---"))
+;; (pr (fmt `(ind (5 "+") "---" "**")))
+;; (pr (fmt `(lep 5 "---" "**")))
+;; (pr (fmt `(rip 5 "---" "**")))
+
+;; (pr (fmt `(ind (5 "+"))))
+;; (pr (fmt `(ind 5) "**"))
+;; (pr (fmt `(ind 5 "---") "**"))
+;; (pl (fmt-group '((ind (3 "-")) (lal 6) (lal 12))
+;;                '(("#" "foo" "First dummy name.")
+;;                  ("#" "bar" "Second dummy name."))))
