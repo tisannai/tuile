@@ -213,7 +213,8 @@
                            (write datum))))
 
 (define (pd datum)
-  (pr (ds datum)))
+  (pr (ds datum))
+  datum)
 
 (define (pde . datums)
   (for-each pd datums)
@@ -264,7 +265,8 @@
   (exit 0))
 
 (define (ppr . datums)
-  (for-each pretty-print datums))
+  (for-each pretty-print datums)
+  (car datums))
 
 (define (ppre . datums)
   (apply ppr datums)

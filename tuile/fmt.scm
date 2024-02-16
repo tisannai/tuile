@@ -57,33 +57,11 @@
    ((boolean? arg)
     (if arg "true" "false"))))
 
-;; Tail recursive full flatten.
-(define (flatten . rest)
-  (let lp ((stack rest)
-           (res '()))
-    (cond
-     ((null? stack)
-      ;; We are done, reverse the result.
-      (reverse res))
-     ((null? (car stack))
-      ;; Eat out empty tails.
-      (lp (cdr stack)
-          res))
-     ((pair? (car stack))
-      ;; Convert stack into: (head tail rest-of-stack).
-      (lp (cons (caar stack)
-                (cons (cdar stack)
-                      (cdr stack)))
-          res))
-     (else
-      ;; Add head to result.
-      (lp (cdr stack)
-          (cons (car stack) res))))))
-
 
 ;; ------------------------------------------------------------
 ;; User API:
 
+;;           <command> . <no-of-args>
 (define format-commands-spec '((ind . 2)
                                (lal . 2)
                                (ral . 2)
@@ -105,6 +83,29 @@
 
 
 (define (fmt . args)
+
+  ;; Tail recursive full flatten.
+  (define (flatten . rest)
+    (let lp ((stack rest)
+             (res '()))
+      (cond
+       ((null? stack)
+        ;; We are done, reverse the result.
+        (reverse res))
+       ((null? (car stack))
+        ;; Eat out empty tails.
+        (lp (cdr stack)
+            res))
+       ((pair? (car stack))
+        ;; Convert stack into: (head tail rest-of-stack).
+        (lp (cons (caar stack)
+                  (cons (cdar stack)
+                        (cdr stack)))
+            res))
+       (else
+        ;; Add head to result.
+        (lp (cdr stack)
+            (cons (car stack) res))))))
 
   (define (format-atom atom)
 
