@@ -75,7 +75,7 @@
                    "foo  bar  dii  ")
 
 (test-string-match "many left-aligns, list arg"
-                   (fmt '(lal 5 ("foo" "bar" "dii")))
+                   (fmt '(lal 5 (cat "foo" "bar" "dii")))
                    "fooba")
 
 (test-string-match "many left-aligns with shorthand"
