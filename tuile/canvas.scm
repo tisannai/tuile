@@ -22,7 +22,7 @@
   #:use-module (tuile pr)
   #:use-module (tuile coord)
   #:use-module (rnrs bytevectors)
-  #:use-module ((srfi srfi-1) #:select (first second third last))
+  #:use-module ((srfi srfi-1) #:select (first second third last find))
   #:use-module (srfi srfi-43)
   #:export
   (
@@ -88,6 +88,7 @@
 (define (ch-x ch) (vector-ref ch 0))    ; Char x.
 (define (ch-y ch) (vector-ref ch 1))    ; Char y.
 (define (ch-c ch) (vector-ref ch 2))    ; Char character.
+(define (ch-c-set! ch char) (vector-set! ch 2 char))
 
 
 ;; Reset layer dimension values.
@@ -256,7 +257,12 @@
         (y (py pos)))
     (when (> x (layer-xmax layer)) (layer-xmax-set! layer x))
     (when (> y (layer-ymax layer)) (layer-ymax-set! layer y))
-    (layer-chars-set! layer (cons (make-ch (px pos) (py pos) ch) (layer-chars layer)))))
+    (let ((old-ch (find (lambda (ch) (and (= x (ch-x ch))
+                                          (= y (ch-y ch))))
+                        (layer-chars layer))))
+      (if old-ch
+          (ch-c-set! old-ch ch)
+          (layer-chars-set! layer (cons (make-ch (px pos) (py pos) ch) (layer-chars layer)))))))
 
 
 ;; Put string of chars starting from position (on active layer).

@@ -71,6 +71,7 @@
             fps-clean
 
             fps-dir?
+            fps-just-file?
             fps-hidden?
             fps-abs?
             fps-rel?
@@ -78,6 +79,7 @@
             fps-off?
 ;;             fps-dir
             fps->abs
+            fps->rel
 ;;             fps-dir
 ;;             fps-reldir-dotted
 ;;             fps-relpath
@@ -108,6 +110,7 @@
 ;;             fpd-to-type
             fpd-up
             fpd->abs
+            fpd->rel
             fps->fpd
             fpd->fps
 
@@ -254,7 +257,10 @@
        ((and (>= (string-length fps) 2)
              (char=? (string-ref fps 0) #\.)
              (char=? (string-ref fps 1) #\.)) 'off)
-       ((char=? (string-ref fps 0) #\.) 'dot)
+       ((and (>= (string-length fps) 2)
+             (char=? (string-ref fps 0) #\.)
+             (char=? (string-ref fps 1) #\/)) 'dot)
+;;        ((char=? (string-ref fps 0) #\.) 'dot)
        ;;        ((prefixed? fps "./") 'dot)
        ;;        ((prefixed? fps "../") 'off)
        ;;        ((prefixed? fps ".") 'dot)
@@ -324,6 +330,12 @@
   (file-is-directory? fps))
 
 
+;; fps is a file (with no directory part either)?
+(define (fps-just-file? fps)
+  (and (not (file-is-directory? fps))
+       (fps-rel? fps)))
+
+
 ;; fps is hidden file or directory?
 (define (fps-hidden? fps)
   (if (string-null? fps)
@@ -359,6 +371,10 @@
 ;; Return resolved path of file-string.
 (define (fps->abs fps . base)
   (fpd->fps (apply fpd->abs (cons (fps->fpd fps) base))))
+
+;; Return resolved path of file-string.
+(define (fps->rel fps)
+  (fpd->fps (fpd->rel (fps->fpd fps))))
 
 
 ;; ;; Return relative directory of file-string.
@@ -575,6 +591,12 @@
              ((string=? (car tail) ".") (lp (cdr tail) base))
              (else (cons 'abs (append (reverse tail) base))))))))
 
+;; Return fpd as rel, if fpd is of dot type.
+;;
+(define (fpd->rel fpd)
+  (if (fpd-dot? fpd)
+      (cons 'rel (cdr fpd))
+      fpd))
 
 ;; File-path-string to file-path-descriptor (fpd).
 (define (old-fps->fpd fps)

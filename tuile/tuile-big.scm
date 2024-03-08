@@ -8,6 +8,7 @@
                 '(srfi srfi-19)
                 '(srfi srfi-43)
                 '(srfi srfi-111)
+                '(ice-9 match)
                 '(tuile como)
                 '(tuile dbg)
                 '(tuile fmt)

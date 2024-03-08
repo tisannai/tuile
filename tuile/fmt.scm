@@ -43,7 +43,12 @@
 ;; ------------------------------------------------------------
 ;; Internal functions:
 
+;; Commands and their arguments counts. lal (and others) accept
+;; internally more arguments, so the number is the minimum count for
+;; those. Command with 0 count accept any number of arguments.
+;;
 ;;     <command> . <no-of-args>
+;;
 (define format-commands-spec '((ind . 1)
                                (lal . 2)
                                (ral . 2)
