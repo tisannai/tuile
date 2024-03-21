@@ -27,6 +27,8 @@
    len-3?
    most
    best
+   all
+   one
    lref-0
    lref-1
    lref-2
@@ -214,6 +216,26 @@
                 (loop (cdr tail)
                       wins))
             wins))))
+
+
+;; Return #t if all are non-false.
+(define (all lst)
+  (let lp ((lst lst))
+    (if (pair? lst)
+        (if (car lst)
+            (lp (cdr lst))
+            #f)
+        #t)))
+
+
+;; Return #t if one is non-false.
+(define (one lst)
+  (let lp ((lst lst))
+    (if (pair? lst)
+        (if (car lst)
+            #t
+            (lp (cdr lst)))
+        #f)))
 
 
 ;; Create function definitions (by x amount) using list-ref as:

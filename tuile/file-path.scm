@@ -88,6 +88,7 @@
             fps-mkdir-p
             fps-mkpath-p
             fps-ls
+            fps-ls-path
             fps-recurse
             fps-recurse-dir-before
             fps-recurse-dir-after
@@ -430,11 +431,17 @@
   (fps-mkdir-p (fps-dir fps)))
 
 
+;; Return directory entries as leaf names (no path).
 (define (fps-ls fps)
   (let ((files ((@ (ice-9 ftw) scandir) fps)))
     (if files
         (list-tail files 2)
         #f)))
+
+
+;; Return directory entries as full path names.
+(define (fps-ls-path fps)
+  (map (lambda (file) (string-append fps "/" file)) (fps-ls fps)))
 
 
 (define (fps-recurse fps f)
