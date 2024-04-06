@@ -6,6 +6,7 @@
   #:export
   (
    lookup-make
+   alist->lookup
    lookup-set!
    lookup-del!
    lookup-ref
@@ -33,6 +34,11 @@
 ;; Make lookup.
 (define (lookup-make)
   (make-lookup '() (hash:hash-make)))
+
+;; Convert alist to lookup.
+(define (alist->lookup alist)
+  (make-lookup (reverse (map car alist))
+               (hash:alist->hash alist)))
 
 
 ;; Set value in lookup.

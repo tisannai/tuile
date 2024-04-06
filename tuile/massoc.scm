@@ -15,6 +15,8 @@
    massoc-del!
    massoc-clear!
    massoc-update!
+   massoc-cons!
+   massoc-prepend!
    massoc-repeat!
    massoc-copy
    massoc-merge!
@@ -121,6 +123,18 @@
   (when (massoc-has-key? ma key)
     (massoc-val! ma key (proc (massoc-ref ma key))))
   ma)
+
+
+(define (massoc-cons! ma key value)
+  (if (massoc-has-key? ma key)
+      (massoc-val! ma key (cons value (massoc-ref ma key)))
+      (massoc-add! ma key (list value))))
+
+
+(define (massoc-prepend! ma key value)
+  (if (massoc-has-key? ma key)
+      (massoc-val! ma key (append value (massoc-ref ma key)))
+      (massoc-add! ma key value)))
 
 
 ;; Evaluate "proc" (of three args) for massoc for each pair in set-list.

@@ -15,7 +15,7 @@
   #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
   #:use-module (tuile re)
-  #:use-module ((tuile pr) #:select (si :in :rj))
+  #:use-module ((tuile pr) #:select (ss si :in :rj))
 ;;   #:use-module (tuile compatible)
   #:export
   (
@@ -37,17 +37,23 @@
    flatten
    flatten-0
    flatten-1
+   nth
    delete-nth
-   list/
+;;    list/
+   list-clean
+   list-specified
    list-split
    list-slice
    list-range
    list-pick
    list-compact
-   list-clean
+;;    list-clean
    list-randomize
    list-update
    list-update!
+   make-list-stack
+   list-push!
+   list-pop!
    map-compact
    clean-list
 
@@ -71,7 +77,7 @@
    datum->string
    string->procedure
    common-eval
-   funcall
+   opt-arg
 
    aif
    awhen
@@ -159,6 +165,9 @@
    number-span
 
    with-file-or-fail
+   make-temporary-file
+
+   define-with-memoize
    ))
 
 
@@ -349,6 +358,10 @@
         res)))
 
 
+;; Return nth element of list.
+(define (nth i lst)
+  (list-ref lst i))
+
 ;; Delete nth element from list.
 (define (delete-nth lst nth)
   (let loop ((head '())
@@ -363,18 +376,43 @@
                 (if (pair? tail) (cdr tail) '())))))
 
 
-;; Create a clean list, i.e. don't include unspecified entries.
-(define (list/ . rest)
-  (cond
-   ((null? rest) (list))
-   (else
-    (let loop ((rest rest)
-               (ret '()))
-      (if (pair? rest)
-          (if (unspecified? (car rest))
-              (loop (cdr rest) ret)
-              (loop (cdr rest) (cons (car rest) ret)))
-          (reverse ret))))))
+;; Return a clean list (no falses, no unspecified).
+(define (list-clean lst)
+  (let loop ((lst lst)
+             (ret (list)))
+    (if (pair? lst)
+        (loop (cdr lst)
+              (if (or (unspecified? (car lst))
+                      (not (car lst)))
+                  ret
+                  (cons (car lst) ret)))
+        (reverse ret))))
+
+
+;; Return a clean list (no unspecified).
+(define (list-specified lst)
+  (let loop ((lst lst)
+             (ret (list)))
+    (if (pair? lst)
+        (loop (cdr lst)
+              (if (unspecified? (car lst))
+                  ret
+                  (cons (car lst) ret)))
+        (reverse ret))))
+
+
+;; ;; Create a clean list, i.e. don't include unspecified entries.
+;; (define (list/ . rest)
+;;   (cond
+;;    ((null? rest) (list))
+;;    (else
+;;     (let loop ((rest rest)
+;;                (ret '()))
+;;       (if (pair? rest)
+;;           (if (unspecified? (car rest))
+;;               (loop (cdr rest) ret)
+;;               (loop (cdr rest) (cons (car rest) ret)))
+;;           (reverse ret))))))
 
 
 ;; Split list from Nth element and return results as pair.
@@ -440,16 +478,16 @@
     (filter pred lst)))
 
 
-;; Create a clean list, excluding any unspecified entries.
-(define (list-clean . lst)
-  (let loop ((lst lst)
-           (ret (list)))
-    (if (pair? lst)
-        (loop (cdr lst)
-            (if (unspecified? (car lst))
-                ret
-                (cons (car lst) ret)))
-        (reverse ret))))
+;; ;; Create a clean list, excluding any unspecified entries.
+;; (define (list-clean . lst)
+;;   (let loop ((lst lst)
+;;            (ret (list)))
+;;     (if (pair? lst)
+;;         (loop (cdr lst)
+;;             (if (unspecified? (car lst))
+;;                 ret
+;;                 (cons (car lst) ret)))
+;;         (reverse ret))))
 
 
 ;; Randomize the list ordering.
@@ -504,6 +542,35 @@
    (else
     (list-set! lst index (modifier (list-ref lst index)))
     lst)))
+
+
+(define (make-list-stack . rest)
+  (cond
+   ((null? rest) (list *unspecified*))
+   (else rest)))
+
+
+(define (list-push! lst item)
+  (cond
+   ((unspecified? (car lst))
+    (set-cdr! lst (list))
+    (set-car! lst item))
+   (else
+    (set-cdr! lst (list-copy lst))
+    (set-car! lst item)))
+  lst)
+
+
+(define (list-pop! lst)
+  (let ((item (car lst)))
+    (cond
+     ((= (length lst) 1)
+      (set-cdr! lst (list))
+      (set-car! lst *unspecified*))
+     (else
+      (set-car! lst (cadr lst))
+      (set-cdr! lst (cddr lst))))
+    item))
 
 
 ;; Map list by removing (by default) unspecified values.
@@ -655,6 +722,13 @@
 
 ;; Eval datum.
 (define common-eval primitive-eval)
+
+;; Return car of rest or backup if rest is not a pair.
+(define (opt-arg rest backup)
+  (if (pair? rest)
+      (car rest)
+      backup))
+
 
 ;; Anaphoric if macro.
 ;;
@@ -1936,3 +2010,50 @@
   (if (file-exists? filename)
       (proc filename)
       (raise-exception &error)))
+
+;; Create a temporary file by name. User can select the temp file
+;; directory with opts (default: /dev/shm).
+(define (make-temporary-file name . opts)
+  (let* ((dir (opt-arg opts "/dev/shm"))
+         (port (mkstemp (ss dir "/" name "-XXXXXX"))))
+    (chmod port (logand #o777 (lognot (umask))))
+    (let ((temp-filename (port-filename port)))
+      (close port)
+      temp-filename)))
+
+;; Create function with memoization.
+;;
+;; param:
+;;       fn-name       Function name.
+;;       fn-args       Function arguments.
+;;       fn-body       Function body.
+;;
+;;
+;;     (define-with-memoize (get-files config)
+;;       (assoc-ref config 'files))
+;;
+;;     =>
+;;
+;;     (define get-files
+;;       (let ((memoize-var #f))
+;;         (lambda (config)
+;;           (if memoize-var
+;;               memoize-var
+;;               (begin
+;;                 (set! memoize-var (assoc-ref config 'files))
+;;                 memoize-var)))))
+;;
+(define-syntax define-with-memoize
+  (lambda (x)
+    (syntax-case x ()
+      ((_ (fn-name fn-args ...) fn-body)
+       (with-syntax ((memoize-var (datum->syntax x 'memoize-var)))
+         #`(define fn-name
+             (let ((memoize-var #f))
+               (lambda (fn-args ...)
+                 (if memoize-var
+                     memoize-var
+                     (begin
+                       (set! memoize-var ((lambda (fn-args ...) fn-body)
+                                          fn-args ...))
+                       memoize-var))))))))))

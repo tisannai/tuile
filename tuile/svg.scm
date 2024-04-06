@@ -350,16 +350,17 @@
 
 
 ;; Test:
-;;(define s (svg-create #:ux 30 #:uy 20))
-;;(svg-text-right s (p. 4 2) "clk")
-;;(svg-poly s (xy->points 5 1 5 2 6 2 6 1 7 1 7 2 8 2 8 1))
-;;(pl (svg-draw s))
 
-;;(define s (svg-create #:ux 10 #:uy 10))
-;;(svg-path s
-;;          (xy->points 5 1 5 2 6 2)
-;;          #:fill "gray"
-;;          #:close #t
-;;          #:stroke 'none
-;;          )
-;;(pl (svg-draw s))
+;; (define s (svg-create #:ux 30 #:uy 20))
+;; (svg-text-right s (p. 4 2) "clk")
+;; (svg-poly s (xy->points 5 1 5 2 6 2 6 1 7 1 7 2 8 2 8 1))
+;; (pl (svg-draw s))
+
+;; (define s (svg-create #:ux 10 #:uy 10))
+;; (svg-path s
+;;           (xy->points 5 1 5 2 6 2)
+;;           #:fill "gray"
+;;           #:close #t
+;;           #:stroke 'none
+;;           )
+;; (pl (svg-draw s))

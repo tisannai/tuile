@@ -69,6 +69,7 @@
             fps-dir
             fps-type
             fps-clean
+            fps-sub
 
             fps-dir?
             fps-just-file?
@@ -110,6 +111,7 @@
             fpd-dir
 ;;             fpd-to-type
             fpd-up
+            fpd-sub
             fpd->abs
             fpd->rel
             fps->fpd
@@ -321,6 +323,10 @@
               (list->string (reverse (if (char=? (string-ref fps i) #\/)
                                          ret
                                          (cons (string-ref fps i) ret)))))))))
+
+;; Replace "from" with "to" in fps.
+(define (fps-sub fps from to)
+  (fpd->fps (fpd-sub (fps->fpd fps) from to)))
 
 
 ;; ------------------------------------------------------------
@@ -578,6 +584,18 @@
         (if (fpd-abs? fpd)
             #f
             (fpd-up (fpd->abs fpd) n)))))
+
+;; Replace "from" with "to" in fpd.
+(define (fpd-sub fpd from to)
+  (let lp ((parts (cdr fpd))
+             (ret '()))
+      (if (pair? parts)
+          (let ((part (car parts)))
+            (lp (cdr parts)
+                (if (string=? from part)
+                    (cons to ret)
+                    (cons part ret))))
+          (cons (car fpd) (reverse ret)))))
 
 ;; Return fpd resolved, i.e. fpd as with absolute path.
 ;;
@@ -1166,3 +1184,5 @@
 ;; (pd (fpd->fps (fps->fpd "../")))
 ;; (pd (fpd->fps (fps->fpd "./foo")))
 ;; (pd (fpd->fps (fps->fpd "../foo")))
+
+;; (pd (fps-sub "tb/ss/test/test-1-2.scm" "test" "runs"))
