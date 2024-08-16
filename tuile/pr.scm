@@ -36,6 +36,8 @@
    :nl
    :ow
 
+   mp
+
    expand-string-interpolation
    ))
 
@@ -438,3 +440,7 @@
                                  (substring str
                                             (+ (caar mod) (string-length (cdar mod))))))
             str))))
+
+;; Macro print, i.e. print syntax as datum.
+(define (mp m)
+  (ppre (syntax->datum m)))

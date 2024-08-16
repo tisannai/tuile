@@ -25,10 +25,14 @@
 ;; JSON file operations:
 
 ;; Load JSON file.
-(define (json-load filename)
+(define* (json-load filename #:key (encoding #f))
+;;   (display "ENCODING")
+;;   (newline)
   (with-input-from-file filename
     (lambda ()
-      (json->scm))))
+      (json->scm))
+;;     #:encoding "ISO-8859-1"
+    #:encoding encoding))
 
 
 ;; Dump data to JSON file using pretty formatting.

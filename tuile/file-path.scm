@@ -88,6 +88,7 @@
 
             fps-mkdir-p
             fps-mkpath-p
+            fps-touch
             fps-ls
             fps-ls-path
             fps-recurse
@@ -435,6 +436,12 @@
 ;; Make for a file path, directory and all parents, if needed.
 (define (fps-mkpath-p fps)
   (fps-mkdir-p (fps-dir fps)))
+
+
+;; Create an empty file.
+(define (fps-touch fps)
+  (fps-mkpath-p fps)
+  (mknod fps 'regular #o666 0))
 
 
 ;; Return directory entries as leaf names (no path).

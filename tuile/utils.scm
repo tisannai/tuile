@@ -16,9 +16,25 @@
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
   #:use-module (tuile re)
   #:use-module ((tuile pr) #:select (ss si :in :rj))
+  #:use-module ((tuile fmt) #:select (fmt))
 ;;   #:use-module (tuile compatible)
   #:export
   (
+
+   aif
+   awhen
+   for
+   forever
+   map-except-last
+   map-except-first
+   repeat
+   repeat-times
+   for-n
+   for-n!
+   from-to
+   from-to-step
+   nop
+
    any?
    empty?
    len-0?
@@ -40,6 +56,9 @@
    nth
    delete-nth
 ;;    list/
+   listify
+   list->cons
+   cons->list
    list-clean
    list-specified
    list-split
@@ -59,7 +78,9 @@
 
    pi
    div
+   factorial
    ->integer-fraction
+   prime-numbers
    specified?
 
    command-line-arguments
@@ -72,24 +93,16 @@
    expand-file-name
    is-file?
    is-directory?
+   file-modify-time
+   file-update?
+   file-newer?
+   file-older?
 
 
    datum->string
    string->procedure
    common-eval
    opt-arg
-
-   aif
-   awhen
-   for
-   forever
-   map-except-last
-   map-except-first
-   repeat
-   repeat-times
-   from-to
-   from-to-step
-   nop
 
 ;;   record-type
 ;;   define-im-record
@@ -114,6 +127,7 @@
    assoc-repeat!
    assoc-merge
    assoc-ref-deep
+   assoc-ref-single
 
    hash-has-key?
    ;; Now in hash.scm
@@ -159,6 +173,8 @@
    string-escape
    string-unscape
    string-split-unscape
+   string-split-with
+   string-split-param
    make-string-list
    number-sequence
    number-range
@@ -168,6 +184,8 @@
    make-temporary-file
 
    define-with-memoize
+
+   seconds->minutes:seconds
    ))
 
 
@@ -177,6 +195,386 @@
 
 ;; ------------------------------------------------------------
 ;; External functions:
+
+
+
+;; Anaphoric if macro.
+;;
+;;     (aif (1+ i)
+;;          it
+;;          #f)
+(define-syntax aif
+  (lambda (x)
+    ;; "lst": Convert syntax to datum and convert back to a list of syntax.
+    (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
+      ;; Create template variable "it".
+      (with-syntax ((it (datum->syntax x 'it)))
+        #`(let ((it #,(cadr lst)))
+            (if it #,(caddr lst) #,(cadddr lst)))))))
+
+;;
+;; aif - alternative implementations:
+;;
+;;(define-syntax aif
+;;  (lambda (x)
+;;    (syntax-case x ()
+;;      ((_ test then else)
+;;       (syntax-case (datum->syntax x 'it) ()
+;;         (it
+;;          #'(let ((it test))
+;;              (if it then else))))))))
+;;
+;;(define-syntax aif
+;;  (lambda (x)
+;;    (syntax-case x ()
+;;      ((_ test then else)
+;;       (with-syntax ((it (datum->syntax x 'it)))
+;;         #'(let ((it test))
+;;             (if it then else)))))))
+
+
+;; Anaphoric when macro.
+;;
+;;     (awhen (1+ i)
+;;          it)
+(define-syntax awhen
+  (lambda (x)
+    ;; "lst": Convert syntax to datum and convert back to a list of syntax.
+    (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
+      ;; Create template variable "it".
+      (with-syntax ((it (datum->syntax x 'it)))
+        #`(let ((it #,(cadr lst)))
+            (when it #,(caddr lst)))))))
+
+
+;; Execute for each in list.
+;;
+;;     (for ((i lst))
+;;       (display i)
+;;       (newline))
+(define-syntax for
+  (lambda (x)
+    (syntax-case x ()
+      ((for ((i1 l1)) body ...)
+       #'(for-each
+          (lambda (i1)
+            body ...)
+          l1))
+      ((for ((i1 l1) (i2 l2)) body ...)
+       #'(for-each
+          (lambda (i1 i2)
+            body ...)
+          l1 l2)))))
+
+
+;; Loop forever.
+;;
+;;     (forever
+;;      (display "hello")
+;;      (newline))
+;;
+(define-syntax forever
+  (lambda (x)
+    (syntax-case x ()
+      ((forever body ...)
+       #'(let loop-forever ()
+           body ...
+           )))))
+
+
+;; Map all list entries except last.
+(define (map-except-last fn lst)
+  (reverse (let process ((tail lst)
+                         (res '()))
+             (cond
+              ((null? tail)
+               res)
+              ((pair? (cdr tail))
+               (process (cdr tail)
+                        (cons (fn (car tail))
+                              res)))
+              (else
+               (process (cdr tail)
+                        (cons (car tail)
+                              res)))))))
+
+
+;; Map all list entries except last.
+(define (map-except-first fn lst)
+  (reverse (let process ((tail lst)
+                         (res '()))
+             (cond
+              ((null? tail)
+               res)
+              ((null? res)
+               (process (cdr tail)
+                        (cons (car tail)
+                              res)))
+              (else
+               (process (cdr tail)
+                        (cons (fn (car tail))
+                              res)))))))
+
+
+(define (fn-pipe arg . chain)
+  (let loop ((res arg)
+             (chain chain))
+    (if (pair? chain)
+        (loop ((car chain) res)
+              (cdr chain))
+        res)))
+
+(define -> fn-pipe)
+
+(define (repeat fn cnt)
+  (let lp ((i 0)
+           (ret '()))
+    (if (< i cnt)
+        (lp (1+ i)
+            (cons (fn i) ret))
+        (reverse ret))))
+
+(define-syntax repeat-times
+  (lambda (x)
+    (syntax-case x ()
+      ((_ cnt body ...)
+       (with-syntax ((i (datum->syntax x 'i)))
+         #'(let repeat-loop ((i 0))
+             (when (< i cnt)
+               (begin
+                 body ...
+                 (repeat-loop (1+ i))))))))))
+
+
+;; Run indeces through specified values and execute the body with the
+;; swept value. Collect the body return values to a list.
+;;
+;;     (for-n (i 8) i)
+;;     (for-n (i 8 2) i)
+;;     (for-n (i 8 -2) i)
+;;     (for-n (i (0 8)) i)
+;;     (for-n (i (8 0)) i)
+;;     (for-n (i (0 8) 2) i)
+;;     (for-n (i (8 0) 2) i)
+;;     (for-n (i (8 0) -2) i)
+;;
+
+;; Helper functions for for-n and for-n!.
+
+(define (for-repeat-n op var ini lim step body)
+  #`(let repeat-loop ((#,var #,ini)
+                      (ret '()))
+      (if (#,op #,var #,lim)
+          (repeat-loop (+ #,var #,step)
+                       (cons (begin #,@body) ret))
+          (reverse ret))))
+
+(define (for-repeat-n! op var ini lim step body)
+  #`(let repeat-loop ((#,var #,ini))
+      (when (#,op #,var #,lim)
+        (begin
+          #,@body
+          (repeat-loop (+ #,var #,step))))))
+
+(define for-trans
+  (lambda (x fn)
+    (define -> datum->syntax)
+    (define => syntax->datum)
+    (syntax-case x ()
+
+      ;;     (for-n (i (0 8) 2) i)
+      ((_ (var (ini lim) step) body ...)
+       (cond
+        ((< (=> #'step) 0) #'(quote ()))
+        ((> (=> #'ini) (=> #'lim))
+         (fn (-> x '>)
+             #'var
+             #'ini
+             #'lim
+             (- (=> #'step))
+             #'(body ...)))
+        (else
+         (fn (-> x '<) #'var 0 #'lim #'step #'(body ...)))))
+
+      ;;     (for-n (i (0 8)) i)
+      ((_ (var (ini lim)) body ...)
+       (cond
+        ((> (=> #'ini) (=> #'lim))
+         (fn (-> x '>)
+             #'var
+             #'ini
+             #'lim
+             -1
+             #'(body ...)))
+        (else
+         (fn (-> x '<) #'var #'ini #'lim 1 #'(body ...)))))
+
+      ;;     (for-n (i 8) i)
+      ((_ (var lim) body ...)
+       (fn (-> x '<) #'var 0 #'lim 1 #'(body ...)))
+
+      ;;     (for-n (i 8 2) i)
+      ((_ (var lim step) body ...)
+       (cond
+        ((< (=> #'step) 0) #'(quote ()))
+        (else
+         (fn (-> x '<) #'var 0 #'lim #'step #'(body ...))))))))
+
+(define-syntax for-n (lambda (x) (for-trans x for-repeat-n)))
+
+;; Run indeces through specified values and execute the body with the
+;; swept value. Nothing is done to the body result values.
+(define-syntax for-n! (lambda (x) (for-trans x for-repeat-n!)))
+
+;; (for-n (i 10) (display i) (newline) i)
+;; (for-n! (i 10) (display i) (newline))
+
+
+#;
+(define-syntax for-n
+  (lambda (x)
+
+    (define (for-core op var ini lim step body)
+      #`(let repeat-loop ((#,var #,ini)
+                          (ret '()))
+          (if (#,op #,var #,lim)
+              (repeat-loop (+ #,var #,step)
+                           (cons #,@body ret))
+              (reverse ret))))
+
+    (define -> datum->syntax)
+    (define => syntax->datum)
+
+    (syntax-case x ()
+
+      ((_ (var (ini lim) step) body ...)
+       (cond
+        ((< (=> #'step) 0) #'(quote ()))
+        ((> (=> #'ini) (=> #'lim))
+         (for-core (-> x '>)
+              #'var
+              #'ini
+              #'lim
+              (- (=> #'step))
+              #'(body ...)))
+        (else
+         (for-core (-> x '<) #'var 0 #'lim #'step #'(body ...)))))
+
+      ((_ (var (ini lim)) body ...)
+       (cond
+        ((> (=> #'ini) (=> #'lim))
+         (for-core (-> x '>)
+              #'var
+              #'ini
+              #'lim
+              -1
+              #'(body ...)))
+        (else
+         (for-core (-> x '<) #'var #'ini #'lim 1 #'(body ...)))))
+
+      ((_ (var lim) body ...)
+       (for-core (-> x '<) #'var 0 #'lim 1 #'(body ...)))
+
+      ((_ (var lim step) body ...)
+       (cond
+        ((< (=> #'step) 0) #'(quote ()))
+        (else
+         (for-core (-> x '<) #'var 0 #'lim #'step #'(body ...))))))))
+
+#;
+(define-syntax for-n!
+  (lambda (x)
+
+    (define (for-core op var ini lim step body)
+      #`(let repeat-loop ((#,var #,ini))
+          (when (#,op #,var #,lim)
+            (begin
+              #,@body
+              (repeat-loop (+ #,var #,step))))))
+
+    (define -> datum->syntax)
+    (define => syntax->datum)
+
+    (syntax-case x ()
+
+      ((_ (var (ini lim) step) body ...)
+       (cond
+        ((< (=> #'step) 0) #'(quote ()))
+        ((> (=> #'ini) (=> #'lim))
+         (for-core (-> x '>)
+              #'var
+              #'ini
+              #'lim
+              (- (=> #'step))
+              #'(body ...)))
+        (else
+         (for-core (-> x '<) #'var 0 #'lim #'step #'(body ...)))))
+
+      ((_ (var (ini lim)) body ...)
+       (cond
+        ((> (=> #'ini) (=> #'lim))
+         (for-core (-> x '>)
+              #'var
+              #'ini
+              #'lim
+              -1
+              #'(body ...)))
+        (else
+         (for-core (-> x '<) #'var #'ini #'lim 1 #'(body ...)))))
+
+      ((_ (var lim) body ...)
+       (for-core (-> x '<) #'var 0 #'lim 1 #'(body ...)))
+
+      ((_ (var lim step) body ...)
+       (cond
+        ((< (=> #'step) 0) #'(quote ()))
+        (else
+         (for-core (-> x '<) #'var 0 #'lim #'step #'(body ...))))))))
+
+
+;; Execute body the given number of times with the variable.
+;;
+;;     (for ((i lst))
+;;       (display i)
+;;       (newline))
+(define-syntax dotimes
+  (lambda (x)
+    (syntax-case x ()
+      ((dotimes (var cnt) body ...)
+       #'(let lp ((var 0))
+           (when (< var cnt)
+             body ...
+             (lp (1+ var))))))))
+
+;; Run "i" from "from" to "to" with step of 1.
+(define-syntax from-to
+  (lambda (x)
+    (syntax-case x ()
+      ((_ from to body ...)
+       (with-syntax ((i (datum->syntax x 'i)))
+         #'(let repeat-loop ((i from))
+             (when (< i (1+ to))
+               (begin
+                 body ...
+                 (repeat-loop (1+ i))))))))))
+
+;; Run "i" from "from" to "to" with step of "step".
+(define-syntax from-to-step
+  (lambda (x)
+    (syntax-case x ()
+      ((_ from to step body ...)
+       (with-syntax ((i (datum->syntax x 'i)))
+         #'(let repeat-loop ((i from))
+             (when (< i (1+ to))
+               (begin
+                 body ...
+                 (repeat-loop (+ i step))))))))))
+
+
+;; No operation, i.e. pass argument forward.
+(define (nop arg)
+  arg)
+
 
 
 (define any?   pair?)
@@ -375,6 +773,23 @@
         (append (reverse head)
                 (if (pair? tail) (cdr tail) '())))))
 
+
+;; Return item as list, no change for list.
+(define (listify item)
+  (cond
+   ((pair? item) item)
+   ((not item) (list))
+   (else (list item))))
+
+;; Convert list to a cons.
+(define (list->cons arg)
+  (if (pair? arg)
+      (cons (first arg) (second arg))
+      (cons arg #f)))
+
+;; Convert cons to a list.
+(define (cons->list arg)
+  (list (car arg) (cdr arg)))
 
 ;; Return a clean list (no falses, no unspecified).
 (define (list-clean lst)
@@ -613,6 +1028,14 @@
       divident))
   (divide divident dividers))
 
+(define (factorial n)
+  (let lp ((i 1)
+           (res 1))
+    (if (<= i n)
+        (lp (1+ i)
+            (* i res))
+        res)))
+
 ;; Return integer and fractional parts of real as pair.
 (define (->integer-fraction real decimals)
   (call-with-values (lambda ()
@@ -621,6 +1044,57 @@
     (lambda (q r)
       (cons (inexact->exact (round q))
             (inexact->exact (round r))))))
+
+(define (prime-numbers n)
+
+  (define (sieve-of-eratosthenes-org n)
+    (define sieve (make-vector (+ n 1) #t)) ; Initialize a vector to track primes.
+
+    (define (mark-multiples p)
+      (do ((i (* p p) (+ i p))) ((>= i (+ n 1)))
+        (vector-set! sieve i #f))) ; Mark multiples of primes as non-prime
+
+    (do ((p 2 (+ p 1))) ((>= p (sqrt n)))
+      (if (vector-ref sieve p)
+          (mark-multiples p))) ; Mark multiples starting from 2 up to sqrt(n)
+
+    (filter (lambda (x) (vector-ref sieve x)) (iota (- n 1) 2))) ; Collect prime numbers from the sieve
+
+
+  (define (sieve-of-eratosthenes n)
+
+    ;; Initialize a vector to track primes.
+    (define sieve (make-vector (+ n 1) #t))
+
+    ;; Mark multiples of primes as non-prime.
+    (define (mark-multiples p)
+      (let lp ((i (* p p)))
+        (when (< i (+ n 1))
+          (vector-set! sieve i #f)
+          (lp (+ i p)))))
+
+    ;; Mark multiples starting from 2 up to sqrt(n).
+    (let lp ((p 2))
+      (when (< p (sqrt n))
+        (when (vector-ref sieve p)
+          (mark-multiples p))
+        (lp (+ p 1))))
+
+    ;; Collect prime numbers from the sieve.
+    (let lp ((i 2)
+             (ret '()))
+      (if (<= i n)
+          (lp (1+ i)
+              (aif (vector-ref sieve i)
+                   (cons i ret)
+                   ret))
+          (reverse ret))))
+
+  (sieve-of-eratosthenes n))
+
+;; (use-modules (tuile pr))
+;; (ppre (prime-numbers 10000))
+
 
 ;; *unspecified* exists already
 ;;(define unspecified (if #f #t))
@@ -711,6 +1185,39 @@
 (define (is-directory? name)
   (eq? (stat:type (stat name)) 'directory))
 
+
+(define (file-modify-time file)
+  (stat:mtime (stat file)))
+
+;; Compare modify time of source(s) to target(s). If any of the
+;; sources is newer than any of the targets, return true.
+(define (file-update? sources targets)
+  (let ((source-times (map file-modify-time (listify sources)))
+        (target-times (map file-modify-time (listify targets))))
+    (> (apply max source-times)
+       (apply min target-times))))
+
+;; Compare modify time of base to ref (+rest).
+(define (file-newer? base ref-or-refs)
+  (let ((base-time (file-modify-time base)))
+    (let lp ((refs (listify ref-or-refs)))
+      (if (pair? refs)
+          (if (> base-time (file-modify-time (car refs)))
+              #t
+              (lp (cdr refs)))
+          #f))))
+
+;; Compare modify time of base to ref (+rest).
+(define (file-older? base ref-or-refs)
+  (let ((base-time (file-modify-time base)))
+    (let lp ((refs (listify ref-or-refs)))
+      (if (pair? refs)
+          (if (< base-time (file-modify-time (car refs)))
+              #t
+              (lp (cdr refs)))
+          #f))))
+
+
 (define (datum->string datum)
   (with-output-to-string (lambda ()
                            (write datum))))
@@ -728,183 +1235,6 @@
   (if (pair? rest)
       (car rest)
       backup))
-
-
-;; Anaphoric if macro.
-;;
-;;     (aif (1+ i)
-;;          it
-;;          #f)
-(define-syntax aif
-  (lambda (x)
-    ;; "lst": Convert syntax to datum and convert back to a list of syntax.
-    (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
-      ;; Create template variable "it".
-      (with-syntax ((it (datum->syntax x 'it)))
-        #`(let ((it #,(cadr lst)))
-            (if it #,(caddr lst) #,(cadddr lst)))))))
-
-;;
-;; aif - alternative implementations:
-;;
-;;(define-syntax aif
-;;  (lambda (x)
-;;    (syntax-case x ()
-;;      ((_ test then else)
-;;       (syntax-case (datum->syntax x 'it) ()
-;;         (it
-;;          #'(let ((it test))
-;;              (if it then else))))))))
-;;
-;;(define-syntax aif
-;;  (lambda (x)
-;;    (syntax-case x ()
-;;      ((_ test then else)
-;;       (with-syntax ((it (datum->syntax x 'it)))
-;;         #'(let ((it test))
-;;             (if it then else)))))))
-
-
-;; Anaphoric when macro.
-;;
-;;     (awhen (1+ i)
-;;          it)
-(define-syntax awhen
-  (lambda (x)
-    ;; "lst": Convert syntax to datum and convert back to a list of syntax.
-    (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
-      ;; Create template variable "it".
-      (with-syntax ((it (datum->syntax x 'it)))
-        #`(let ((it #,(cadr lst)))
-            (when it #,(caddr lst)))))))
-
-
-;; Execute for each in list.
-;;
-;;     (for ((i lst))
-;;       (display i)
-;;       (newline))
-(define-syntax for
-  (lambda (x)
-    (syntax-case x ()
-      ((for ((i1 l1)) body ...)
-       #'(for-each
-          (lambda (i1)
-            body ...)
-          l1))
-      ((for ((i1 l1) (i2 l2)) body ...)
-       #'(for-each
-          (lambda (i1 i2)
-            body ...)
-          l1 l2)))))
-
-
-;; Loop forever.
-;;
-;;     (forever
-;;      (display "hello")
-;;      (newline))
-;;
-(define-syntax forever
-  (lambda (x)
-    (syntax-case x ()
-      ((forever body ...)
-       #'(let loop-forever ()
-           body ...
-           )))))
-
-
-;; Map all list entries except last.
-(define (map-except-last fn lst)
-  (reverse (let process ((tail lst)
-                         (res '()))
-             (cond
-              ((null? tail)
-               res)
-              ((pair? (cdr tail))
-               (process (cdr tail)
-                        (cons (fn (car tail))
-                              res)))
-              (else
-               (process (cdr tail)
-                        (cons (car tail)
-                              res)))))))
-
-
-;; Map all list entries except last.
-(define (map-except-first fn lst)
-  (reverse (let process ((tail lst)
-                         (res '()))
-             (cond
-              ((null? tail)
-               res)
-              ((null? res)
-               (process (cdr tail)
-                        (cons (car tail)
-                              res)))
-              (else
-               (process (cdr tail)
-                        (cons (fn (car tail))
-                              res)))))))
-
-
-(define (fn-pipe arg . chain)
-  (let loop ((res arg)
-             (chain chain))
-    (if (pair? chain)
-        (loop ((car chain) res)
-              (cdr chain))
-        res)))
-
-(define -> fn-pipe)
-
-(define (repeat fn cnt)
-  (let lp ((i 0)
-           (ret '()))
-    (if (< i cnt)
-        (lp (1+ i)
-            (cons (fn i) ret))
-        (reverse ret))))
-
-(define-syntax repeat-times
-  (lambda (x)
-    (syntax-case x ()
-      ((_ cnt body ...)
-       (with-syntax ((i (datum->syntax x 'i)))
-         #'(let repeat-loop ((i 0))
-             (when (< i cnt)
-               (begin
-                 body ...
-                 (repeat-loop (1+ i))))))))))
-
-;; Run "i" from "from" to "to" with step of 1.
-(define-syntax from-to
-  (lambda (x)
-    (syntax-case x ()
-      ((_ from to body ...)
-       (with-syntax ((i (datum->syntax x 'i)))
-         #'(let repeat-loop ((i from))
-             (when (< i (1+ to))
-               (begin
-                 body ...
-                 (repeat-loop (1+ i))))))))))
-
-;; Run "i" from "from" to "to" with step of "step".
-(define-syntax from-to-step
-  (lambda (x)
-    (syntax-case x ()
-      ((_ from to step body ...)
-       (with-syntax ((i (datum->syntax x 'i)))
-         #'(let repeat-loop ((i from))
-             (when (< i (1+ to))
-               (begin
-                 body ...
-                 (repeat-loop (+ i step))))))))))
-
-
-;; No operation, i.e. pass argument forward.
-(define (nop arg)
-  arg)
 
 
 ;; Create immutable record.
@@ -1322,6 +1652,12 @@
                   (lp (return (assoc (car keys) alist))
                       (cdr keys)))
               *unspecified*)))))
+
+(define (assoc-ref-single alist tag)
+  (let ((val (assoc-ref alist tag)))
+    (if (pair? val)
+        (car val)
+        *unspecified*)))
 
 ;; Hash table has key?
 (define (hash-has-key? hsh key)
@@ -1788,6 +2124,32 @@
             (reverse (cons (->word word) ret))))))
 
 
+;; Split string with pattern. Optionally split only once (default:
+;; false).
+(define (string-split-with str pat . opt-once)
+  (let ((pat-len (string-length pat))
+        (once (opt-arg opt-once #f)))
+    (cond
+     (once (let ((pos (string-contains str pat)))
+             (list (substring str 0 pos)
+                   (substring str (+ pos pat-len)))))
+     (else
+      (let loop ((tail str)
+                 (lst '()))
+        (if (> (string-length tail)
+               0)
+            (let ((pos (string-contains tail pat)))
+              (if pos
+                  (loop (substring tail (+ pos pat-len))
+                        (append lst (list (substring tail 0 pos))))
+                  (append lst (list tail))))
+            lst))))))
+
+
+;; Split string as command line parameter definition, e.g. foo=bar.
+(define (string-split-param str)
+  (string-split-with str "=" #t))
+
 ;; Create list of string from symbols, i.e. non-quoted text.
 ;;
 ;;     (make-string-list foo bar dii)
@@ -2057,3 +2419,12 @@
                        (set! memoize-var ((lambda (fn-args ...) fn-body)
                                           fn-args ...))
                        memoize-var))))))))))
+
+
+(define (seconds->minutes:seconds seconds)
+  (let ((mins (quotient seconds 60))
+        (secs (remainder seconds 60)))
+    (fmt `(ral (2 "0") ,mins) ":" `(ral (2 "0") ,secs))))
+;;
+;; (use-modules (tuile pr))
+;; (pr (seconds->minutes:seconds 100))

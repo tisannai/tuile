@@ -74,12 +74,11 @@
                (lst '()))
       (if (> (string-length tail)
              0)
-          (if (string-contains tail pat)
-              (let ((pos (string-contains tail pat)))
-                (loop (substring tail
-                                      (+ pos pat-len))
-                      (append lst (list (substring tail 0 pos)))))
-              (append lst (list tail)))
+          (let ((pos (string-contains tail pat)))
+            (if pos
+                (loop (substring tail (+ pos pat-len))
+                      (append lst (list (substring tail 0 pos))))
+                (append lst (list tail))))
           lst))))
 
 ;; String utilities:
@@ -630,7 +629,7 @@
 ;;
 ;;     setup       Apply lambda before action is executed (default: #f).
 ;;
-(use-modules (tuile pr))
+;; (use-modules (tuile pr))
 (define (como-actions program author year action-list . opts)
 
   (define (option key . default)
