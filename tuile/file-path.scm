@@ -10,7 +10,9 @@
 ;;
 ;; NOTE: We assume clean file-path strings, i.e. no trailing slashes,
 ;; double slashes, etc. Use fps-clean to clean-up the file-path. Some
-;; function work with "broken" path strings.
+;; function work with "broken" path strings. The resulting directory
+;; might be an empty string, use fps-final to produce a non-empty
+;; path.
 ;;
 ;;
 ;; Concepts:
@@ -60,6 +62,7 @@
 ;;
 (define-module (tuile file-path)
   #:use-module ((srfi srfi-1) #:select (first second fold take drop take-right drop-right))
+  #:use-module ((tuile utils) #:select (dir-glob))
   #:use-module (tuile pr)
   #:export (
             fps-file
@@ -69,6 +72,7 @@
             fps-dir
             fps-type
             fps-clean
+            fps-final
             fps-sub
 
             fps-dir?
@@ -91,6 +95,7 @@
             fps-touch
             fps-ls
             fps-ls-path
+            fps-glob
             fps-recurse
             fps-recurse-dir-before
             fps-recurse-dir-after
@@ -325,6 +330,14 @@
                                          ret
                                          (cons (string-ref fps i) ret)))))))))
 
+
+;; Return a non-empty string.
+(define (fps-final fps)
+  (if (string-null? fps)
+      "."
+      fps))
+
+
 ;; Replace "from" with "to" in fps.
 (define (fps-sub fps from to)
   (fpd->fps (fpd-sub (fps->fpd fps) from to)))
@@ -455,6 +468,15 @@
 ;; Return directory entries as full path names.
 (define (fps-ls-path fps)
   (map (lambda (file) (string-append fps "/" file)) (fps-ls fps)))
+
+
+;; Return directory entries as leaf names (no path).
+;;
+;;     (fps-glob "foo/bar/*.mp3")
+;;
+(define (fps-glob pattern)
+  (let ((fpd (fps->fpd pattern)))
+    (dir-glob (fps-final (fpd->fps (fpd-dir fpd))) (fpd-file fpd))))
 
 
 (define (fps-recurse fps f)
@@ -774,7 +796,7 @@
 ;;
 ;;     (fpl "/foo/bar/jii.haa" "df") -> "/foo/bar/jii.haa"
 ;;     (fpl "/foo/bar/jii.haa" "db") -> "/foo/bar/jii"
-;;     (fpl "/foo/bar/jii.haa" ("da" "my-file.txt")) -> "/foo/bar/my-file.txt"
+;;     (fpl "/foo/bar/jii.haa" '("da" "my-file.txt")) -> "/foo/bar/my-file.txt"
 ;;
 ;; One-character commands:
 ;;
@@ -1193,3 +1215,5 @@
 ;; (pd (fpd->fps (fps->fpd "../foo")))
 
 ;; (pd (fps-sub "tb/ss/test/test-1-2.scm" "test" "runs"))
+
+;; (pr (fps-glob "*"))

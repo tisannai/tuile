@@ -30,6 +30,7 @@
 ;; lep - left-pad (same as indent, with arguments in fmt-group)
 ;; rip - right-pad
 ;; cat - concatenate
+;; rev - concatenate in reverse
 
 ;; Converters (with zero as default pad):
 ;;

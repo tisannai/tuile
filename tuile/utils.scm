@@ -17,6 +17,7 @@
   #:use-module (tuile re)
   #:use-module ((tuile pr) #:select (ss si :in :rj))
   #:use-module ((tuile fmt) #:select (fmt))
+  #:use-module (tuile fnmatch)
 ;;   #:use-module (tuile compatible)
   #:export
   (
@@ -1120,36 +1121,40 @@
 
   ;; Glob pattern to regexp.
   (define (glob->regexp pat)
-    (let ((len (string-length pat))
-          (in-selection 0))
-      (string-concatenate
-       (append
-        (list "^")
-        (let loop ((i 0))
-          (if (< i len)
-              (let ((char (string-ref pat i)))
-                (case char
-                  ((#\*) (cons "[^.]*" (loop (1+ i))))
-                  ((#\?) (cons "[^.]" (loop (1+ i))))
-                  ((#\[) (cons "[" (loop (1+ i))))
-                  ((#\]) (cons "]" (loop (1+ i))))
-                  ((#\{) (begin
-                           (set! in-selection (1+ in-selection))
-                           (cons "(" (loop (1+ i)))))
-                  ((#\}) (begin
-                           (set! in-selection (1- in-selection))
-                           (cons ")" (loop (1+ i)))))
-                  ((#\,) (if (> in-selection 0)
-                             (cons "|" (loop (1+ i)))
-                             (cons "," (loop (1+ i)))))
-                  ((#\\)
-                   (cons (list->string (list char (string-ref pat (1+ i))))
-                         (loop (+ i 2))))
-                  (else
-                   (cons (re-quote (make-string 1 char))
-                         (loop (1+ i))))))
-              '()))
-        (list "$")))))
+    (if (string=? pat "*")
+        ;; Plain star is a special case and matches both dirs and
+        ;; files.
+        "^.*$"
+        (let ((len (string-length pat))
+              (in-selection 0))
+          (string-concatenate
+           (append
+            (list "^")
+            (let loop ((i 0))
+              (if (< i len)
+                  (let ((char (string-ref pat i)))
+                    (case char
+                      ((#\*) (cons "[^.]*" (loop (1+ i))))
+                      ((#\?) (cons "[^.]" (loop (1+ i))))
+                      ((#\[) (cons "[" (loop (1+ i))))
+                      ((#\]) (cons "]" (loop (1+ i))))
+                      ((#\{) (begin
+                               (set! in-selection (1+ in-selection))
+                               (cons "(" (loop (1+ i)))))
+                      ((#\}) (begin
+                               (set! in-selection (1- in-selection))
+                               (cons ")" (loop (1+ i)))))
+                      ((#\,) (if (> in-selection 0)
+                                 (cons "|" (loop (1+ i)))
+                                 (cons "," (loop (1+ i)))))
+                      ((#\\)
+                       (cons (list->string (list char (string-ref pat (1+ i))))
+                             (loop (+ i 2))))
+                      (else
+                       (cons (re-quote (make-string 1 char))
+                             (loop (1+ i))))))
+                  '()))
+            (list "$"))))))
 
   (dir-glob-re dir (glob->regexp pat)))
 

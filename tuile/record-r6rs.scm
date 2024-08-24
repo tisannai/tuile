@@ -12,6 +12,7 @@
    record-get-by-symbol
    record-set-by-symbol!
    record->list
+   record->alist
    ))
 
 ;; Return record-type as symbol.
@@ -50,6 +51,19 @@
       (if (< i len)
           (lp (1+ i)
               (cons ((record-accessor rtd i) rec) ret))
+          (reverse ret)))))
+
+(define (record->alist rec)
+  (let* ((rtd (record-type-descriptor rec))
+         (field-names (record-type-field-names rtd))
+         (len (vector-length field-names)))
+    (let lp ((i 0)
+             (ret '()))
+      (if (< i len)
+          (lp (1+ i)
+              (cons (cons (vector-ref field-names i)
+                          ((record-accessor rtd i) rec))
+                    ret))
           (reverse ret)))))
 
 ;; (define-record-type foo
