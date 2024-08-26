@@ -1,167 +1,229 @@
 (define-module (tuile fnmatch)
   #:export
-  (
-   fnmatch
-   ))
+  (fnmatch
+   fnmatch-for-glob))
+
+(define* (fnmatch pat
+                  str
+                  #:key
+                  (pathname #f)
+                  (extglob #f)
+                  (noescape #f)
+                  (dotmatch #f)
+                  (casefold #f))
+
+  ;;   (ppr (list "fnmatch : " pat " : " str))
+
+  (let ((str (if casefold (string-downcase str) str))
+        (pat (if casefold (string-downcase pat) pat))
+        (limiter-string (list->string (append (if pathname '(#\/) '())
+                                              (if dotmatch '() '(#\.))))))
+
+    (define (limiter? si)
+      (string-index limiter-string (string-ref str si)))
+
+    (define (pathchar? si)
+      (string-index "/." (string-ref str si)))
+
+    ;; Parse from brackets range and selection.
+    (define (parse-sel-ran pi)
+      (let ((inverted? (string-index "^!" (string-ref pat pi))))
+        (let lp ((pi (if inverted? (1+ pi) pi))
+                 (type 'sel)
+                 (ret '()))
+          (case (string-ref pat pi)
+            ((#\\) (if noescape
+                       (lp (1+ pi)
+                           type
+                           (cons (string-ref pat pi) ret))
+                       (lp (+ pi 2)
+                           type
+                           (cons (string-ref pat (1+ pi)) ret))))
+            ((#\]) (values (1+ pi)
+                           type
+                           (if inverted? negate identity)
+                           (list->string (reverse ret))))
+            ((#\-) (lp (1+ pi) 'ran (cons (string-ref pat pi) ret)))
+            (else (lp (1+ pi)
+                      type
+                      (cons (string-ref pat pi) ret)))))))
+
+    ;; Parse from braces the options.
+    (define (parse-opts pi)
+      (define (->opt-list lst opt)
+        (if (pair? opt)
+            (cons (list->string (reverse opt)) lst)
+            lst))
+      (let lp ((pi pi)
+               (opt '())
+               (ret '()))
+        (let ((ch (string-ref pat pi)))
+          (case ch
+            ((#\\) (if noescape
+                       (lp (1+ pi) (cons ch opt) ret)
+                       (lp (+ pi 2) (cons (string-ref pat (1+ pi)) opt) ret)))
+            ((#\}) (values (1+ pi) (reverse (->opt-list ret opt))))
+            ((#\,) (lp (1+ pi) '() (->opt-list ret opt)))
+            (else (lp (1+ pi) (cons ch opt) ret))))))
+
+    ;; ?
+    (define (one pi si)
+      (if (limiter? si)
+          (values #f pi si)
+          (values #t pi (1+ si))))
+
+    ;; * or **
+    (define (any pi si)
+      ;;       (ppr (list "any : " (substring pat pi) " : " (substring str si)))
+      (let lp ((pi pi)
+               (si si)
+               (non-first #f))
+        (cond
+         ((= si (string-length str))
+          (values #t pi si))
+         ((= pi (string-length pat))
+          (if non-first
+              (lp pi (1+ si) #t)
+              (if (limiter? si)
+                  (values #f pi si)
+                  (lp pi (1+ si) #t))))
+         ((string-index "*?" (string-ref pat pi))
+          (case (string-ref str si)
+            ((#\/) (if (fnmatch (substring pat (1+ pi))
+                                (substring str si)
+                                #:pathname pathname
+                                #:extglob extglob
+                                #:noescape noescape
+                                #:dotmatch dotmatch
+                                #:casefold #f)
+                       (values 'exit pi si)
+                       (lp pi (1+ si) #f)))
+            ((#\.) (if dotmatch
+                       (lp pi (1+ si) #t)
+                       (values #f pi si)))
+            (else (lp pi (1+ si) #t))))
+         ((limiter? si)
+          (if (< pi (string-length pat))
+              (if non-first
+                  (values #t pi si)
+                  (values #f pi si))
+              (if non-first
+                  (lp pi (1+ si) #t)
+                  (values #f pi si))))
+         ((and (< si (string-length str))
+               (fnmatch (substring pat pi)
+                        (substring str si)
+                        #:pathname pathname
+                        #:extglob extglob
+                        #:noescape noescape
+                        #:dotmatch dotmatch
+                        #:casefold #f))
+          ;; No need to continue.
+          ;;       /
+          (values 'exit pi si))
+         (else
+          (lp pi (1+ si) (not (char=? (string-ref str si) #\/)))))))
+
+    ;; a
+    (define (lit pi si)
+      (values (char=? (string-ref pat pi)
+                      (string-ref str si))
+              (1+ pi)
+              (1+ si)))
+
+    ;; [abc]
+    (define (sel pi si fn-polarity options)
+      (if (and (pathchar? si) (limiter? si))
+          (values (fn-polarity #f) pi si)
+          (values (fn-polarity (string-index options (string-ref str si)))
+                  pi
+                  (1+ si))))
+
+    ;; [a-c] or [a-bc]
+    (define (ran pi si fn-polarity limits)
+      (let ((ch (string-ref str si)))
+        (let lp ((li 0))
+          (if (< li (string-length limits))
+              (let ((ch0 (string-ref limits li))
+                    (ch1 (if (< (1+ li) (string-length limits))
+                             (string-ref limits (1+ li))
+                             #f)))
+                (if (and ch1
+                         (char=? ch1 #\-)
+                         (< (+ li 2) (string-length limits)))
+                    (if (and (char<=? ch0 ch)
+                             (char>=? (string-ref limits (+ li 2)) ch))
+                        (values (fn-polarity #t) pi (1+ si))
+                        (lp (+ li 3)))
+                    (if (char=? ch0 ch)
+                        (if (and (pathchar? si) (limiter? si))
+                            (values (fn-polarity #f) pi si)
+                            (values (fn-polarity #t) pi (1+ si)))
+                        (lp (1+ li)))))
+              (values (fn-polarity #f) pi si)))))
+
+    ;; {ab,bc}
+    (define (opt pi si options)
+      (let lp ((options options))
+        (if (pair? options)
+            (if (string-contains (substring str si) (car options))
+                (values #t pi (+ si (string-length (car options))))
+                (lp (cdr options)))
+            (values #f pi si))))
 
 
-(define (fnmatch pat str)
+    ;; Loop until result is clear, and return #t or #f.
+    (let lp ((pi 0)
+             (si 0))
 
-  (define (limiter? si) (string-index "/." (string-ref str si)))
-
-  ;; Parse from brackets range and selection.
-  (define (parse-sel-ran pi)
-    (let lp ((pi pi)
-             (type 'sel)
-             (ret '()))
-      (case (string-ref pat pi)
-        ((#\\) (lp (+ pi 2) type (cons (string-ref pat (1+ pi)) ret)))
-        ((#\]) (values (1+ pi) type (list->string (reverse ret))))
-        ((#\-) (lp (1+ pi) 'ran ret))
-        (else (lp (1+ pi)
-                  type
-                  (cons (string-ref pat pi) ret))))))
-
-  ;; Parse from braces the options.
-  (define (parse-opts pi)
-    (define (->opt-list lst opt)
-      (if (pair? opt)
-          (cons (list->string (reverse opt)) lst)
-          lst))
-    (let lp ((pi pi)
-             (opt '())
-             (ret '()))
-      (let ((ch (string-ref pat pi)))
-        (case ch
-          ((#\\) (lp (+ pi 2) (cons (string-ref pat (1+ pi)) opt) ret))
-          ((#\}) (values (1+ pi) (reverse (->opt-list ret opt))))
-          ((#\,) (lp (1+ pi) '() (->opt-list ret opt)))
-          (else (lp (1+ pi) (cons ch opt) ret))))))
-
-  ;; ?
-  (define (one pi si)
-    (if (not (limiter? si))
-        (values #t pi (1+ si))
-        (values #f pi si)))
-
-  ;; *
-  (define (any pi si)
-    (let lp ((pi pi)
-             (si si))
       (cond
+
+       ((= pi (string-length pat))
+        (= si (string-length str)))
+
        ((= si (string-length str))
-        (values #t pi si))
-       ((and (< pi (string-length pat))
-             (string-index "*?" (string-ref pat pi)))
-        (lp (1+ pi) si))
-       ((limiter? si)
-        (if (< pi (string-length pat))
-            (values #t pi si)
-            (lp pi (1+ si))))
-       ((and (< si (string-length str))
-             (fnmatch (substring pat pi)
-                      (substring str si (1+ si))))
-        ;; No need to continue.
-        ;;       /
-        (values 'exit pi si))
+        (= pi (string-length pat)))
+
        (else
-        (lp pi (1+ si))))))
-
-  ;; a
-  (define (lit pi si)
-    (values (char=? (string-ref pat pi)
-                    (string-ref str si))
-            (1+ pi)
-            (1+ si)))
-
-  ;; [abc]
-  (define (sel pi si options)
-    (values (string-index options (string-ref str si))
-            pi
-            (1+ si)))
-
-  ;; [a-c]
-  (define (ran pi si limits)
-    (let ((ch (string-ref str si))
-          (ch-s (string-ref limits 0))
-          (ch-e (string-ref limits 1)))
-      (values (and (char<=? ch-s ch)
-                   (char>=? ch-e ch))
-              pi
-              (1+ si))))
-
-  ;; {ab,bc}
-  (define (opt pi si options)
-    (let lp ((options options))         
-      (if (pair? options)
-          (if (string-contains (substring str si) (car options))
-              (values #t pi (+ si (string-length (car options))))
-              (lp (cdr options)))
-          (values #f pi si))))
+        (case (string-ref pat pi)
+          ((#\*) (call-with-values (lambda () (any (1+ pi) si))
+                   (lambda (res pi si)
+                     (case res
+                       ((exit) #t)
+                       (else (lp pi si))))))
+          ((#\?) (call-with-values (lambda () (one (1+ pi) si))
+                   (lambda (res pi si)
+                     (lp pi si))))
+          ((#\[) (call-with-values (lambda () (parse-sel-ran (1+ pi)))
+                   (lambda (pi type fn-polarity sel-ran)
+                     (call-with-values (lambda ()
+                                         (case type
+                                           ((sel) (sel pi si fn-polarity sel-ran))
+                                           (else (ran pi si fn-polarity sel-ran))))
+                       (lambda (res pi si) (if res (lp pi si) #f))))))
+          ((#\{) (if extglob
+                     (call-with-values (lambda () (parse-opts (1+ pi)))
+                       (lambda (pi opts)
+                         (call-with-values (lambda () (opt pi si opts))
+                           (lambda (res pi si) (if res (lp pi si) #f)))))
+                     (call-with-values (lambda () (lit pi si))
+                       (lambda (res pi si) (if res (lp pi si) #f)))))
+          ((#\\) (if noescape
+                     (call-with-values (lambda () (lit pi si))
+                       (lambda (res pi si) (if res (lp pi si) #f)))
+                     (call-with-values (lambda () (lit (1+ pi) si))
+                       (lambda (res pi si) (if res (lp pi si) #f)))))
+          (else (call-with-values (lambda () (lit pi si))
+                  (lambda (res pi si) (if res (lp pi si) #f))))))))))
 
 
-  ;; Loop until result is clear, and return #t or #f.
-  (let lp ((pi 0)
-           (si 0))         
-
-    (cond
-
-     ((= pi (string-length pat))
-      (= si (string-length str)))
-
-     ((= si (string-length str))
-      (= pi (string-length pat)))
-
-     (else
-      (case (string-ref pat pi)
-        ((#\*) (call-with-values (lambda () (any (1+ pi) si))
-                 (lambda (res pi si)
-                   (case res
-                     ((exit) #t)
-                     (else (lp pi si))))))
-        ((#\?) (call-with-values (lambda () (one (1+ pi) si))
-                 (lambda (res pi si)
-                   (lp pi si))))
-        ((#\[) (call-with-values (lambda () (parse-sel-ran (1+ pi)))
-                 (lambda (pi type sel-ran)
-                   (call-with-values (lambda ()
-                                       (case type
-                                         ((sel) (sel pi si sel-ran))
-                                         (else (ran pi si sel-ran))))
-                     (lambda (res pi si) (if res (lp pi si) #f))))))
-        ((#\{) (call-with-values (lambda () (parse-opts (1+ pi)))
-                 (lambda (pi opts)
-                   (call-with-values (lambda () (opt pi si opts))
-                     (lambda (res pi si) (if res (lp pi si) #f))))))
-        ((#\\) (call-with-values (lambda () (lit (1+ pi) si))
-                 (lambda (res pi si) (if res (lp pi si) #f))))
-        (else (call-with-values (lambda () (lit pi si))
-                (lambda (res pi si) (if res (lp pi si) #f)))))))))
+(define* (fnmatch-for-glob pat str #:key (dotmatch #f))
+  (fnmatch pat
+           str
+           #:pathname #t
+           #:extglob #t))
 
 
-
-;; (use-modules (tuile fmt))
-;; 
-;; (define (test-fnmatch pat str)
-;;   (display (fmt `(lal 14 ,pat) " : " `(lal 14 ,str) " : " (fnmatch pat str) "\n")))
-;; 
-;; (test-fnmatch "*" "foo")
-;; (test-fnmatch "*" "foo.mp3")
-;; (test-fnmatch "*.mp3" "foo.mp3")
-;; (test-fnmatch "*.mp" "foo.mp3")
-;; (test-fnmatch "foo" "foo")
-;; (test-fnmatch "fo*" "foo")
-;; (test-fnmatch "bo*" "foo")
-;; (test-fnmatch "*o" "foo")
-;; (test-fnmatch "*a" "bar")
-;; (test-fnmatch "*ar" "bar")
-;; (test-fnmatch "b[a-b]r" "bar")
-;; (test-fnmatch "*[a-b]r" "bar")
-;; (test-fnmatch "*.sh" "foobar.sh")
-;; (test-fnmatch "*.sh" "foobar.bash")
-;; (test-fnmatch "b[bac]r" "bar")
-;; (test-fnmatch "b[bfc]r" "bar")
-;; (test-fnmatch "foo.*" "foo.mp3")
-;; (test-fnmatch "bar.*" "foo.mp3")
-;; (test-fnmatch "\\a\\\\" "a\\")
-;; (test-fnmatch "{ba,fo}r" "bar")
+;; (use-modules (tuile pr))
+;; (ppr (fnmatch "ca[a-z]" "cat"))
+;; (ppr (fnmatch "**/*.rb" "lib/song.rb"))

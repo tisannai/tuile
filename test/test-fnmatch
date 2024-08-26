@@ -1,0 +1,119 @@
+#!/usr/bin/guile -s
+!#
+
+(use-modules (srfi srfi-64))
+(use-modules (tuile pr))
+
+(add-to-load-path ".")
+(use-modules (tuile fnmatch))
+
+
+(test-begin "fnmatch")
+
+(test-assert (fnmatch "*" "foo"))
+(test-assert (fnmatch "*" "foo.mp3"))
+(test-assert (fnmatch "*.mp3" "foo.mp3"))
+(test-assert (not (fnmatch "*.mp" "foo.mp3")))
+(test-assert (fnmatch "foo" "foo"))
+(test-assert (fnmatch "fo*" "foo"))
+(test-assert (not (fnmatch "bo*" "foo")))
+(test-assert (fnmatch "*o" "foo"))
+(test-assert (not (fnmatch "*a" "bar")))
+(test-assert (fnmatch "*ar" "bar"))
+(test-assert (fnmatch "b[a-b]r" "bar"))
+(test-assert (fnmatch "*[a-b]r" "bar"))
+(test-assert (fnmatch "*.sh" "foobar.sh"))
+(test-assert (not (fnmatch "*.sh" "foobar.bash")))
+(test-assert (fnmatch "b[bac]r" "bar"))
+(test-assert (not (fnmatch "b[bfc]r" "bar")))
+(test-assert (fnmatch "foo.*" "foo.mp3"))
+(test-assert (not (fnmatch "bar.*" "foo.mp3")))
+(test-assert (fnmatch "\\a\\\\" "a\\"))
+(test-assert (fnmatch "{fo,ba,fo}r" "bar" #:extglob #t))
+
+;; File.fnmatch('cat',       'cat')        #=> true  # match entire string
+(test-assert (fnmatch "cat" "cat"))
+;; File.fnmatch('cat',       'category')   #=> false # only match partial string
+(test-assert (not (fnmatch "cat" "category")))
+;; File.fnmatch('c{at,ub}s', 'cats')                    #=> false # { } isn't supported by default
+(test-assert (not (fnmatch "c{at,ub}s" "cats")))
+;; File.fnmatch('c{at,ub}s', 'cats', File::FNM_EXTGLOB) #=> true  # { } is supported on FNM_EXTGLOB
+(test-assert (fnmatch "c{at,ub}s" "cats" #:extglob #t))
+;; File.fnmatch('c?t',     'cat')          #=> true  # '?' match only 1 character
+(test-assert (fnmatch "c?t" "cat"))
+;; File.fnmatch('c??t',    'cat')          #=> false # ditto
+(test-assert (not (fnmatch "c??t" "cat")))
+;; File.fnmatch('c*',      'cats')         #=> true  # '*' match 0 or more characters
+(test-assert (fnmatch "c*" "cats"))
+;; File.fnmatch('c*t',     'c/a/b/t')      #=> true  # ditto
+(test-assert (fnmatch "c*t" "c/a/b/t"))
+;; File.fnmatch('ca[a-z]', 'cat')          #=> true  # inclusive bracket expression
+(test-assert (fnmatch "ca[a-z]" "cat"))
+;; File.fnmatch('ca[^t]',  'cat')          #=> false # exclusive bracket expression ('^' or '!')
+(test-assert (not (fnmatch "cat[^t]" "cat")))
+;; File.fnmatch('cat', 'CAT')                     #=> false # case sensitive
+(test-assert (not (fnmatch "cat" "CAT")))
+;; File.fnmatch('cat', 'CAT')                     #=> true # case insensitive
+(test-assert (fnmatch "cat" "CAT" #:casefold #t))
+;; File.fnmatch('?',   '/')  #=> false # wildcard doesn't match '/' on FNM_PATHNAME
+(test-assert (not (fnmatch "?" "/" #:pathname #t)))
+;; File.fnmatch('*',   '/')  #=> false # ditto
+(test-assert (not (fnmatch "*" "/" #:pathname #t)))
+;; File.fnmatch('[/]', '/')  #=> false # ditto
+(test-assert (not (fnmatch "[/]" "/" #:pathname #t)))
+(test-assert (fnmatch "[/]" "/"))
+(test-assert (not (fnmatch "c[a-b/]c" "c/c" #:pathname #t)))
+(test-assert (fnmatch "c[a-b/]c" "c/c"))
+;; File.fnmatch('\?',   '?')                       #=> true  # escaped wildcard becomes ordinary
+(test-assert (fnmatch "\\?" "?"))
+;; File.fnmatch('\a',   'a')                       #=> true  # escaped ordinary remains ordinary
+(test-assert (fnmatch "\\a" "a"))
+;; File.fnmatch('\a',   '\a', File::FNM_NOESCAPE)  #=> true  # FNM_NOESCAPE makes '\' ordinary
+(test-assert (fnmatch "\\a" "\\a" #:noescape #t))
+;; File.fnmatch('[\?]', '?')                       #=> true  # can escape inside bracket expression
+(test-assert (fnmatch "[\\?]" "?"))
+(test-assert (fnmatch "[?]" "?"))
+
+;; File.fnmatch('*',   '.profile')                      #=> false # wildcard doesn't match leading
+(test-assert (not (fnmatch "*" ".profile")))
+;; File.fnmatch('*',   '.profile', File::FNM_DOTMATCH)  #=> true  # period by default.
+(test-assert (fnmatch "*" ".profile" #:dotmatch #t))
+;; File.fnmatch('.*',  '.profile')                      #=> true
+(test-assert (fnmatch ".*" ".profile"))
+
+;; rbfiles = '**' '/' '*.rb' # you don't have to do like this. just write in single string.
+;; File.fnmatch(rbfiles, 'main.rb')                    #=> false
+(test-assert (not (fnmatch "**/*.rb" "main.rb")))
+;; File.fnmatch(rbfiles, './main.rb')                  #=> false
+(test-assert (not (fnmatch "**/*.rb" "./main.rb")))
+;; File.fnmatch(rbfiles, 'lib/song.rb')                #=> true
+(test-assert (fnmatch "**/*.rb" "lib/song.rb"))
+;; File.fnmatch('**.rb', 'main.rb')                    #=> true
+(test-assert (fnmatch "**.rb" "main.rb"))
+;; File.fnmatch('**.rb', './main.rb')                  #=> false
+(test-assert (not (fnmatch "**.rb" "./main.rb")))
+;; File.fnmatch('**.rb', 'lib/song.rb')                #=> true
+(test-assert (fnmatch "**.rb" "lib/song.rb"))
+;; File.fnmatch('*',           'dave/.profile')                      #=> true
+(test-assert (fnmatch "*" "data/.profile"))
+
+;; pattern = '*' '/' '*'
+;; File.fnmatch(pattern, 'dave/.profile', File::FNM_PATHNAME)  #=> false
+(test-assert (not (fnmatch "*/*" "dave/.profile" #:pathname #t)))
+;; File.fnmatch(pattern, 'dave/.profile', File::FNM_PATHNAME | File::FNM_DOTMATCH) #=> true
+(test-assert (fnmatch "*/*" "dave/.profile" #:pathname #t #:dotmatch #t))
+
+;; pattern = '**' '/' 'foo'
+;; File.fnmatch(pattern, 'a/b/c/foo', File::FNM_PATHNAME)     #=> true
+(test-assert (fnmatch "**/foo" "a/b/c/foo" #:pathname #t))
+;; File.fnmatch(pattern, '/a/b/c/foo', File::FNM_PATHNAME)    #=> true
+(test-assert (fnmatch "**/foo" "/a/b/c/foo" #:pathname #t))
+;; File.fnmatch(pattern, 'c:/a/b/c/foo', File::FNM_PATHNAME)  #=> true
+;; -- No support for DOS filepaths.
+;; (test-assert (fnmatch "**/foo" "c:/a/b/c/foo" #:pathname #t))
+;; File.fnmatch(pattern, 'a/.b/c/foo', File::FNM_PATHNAME)    #=> false
+(test-assert (not (fnmatch "**/foo" "a/.b/c/foo" #:pathname #t)))
+;; File.fnmatch(pattern, 'a/.b/c/foo', File::FNM_PATHNAME | File::FNM_DOTMATCH) #=> true
+(test-assert (fnmatch "**/foo" "a/.b/c/foo" #:pathname #t #:dotmatch #t))
+
+(test-end)
