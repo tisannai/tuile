@@ -82,13 +82,8 @@
             fps-rel?
             fps-dot?
             fps-off?
-;;             fps-dir
             fps->abs
             fps->rel
-;;             fps-dir
-;;             fps-reldir-dotted
-;;             fps-relpath
-;;             fps-relpath-dotted
 
             fps-mkdir-p
             fps-mkpath-p
@@ -115,7 +110,6 @@
             fpd-file
             fpd-path
             fpd-dir
-;;             fpd-to-type
             fpd-up
             fpd-sub
             fpd->abs
@@ -129,12 +123,6 @@
 
             ))
 
-
-;; (define (clean-fps fps)
-;;   (if (string=? (string-take-right fps 1)
-;;                 "/")
-;;       (string-drop-right fps 1)
-;;       fps))
 
 (define (fps-end-index fps)
   (let ((len (string-length fps)))
@@ -253,11 +241,6 @@
 ;;     rel    Relative path under current starting with "<name>"
 ;;
 (define (fps-type fps)
-  ;;   (define (prefixed? fps prefix)
-  ;;     (let ((len (string-length prefix)))
-  ;;       (if (>= (string-length fps) len)
-  ;;           (string=? (substring fps 0 len) prefix)
-  ;;           #f)))
   (if (string-null? fps)
       #f
       (cond
@@ -269,11 +252,6 @@
        ((and (>= (string-length fps) 2)
              (char=? (string-ref fps 0) #\.)
              (char=? (string-ref fps 1) #\/)) 'dot)
-;;        ((char=? (string-ref fps 0) #\.) 'dot)
-       ;;        ((prefixed? fps "./") 'dot)
-       ;;        ((prefixed? fps "../") 'off)
-       ;;        ((prefixed? fps ".") 'dot)
-       ;;        ((prefixed? fps "..") 'off)
        (else 'rel))))
 
 ;; (dot)
@@ -384,44 +362,15 @@
   (eq? (fps-type fps) 'off))
 
 
-;; ;; Return resolved directory of file-string.
-;; (define (fps-dir fps)
-;;   (fpd->fps (fpd-dir (fpd->abs (fps->fpd fps)))))
-
-
 ;; Return resolved path of file-string.
 (define (fps->abs fps . base)
   (fpd->fps (apply fpd->abs (cons (fps->fpd fps) base))))
+
 
 ;; Return resolved path of file-string.
 (define (fps->rel fps)
   (fpd->fps (fpd->rel (fps->fpd fps))))
 
-
-;; ;; Return relative directory of file-string.
-;; (define (fps-dir fps)
-;;   (fpd->fps (fpd-dir (fps->fpd fps))))
-
-
-;; ;; Return relative directory of file-string with dot prefix.
-;; (define (fps-reldir-dotted fps)
-;;   (fps-relpath-dotted (fpd->fps (fpd-dir (fps->fpd fps)))))
-
-
-;; ;; Return relative directory of file-string with dot prefix.
-;; (define (fps-relpath-dotted fps)
-;;   (if (fps-abs? fps)
-;;       fps
-;;       (cond
-;;        ((= (string-length fps) 0) ".")
-;;        ((and (>= (string-length fps) 2)
-;;              (string=? ".." (substring fps 0 2)))
-;;         fps)
-;;        ((and (>= (string-length fps) 2)
-;;              (string=? "./" (substring fps 0 2)))
-;;         fps)
-;;        (else
-;;         (string-append "./" fps)))))
 
 ;; Make for a directory path, directory and all parents, if needed.
 (define (fps-mkdir-p fps)
@@ -653,67 +602,7 @@
       fpd))
 
 ;; File-path-string to file-path-descriptor (fpd).
-(define (old-fps->fpd fps)
-
-  (define (->part part) (list->string (reverse part)))
-
-  (let ((chars (string->list fps))
-        (type (fps-type fps)))
-
-    (let lp ((chars (if (eq? type 'abs) (cdr chars) chars))
-               (part '())
-               (ret '()))
-
-      (if (pair? chars)
-
-          (let ((ch (car chars)))
-
-            (cond
-
-             ;; Dir separator.
-             ((char=? ch #\/)
-              (if (pair? part)
-                  (lp (cdr chars)
-                        '()
-                        (cons (->part part) ret))
-                  (lp (cdr chars)
-                        '()
-                        ret)))
-
-             ;; Relative to current.
-             ((and (null? part)
-                   (char=? ch #\.)
-                   (cdr chars))
-              (cond
-               ((char=? (second chars) #\.)
-                ;; Offset dir, upwards.
-                (lp (cddr chars)
-                      '()
-                      (cons ".." ret)))
-               ((char=? (second chars) #\/)
-                ;; Dotted dir.
-                (lp (cdr chars)
-                     '()
-                     ret))
-               (else
-                ;; Hidden name.
-                (lp (cdr chars)
-                      (cons ch part)
-                      ret))))
-
-             ;; Name part.
-             (else (lp (cdr chars)
-                         (cons ch part)
-                         ret))))
-
-          (cons type
-                (if (pair? part)
-                    (cons (->part part) ret)
-                    ret))))))
-
 (define (fps->fpd fps)
-
-;;   (define (->part part) (list->string (reverse part)))
 
   (let ((type (fps-type fps))
         (len (string-length fps)))
@@ -840,16 +729,6 @@
     (define (is-digit? ch)
       (or (char-numeric? ch)
           (char=? ch #\.)))
-
-    #;
-    (define (parse-ref chars)           ; ; ;
-    (let lp ((chars chars)              ; ; ;
-    (digits '()))                       ; ; ;
-    (if (and (pair? chars)              ; ; ;
-    (char-numeric? (car chars)))        ; ; ;
-    (lp (cdr chars)                     ; ; ;
-    (cons (car chars) digits))          ; ; ;
-    (cons chars (string->number (list->string (reverse digits)))))))
 
     ;; Return: (<chars> . <number>)
     (define (parse-number chars)
