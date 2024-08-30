@@ -479,43 +479,43 @@
     (dir-glob (fps-final (fpd->fps (fpd-dir fpd))) (fpd-file fpd))))
 
 
-(define (fps-recurse fps f)
-  (define (loop fps f)
+(define (fps-recurse fps fn)
+  (define (loop fps fn)
     (if (file-is-directory? fps)
         (let lp ((listing (fps-ls fps)))
           (when (pair? listing)
-            (loop (ss fps "/" (car listing)) f)
+            (loop (ss fps "/" (car listing)) fn)
             (lp (cdr listing))))
-        (f fps)))
-  (loop fps f))
+        (fn fps)))
+  (loop fps fn))
 
 
-(define (fps-recurse-dir-before fps f)
-  (define (loop fps f)
+(define (fps-recurse-dir-before fps fn)
+  (define (loop fps fn)
     (if (file-is-directory? fps)
         (begin
           (when (not (string=? fps "."))
-            (f fps))
+            (fn fps))
           (let lp ((listing (fps-ls fps)))
             (when (pair? listing)
-              (loop (ss fps "/" (car listing)) f)
+              (loop (ss fps "/" (car listing)) fn)
               (lp (cdr listing)))))
-        (f fps)))
-  (loop fps f))
+        (fn fps)))
+  (loop fps fn))
 
 
-(define (fps-recurse-dir-after fps f)
-  (define (loop fps f)
+(define (fps-recurse-dir-after fps fn)
+  (define (loop fps fn)
     (if (file-is-directory? fps)
         (begin
           (let lp ((listing (fps-ls fps)))
             (when (pair? listing)
-              (loop (ss fps "/" (car listing)) f)
+              (loop (ss fps "/" (car listing)) fn)
               (lp (cdr listing))))
           (when (not (string=? fps "."))
-            (f fps)))
-        (f fps)))
-  (loop fps f))
+            (fn fps)))
+        (fn fps)))
+  (loop fps fn))
 
 
 (define (fps-find-files fps)
@@ -1217,3 +1217,5 @@
 ;; (pd (fps-sub "tb/ss/test/test-1-2.scm" "test" "runs"))
 
 ;; (pr (fps-glob "*"))
+
+;; (ppr (fps-ls "."))

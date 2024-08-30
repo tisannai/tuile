@@ -14,7 +14,8 @@
    timer-reduce
    timer-value->string
    timer->string
-   timer->display))
+   timer->display
+   timer-measure-fn))
 
 
 ;;
@@ -118,3 +119,9 @@
   (display ": ")
   (display (timer->string timer))
   (newline))
+
+
+(define (timer-measure-fn proc)
+  (let ((timer (timer-open)))
+    (proc)
+    (timer-close timer)))

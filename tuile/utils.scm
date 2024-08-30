@@ -121,6 +121,7 @@
    vector-reverse
    vector-insert
    vector-delete
+   vector-head->list
 
    alist
    assoc-has-key?
@@ -1589,6 +1590,16 @@
 (define (vector-delete vec pos count)
   (vector-append (vector-range vec 0 pos)
                  (vector-range vec (+ pos count) (vector-length vec))))
+
+
+;; Create list from vector using the first "sel" items.
+(define (vector-head->list vector sel)
+  (let lp ((i (1- sel))
+           (ret '()))
+    (if (>= i 0)
+        (lp (1- i)
+            (cons (vector-ref vector i) ret))
+        ret)))
 
 
 ;; Create assoc list from elements in a flat list. The list must
