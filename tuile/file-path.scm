@@ -70,7 +70,9 @@
             fps-ext
             fps-end
             fps-dir
+            fps-host
             fps-type
+            fps-info
             fps-clean
             fps-final
             fps-sub
@@ -108,8 +110,8 @@
             fpd-body
             fpd-parts
             fpd-file
-            fpd-path
             fpd-dir
+            fpd->fps-dir
             fpd-up
             fpd-sub
             fpd->abs
@@ -118,8 +120,6 @@
             fpd->fps
 
             fpl
-
-            fpa
 
             ))
 
@@ -153,7 +153,7 @@
 
 
 ;; ------------------------------------------------------------
-;; File:
+;; fps, file-path string:
 
 ;; Return filename of file-string.
 (define (fps-file fps)
@@ -290,6 +290,37 @@
                          'rel))))))))
 
 
+;; Return full file information in an alist.
+;;
+;;     '((dir-type 'rel|'abs)
+;;       (dir (<p0> <p1> ...))
+;;       (file <filename>)
+;;       (base <basename>)
+;;       (ext <extname>)
+;;       (end <endname>)
+;;       (parts (<base> <e0> <e1> ...)))
+;;
+(define (fps-info fps)
+  (let* ((fpd (fps->fpd fps))
+         (dir-type (fpd-type fpd))
+         (dir (fpd->fps-dir fpd))
+         (abs (fpd->fps-dir (fpd->abs fpd)))
+         (file (fpd-file fpd))
+         (parts (fps-file-parts fps))
+         (base (car parts))
+         (ext (car (last-pair parts)))
+         (end (string-join (cdr parts) ".")))
+
+    `((dir-type . ,dir-type)
+      (dir      . ,dir)
+      (abs      . ,abs)
+      (file     . ,file)
+      (base     . ,base)
+      (ext      . ,ext)
+      (end      . ,end)
+      (parts    . ,parts))))
+
+
 ;; Return cleaned file-path string.
 (define (fps-clean fps)
   (if (string-null? fps)
@@ -367,7 +398,7 @@
   (fpd->fps (apply fpd->abs (cons (fps->fpd fps) base))))
 
 
-;; Return resolved path of file-string.
+;; Return relative path of dot path.
 (define (fps->rel fps)
   (fpd->fps (fpd->rel (fps->fpd fps))))
 
@@ -414,12 +445,12 @@
         #f)))
 
 
-;; Return directory entries as full path names.
+;; Return directory entries as path names.
 (define (fps-ls-path fps)
   (map (lambda (file) (string-append fps "/" file)) (fps-ls fps)))
 
 
-;; Return directory entries as leaf names (no path).
+;; Return globbed directory entries as leaf names (no path).
 ;;
 ;;     (fps-glob "foo/bar/*.mp3")
 ;;
@@ -467,22 +498,28 @@
   (loop fps fn))
 
 
+;; Recursively return all files.
 (define (fps-find-files fps)
   (let ((files '()))
     (fps-recurse fps (lambda (file) (set! files (cons file files))))
     (reverse files)))
 
 
+;; Recursively return all files and directories.
 (define (fps-find fps)
   (let ((files '()))
     (fps-recurse-dir-before fps (lambda (file) (set! files (cons file files))))
     (reverse files)))
 
 
+;; Copy "from" as "to" and create directory for "to", if needed.
 (define (fps-copy from to)
   (fps-mkpath-p to)
   (copy-file from to))
 
+
+;; Recursively copy "from" to "to" and create directory for "to", if
+;; needed.
 (define (fps-copy-r from to)
   (if (file-is-directory? from)
       (let* ((clean-from (fps-clean from))
@@ -536,19 +573,15 @@
       (second fpd)
       #f))
 
-;; Return filepath part of fpd.
-(define (fpd-path fpd)
-  (fpd->fps (fpd-dir fpd)))
-
 ;; Return directory part of fpd.
 (define (fpd-dir fpd)
   (if (pair? (fpd-body fpd))
       (cons (car fpd) (cddr fpd))
       (cons (car fpd) '())))
 
-;; ;; Change fpd type.
-;; (define (fpd-to-type fpd type)
-;;   #f)
+;; Return filepath part of fpd.
+(define (fpd->fps-dir fpd)
+  (fpd->fps (fpd-dir fpd)))
 
 ;; Drop "n" top directory levels.
 ;;
@@ -956,37 +989,6 @@
     (if (= (length res) 1)
         (car res)
         res)))
-
-
-;; Return full file information in an alist.
-;;
-;;     '((dir-type 'rel|'abs)
-;;       (dir (<p0> <p1> ...))
-;;       (file <filename>)
-;;       (base <basename>)
-;;       (ext <extname>)
-;;       (end <endname>)
-;;       (parts (<base> <e0> <e1> ...)))
-;;
-(define (fpa fps)
-  (let* ((fpd (fps->fpd fps))
-         (dir-type (fpd-type fpd))
-         (dir (fpd-path fpd))
-         (abs (fpd-path (fpd->abs fpd)))
-         (file (fpd-file fpd))
-         (parts (fps-file-parts fps))
-         (base (car parts))
-         (ext (car (last-pair parts)))
-         (end (string-join (cdr parts) ".")))
-
-    `((dir-type . ,dir-type)
-      (dir      . ,dir)
-      (abs      . ,abs)
-      (file     . ,file)
-      (base     . ,base)
-      (ext      . ,ext)
-      (end      . ,end)
-      (parts    . ,parts))))
 
 
 
