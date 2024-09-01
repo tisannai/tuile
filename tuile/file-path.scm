@@ -459,43 +459,48 @@
     (dir-glob (fps-final (fpd->fps (fpd-dir fpd))) (fpd-file fpd))))
 
 
+;; Recurse directory hierarchy and execute "fn" for each file.
 (define (fps-recurse fps fn)
-  (define (loop fps fn)
+  (define (recurse fps fn)
     (if (file-is-directory? fps)
         (let lp ((listing (fps-ls fps)))
           (when (pair? listing)
-            (loop (ss fps "/" (car listing)) fn)
+            (recurse (ss fps "/" (car listing)) fn)
             (lp (cdr listing))))
         (fn fps)))
-  (loop fps fn))
+  (recurse fps fn))
 
 
-(define (fps-recurse-dir-before fps fn)
-  (define (loop fps fn)
+;; Recurse directory hierarchy and execute "dir-fn" for each directory
+;; before executing "file-fn" for each file in the directory.
+(define (fps-recurse-dir-before fps dir-fn file-fn)
+  (define (recurse fps dir-fn file-fn)
     (if (file-is-directory? fps)
         (begin
           (when (not (string=? fps "."))
-            (fn fps))
+            (dir-fn fps))
           (let lp ((listing (fps-ls fps)))
             (when (pair? listing)
-              (loop (ss fps "/" (car listing)) fn)
+              (recurse (ss fps "/" (car listing)) dir-fn file-fn)
               (lp (cdr listing)))))
-        (fn fps)))
-  (loop fps fn))
+        (file-fn fps)))
+  (recurse fps dir-fn file-fn))
 
 
-(define (fps-recurse-dir-after fps fn)
-  (define (loop fps fn)
+;; Recurse directory hierarchy and execute "dir-fn" for each directory
+;; after executing "file-fn" for each file in the directory.
+(define (fps-recurse-dir-after fps dir-fn file-fn)
+  (define (recurse fps dir-fn file-fn)
     (if (file-is-directory? fps)
         (begin
           (let lp ((listing (fps-ls fps)))
             (when (pair? listing)
-              (loop (ss fps "/" (car listing)) fn)
+              (recurse (ss fps "/" (car listing)) dir-fn file-fn)
               (lp (cdr listing))))
           (when (not (string=? fps "."))
-            (fn fps)))
-        (fn fps)))
-  (loop fps fn))
+            (dir-fn fps)))
+        (file-fn fps)))
+  (recurse fps dir-fn file-fn))
 
 
 ;; Recursively return all files.
@@ -507,8 +512,9 @@
 
 ;; Recursively return all files and directories.
 (define (fps-find fps)
-  (let ((files '()))
-    (fps-recurse-dir-before fps (lambda (file) (set! files (cons file files))))
+  (let* ((files '())
+         (register-fn (lambda (file) (set! files (cons file files)))))
+    (fps-recurse-dir-before fps register-fn register-fn)
     (reverse files)))
 
 

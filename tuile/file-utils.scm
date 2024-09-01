@@ -12,7 +12,7 @@
    file-uid-of-name
    file-name-of-uid
    file-gid-of-name
-   file-name-of-gid
+   file-names-in-gid
    file-chown
    file-chgrp
    file-chmod
@@ -24,7 +24,7 @@
    file-list-files-r
    file-list-dirs-r
    file-glob
-   file-filter
+   file-filter-files
    file-chdir
    file-remove
    file-dir-empty?
@@ -56,8 +56,10 @@
       (fps-copy from to))))))
 
 
+;; Move (rename) file or directory.
 (define file-move rename-file)
 
+;; Create a file to default (#o644) or specified mode.
 (define (file-touch file . mode)
   (open file
         O_CREAT
@@ -65,22 +67,29 @@
             (car mode)
             #o644)))
 
+;; Recursive create directories.
 (define file-mkdir-p fps-mkdir-p)
 
+;; Recursive create directories for the full file path.
 (define file-path-p fps-mkpath-p)
 
+;; Return uid of name.
 (define (file-uid-of-name name)
   (vector-ref (getpwnam name) 0))
 
+;; Return name of uid.
 (define (file-name-of-uid uid)
-  (vector-ref (getpwnam uid) 0))
+  (vector-ref (getpwuid uid) 0))
 
+;; Return group id of name.
 (define (file-gid-of-name name)
-  (vector-ref (getgrnam name) 0))
+  (vector-ref (getgrnam name) 2))
 
-(define (file-name-of-gid gid)
-  (vector-ref (getgrnam gid) 0))
+;; Return names for group id.
+(define (file-names-in-gid gid)
+  (vector-ref (getgrgid gid) 3))
 
+;; Change owner of the file.
 (define (file-chown file owner)
   (if (file-exists? file)
       (begin
@@ -88,6 +97,7 @@
         #t)
       #f))
 
+;; Change group of the file.
 (define (file-chgrp file group)
   (if (file-exists? file)
       (begin
@@ -95,6 +105,7 @@
         #t)
       #f))
 
+;; Change mode of the file.
 (define (file-chmod file mode)
   (if (file-exists? file)
       (begin
@@ -102,14 +113,17 @@
         #t)
       #f))
 
+;; Does file exist and is it a directory?
 (define (file-directory? file-or-dir)
   (and (file-exists? file-or-dir)
        (file-is-directory? file-or-dir)))
 
+;; Does file exist and is it a (regular) file?
 (define (file-file? file-or-dir)
   (and (file-exists? file-or-dir)
        (not (file-is-directory? file-or-dir))))
 
+;; List entries in directory.
 (define (file-list dir)
   (if (file-directory? dir)
       (let* ((ds (opendir dir))
@@ -135,40 +149,45 @@
       #f))
 
 
+;; List files in the directory.
 (define (file-list-files dir)
   (filter (negate file-is-directory?) (file-list dir)))
 
 
+;; List directories in the directory.
 (define (file-list-dirs dir)
   (filter file-is-directory? (file-list dir)))
 
 
+;; List files recursively.
 (define (file-list-files-r dir)
   (let ((files '()))
     (fps-recurse dir (lambda (file) (set! files (cons file files))))
     (reverse files)))
 
 
+;; List directories recursively.
 (define (file-list-dirs-r dir)
   (let ((dirs '()))
     (fps-recurse-dir-before dir
-                            (lambda (file)
-                              (when (file-is-directory? file)
-                                (set! dirs (cons file dirs)))))
+                            (lambda (dir) (set! dirs (cons dir dirs)))
+                            identity)
     (reverse dirs)))
 
 
+;; Glob for pattern.
 (define (file-glob pat)
   (let ((fpd (fps->fpd pat)))
     (dir-glob (fpd-dir fpd) (fpd-file fpd))))
 
 
-(define (file-filter dir proc)
+;; Return filtered list of files.
+(define (file-filter-files dir proc)
   (let ((files '()))
-    (fps-recurse-dir-before dir
-                            (lambda (file)
-                              (when (proc file)
-                                (set! dirs (cons file dirs)))))
+    (fps-recurse dir
+                 (lambda (file)
+                   (when (proc file)
+                     (set! files (cons file files)))))
     (reverse files)))
 
 
@@ -193,8 +212,8 @@
   (if (file-directory? file-or-dir)
       (begin
         (fps-recurse-dir-after file-or-dir
-                               (lambda (file-or-dir)
-                                 (remove-item file-or-dir)))
+                               remove-item
+                               remove-item)
         #t)
       (if (file-exists? file-or-dir)
           (begin
@@ -203,6 +222,7 @@
           #f)))
 
 
+;; Is file a directory and empty?
 (define (file-dir-empty? dir)
   (and (file-directory? dir)
        (null? (file-list dir))))
