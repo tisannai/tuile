@@ -10,7 +10,7 @@
 ;;
 ;; NOTE: We assume clean file-path strings, i.e. no trailing slashes,
 ;; double slashes, etc. Use fps-clean to clean-up the file-path. Some
-;; function work with "broken" path strings. The resulting directory
+;; functions work with "broken" path strings. Also, the resulting path
 ;; might be an empty string, use fps-final to produce a non-empty
 ;; path.
 ;;
@@ -45,7 +45,7 @@
 ;;
 ;; reldir-dotted: relative directory of file with "." or ".." prefix.
 ;;
-;; path: absolute dir with filename included.
+;; path: directory path and filename included, if non-directory.
 ;;
 ;;
 ;; dir: directory in default format.
@@ -58,7 +58,7 @@
 ;;
 ;; off: offsetted relative directory ("../").
 ;;
-;; path: absolute path
+;; full: absolute path
 ;;
 (define-module (tuile file-path)
   #:use-module ((srfi srfi-1) #:select (first second fold take drop take-right drop-right))
@@ -72,9 +72,11 @@
             fps-dir
             fps-host
             fps-type
+            fps-off-count
             fps-info
             fps-clean
             fps-final
+            fps-join
             fps-sub
 
             fps-dir?
@@ -290,6 +292,18 @@
                          'rel))))))))
 
 
+;; Return the number of offset directories in "off" type fpd.
+(define (fps-off-count fps)
+  (let lp ((fps fps)
+           (count 0))
+    (if (not (string-null? fps))
+        (cond
+         ((string-prefix? "../" fps) (lp (substring fps 3)
+                                         (1+ count)))
+         (else count))
+        count)))
+
+
 ;; Return full file information in an alist.
 ;;
 ;;     '((dir-type 'rel|'abs)
@@ -345,6 +359,21 @@
   (if (string-null? fps)
       "."
       fps))
+
+
+;; Join tail to the fps.
+(define (fps-join fps tail)
+  (let ((tail-type (fps-type tail)))
+    (case tail-type
+      ((abs) (string-append fps tail))
+      ((rel) (string-append fps "/" tail))
+      ((off) (let* ((off-count (fps-off-count tail))
+                    (fps-offsetted (fpd-up (fps->fpd fps) off-count))
+                    (tail-offsetted (drop-right (fps->fpd tail) off-count)))
+               (fpd->fps (cons (fpd-type fps-offsetted)
+                               (append (fpd-body tail-offsetted)
+                                       (fpd-body fps-offsetted))))))
+      ((dot) (string-append fps (substring tail 1))))))
 
 
 ;; Replace "from" with "to" in fps.
@@ -445,7 +474,7 @@
         #f)))
 
 
-;; Return directory entries as path names.
+;; Return directory entries with path included.
 (define (fps-ls-path fps)
   (map (lambda (file) (string-append fps "/" file)) (fps-ls fps)))
 
@@ -735,7 +764,7 @@
 ;;     e          - extname
 ;;     u          - endname (fullext)
 ;;     d          - dir (relative path)
-;;     p          - path (absolute path)
+;;     p          - path (full/absolute path)
 ;;     [0-9]      - slice (from end by count)
 ;;     [0-9][0-9] - slice (between indeces, higher is exclusive)
 ;;     <          - index begin (follow by number)
@@ -1106,3 +1135,8 @@
 ;; (pr (fps-glob "*"))
 
 ;; (ppr (fps-ls "."))
+
+;; (ppr (fps-join "./dii/duu" "foo/bar"))
+;; (ppr (fps-join "./dii/duu" "../foo/bar"))
+;; (ppr (fps-join "./dii/duu" "/foo/bar"))
+;; (ppr (fps-join "./dii/duu" "./foo/bar"))
