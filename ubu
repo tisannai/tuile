@@ -1,7 +1,7 @@
 #!/usr/bin/env ti-guile
 !#
 
-(use-modules (ubu))
+(use-modules (ubu core))
 (use-modules (ubu-lib path))
 
 (path-refresh)

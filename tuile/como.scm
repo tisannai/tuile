@@ -213,7 +213,9 @@
   (cond
 
    ;; Match long opt "--".
-   ((string=? "--" (substring cli 0 2))
+   ((and
+     (> (string-length cli) 1)
+     (string=? "--" (substring cli 0 2)))
     (find-opt-with como
                    (substring cli 2)
                    opt-name))

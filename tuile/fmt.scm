@@ -3,6 +3,7 @@
   #:use-module ((srfi srfi-1)  #:select (first second third fold drop list-index last drop-right))
   #:use-module ((srfi srfi-11) #:select (let-values))
   #:use-module ((ice-9 match) #:select (match))
+  #:use-module ((ice-9 pretty-print) #:select (pretty-print))
   #:use-module ((tuile utils) #:select (delete-nth list-split))
   #:export
   (
@@ -31,6 +32,7 @@
 ;; rip - right-pad
 ;; cat - concatenate
 ;; rev - concatenate in reverse
+;; scm - scheme pretty print
 
 ;; Converters (with zero as default pad):
 ;;
@@ -62,6 +64,7 @@
                                (rip . 2)
                                (cat . 0)
                                (rev . 0)
+                               (scm . 0)
                                (bin . 2)
                                (oct . 2)
                                (hex . 2)
@@ -229,6 +232,10 @@
 (define (format-rev rest)
   (string-concatenate (map fmt (reverse rest))))
 
+(define (format-scm rest)
+  (with-output-to-string (lambda ()
+                           (pretty-print rest))))
+
 
 (define (fmt-ind atom) (left-pad-entry atom))
 (define (fmt-lal atom) (call-align left-align-or-clip atom #\ ))
@@ -244,6 +251,7 @@
 ;; (define (fmt-rev atom) (map fmt (reverse atom)))
 (define (fmt-cat atom) (format-cat atom))
 (define (fmt-rev atom) (format-rev atom))
+(define (fmt-scm atom) (format-scm atom))
 (define (fmt-bin atom) (format-bin atom))
 (define (fmt-hex atom) (format-hex atom))
 (define (fmt-oct atom) (format-oct atom))
@@ -269,6 +277,7 @@
       ((rip) (fmt-rip (cdr atom)))
       ((cat) (fmt-cat (cdr atom)))
       ((rev) (fmt-rev (cdr atom)))
+      ((scm) (fmt-scm (cdr atom)))
       ((bin) (fmt-bin (cdr atom)))
       ((oct) (fmt-oct (cdr atom)))
       ((hex) (fmt-hex (cdr atom)))

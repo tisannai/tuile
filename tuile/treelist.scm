@@ -44,16 +44,18 @@
 
 ;; Return keyed entry as key-value pair, or #f.
 (define (treelist-assoc treelist key)
-  ;; Make treelist look like an alist entry in order to allow simple
-  ;; recursion.
-  (let lp ((entry (cons '*root* treelist))
-           (key key))
-    (cond
-     ((and (pair? entry) (pair? key))
-      (aif (assoc (car key) (cdr entry))
-           (lp it (cdr key))
-           #f))
-     (else entry))))
+  (if (null? (car treelist))
+      #f
+      ;; Make treelist look like an alist entry in order to allow simple
+      ;; recursion.
+      (let lp ((entry (cons '*root* treelist))
+               (key key))
+        (cond
+         ((and (pair? entry) (pair? key))
+          (aif (assoc (car key) (cdr entry))
+               (lp it (cdr key))
+               #f))
+         (else entry)))))
 
 
 ;; Return keyed entry as value, or #f.
@@ -168,6 +170,9 @@
            (cons (car entry) (map lp (cdr entry)))))))))
 
 
+;; (define treelist (treelist-make))
+;; (ppre (treelist-get treelist '(a b)))
+
 (when #f
   (let ()
 
@@ -226,5 +231,7 @@
     (define tl '((a . a) (b . ((b-a . b-a) (b-b . b-b)))))
     (ppr tl)
     (define tc (treelist-copy tl))
+    (ppr tc)
+    (treelist-delete! tc '(b))
     (ppr tc)
     ))

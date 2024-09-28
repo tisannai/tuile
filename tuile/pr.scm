@@ -4,6 +4,7 @@
   #:use-module (rnrs records procedural)
   #:export
   (pr
+   pre
    pl
    prp
    pro
@@ -286,6 +287,11 @@
 ;;  (newline)
 ;;  (force-output)
   )
+
+;; Line print from args to stderr.
+(define (pre . args)
+  (display (apply ss args) (current-error-port))
+  (newline (current-error-port)))
 
 ;; Print lines from args.
 (define (pl args)
