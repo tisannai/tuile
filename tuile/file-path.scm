@@ -658,8 +658,8 @@
                                                  (car base)
                                                  (getcwd))))))
             (cond
-             ((string=? (car tail) "..") (lp (cdr tail) (cdr base)))
-             ((string=? (car tail) ".") (lp (cdr tail) base))
+             ((and (pair? tail) (string=? (car tail) "..")) (lp (cdr tail) (cdr base)))
+             ((and (pair? tail) (string=? (car tail) ".")) (lp (cdr tail) base))
              (else (cons 'abs (append (reverse tail) base))))))))
 
 ;; Return fpd as rel, if fpd is of dot type.

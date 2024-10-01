@@ -1,7 +1,7 @@
 (define-module (tuile file-utils)
   #:use-module (tuile pr)
   #:use-module (tuile file-path)
-  #:use-module ((tuile utils) #:select (dir-glob))
+  #:use-module ((tuile utils) #:select (dir-glob opt-arg))
   #:export
   (
    file-copy
@@ -28,6 +28,7 @@
    file-chdir
    file-remove
    file-dir-empty?
+   file-find-upwards
    ))
 
 
@@ -226,3 +227,17 @@
 (define (file-dir-empty? dir)
   (and (file-directory? dir)
        (null? (file-list dir))))
+
+
+;; Find file from the current or parent directory.
+(define (file-find-upwards filename . opt-limit)
+  (define (->path dir file) (string-append dir "/" file))
+  (let ((dir-search-limit (opt-arg opt-limit "/")))
+    (let lp ((fpd (fps->fpd (getcwd))))
+      (let* ((dir (fpd->fps fpd))
+             (file (->path dir filename)))
+        (if (or (string=? "/" dir) (string=? dir-search-limit dir))
+            #f
+            (if (file-exists? file)
+                dir
+                (lp (fpd-up fpd 1))))))))

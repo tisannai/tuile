@@ -12,6 +12,7 @@
    prd
    prdl
    ss
+   sj
    sp
    si
    pri
@@ -102,6 +103,10 @@
 ;; String from args.
 (define (ss . args)
   (apply string-append (fa args)))
+
+;; String from args.
+(define (sj . args)
+  (string-join (fa args) " "))
 
 (define (sp datum)
   (with-output-to-string (lambda ()
