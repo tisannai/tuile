@@ -13,6 +13,7 @@
    file-name-of-uid
    file-gid-of-name
    file-names-in-gid
+   file-size
    file-chown
    file-chgrp
    file-chmod
@@ -89,6 +90,10 @@
 ;; Return names for group id.
 (define (file-names-in-gid gid)
   (vector-ref (getgrgid gid) 3))
+
+;; Return file size.
+(define (file-size file)
+  (stat:size (stat file)))
 
 ;; Change owner of the file.
 (define (file-chown file owner)
