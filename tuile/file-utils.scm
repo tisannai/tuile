@@ -19,6 +19,7 @@
    file-chmod
    file-directory?
    file-file?
+   file-executable?
    file-list
    file-list-files
    file-list-dirs
@@ -128,6 +129,12 @@
 (define (file-file? file-or-dir)
   (and (file-exists? file-or-dir)
        (not (file-is-directory? file-or-dir))))
+
+;; Does file exist and is it an executable?
+(define (file-executable? file-or-dir)
+  (and (file-exists? file-or-dir)
+       (not (= (logand #o110 (stat:perms (stat file-or-dir)))
+               0))))
 
 ;; List entries in directory.
 (define (file-list dir)
