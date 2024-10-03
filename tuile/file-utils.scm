@@ -51,7 +51,7 @@
     (fps-copy-r from to))
    (else
     (cond
-     ((file-is-directory? to)
+     ((file-directory? to)
          (let ((to-file (string-append to "/" (fps-file from))))
            (fps-copy from to-file)))
      (else
