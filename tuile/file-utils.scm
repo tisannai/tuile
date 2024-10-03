@@ -1,5 +1,4 @@
 (define-module (tuile file-utils)
-  #:use-module (tuile pr)
   #:use-module (tuile file-path)
   #:use-module ((tuile utils) #:select (dir-glob opt-arg))
   #:export
@@ -53,8 +52,8 @@
    (else
     (cond
      ((file-is-directory? to)
-      (let ((to-file (ss to "/" (fps-file from))))
-        (fps-copy from to-file)))
+         (let ((to-file (string-append to "/" (fps-file from))))
+           (fps-copy from to-file)))
      (else
       (fps-copy from to))))))
 
