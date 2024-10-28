@@ -56,8 +56,8 @@
   (let ((sock (socket PF_INET SOCK_STREAM 0)))
     (setsockopt sock SOL_SOCKET (logior SO_REUSEADDR SO_REUSEPORT) 1)
     (bind sock AF_INET (inet-pton AF_INET (car addr-port)) (cdr addr-port))
-    (fcntl sock F_SETFL (logior O_NONBLOCK
-                                (fcntl sock F_GETFL)))
+;;     (fcntl sock F_SETFL (logior O_NONBLOCK
+;;                                 (fcntl sock F_GETFL)))
     (listen sock 5)
     ;; (ppr "server started")
     (let lp ()
