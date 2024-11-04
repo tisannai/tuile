@@ -20,7 +20,7 @@
             comms-client-send
             comms-client-send-recv
 
-            comms-make-default-descriptor
+            comms-make-descriptor
 
             comms-generic-server-start
             comms-generic-client-send
@@ -94,10 +94,10 @@
 (define (comms-default-addr-with-port port) (cons "127.0.0.1" port))
 
 
-(define* (comms-make-default-descriptor #:key
-                                        (protocol 'unix)
-                                        (address (comms-default-addr))
-                                        (port (comms-default-port)))
+(define* (comms-make-descriptor #:key
+                                (protocol 'unix)
+                                (address (comms-default-addr))
+                                (port (comms-default-port)))
   (list (cons 'protocol protocol)
         (cons 'address address)
         (cons 'port    port)))
