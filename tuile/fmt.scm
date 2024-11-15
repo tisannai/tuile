@@ -13,33 +13,34 @@
    ))
 
 
+;; Formatters (with space as default pad):
+;;
+;; ind - indent, no string arguments      ; (ind 4)
+;; lal - left-align                       ; (lal 6 "foo")
+;; ral - right-align                      ; (ral 6 "bar")
+;; cal - center-align                     ; (cal 7 "dii")
+;; laf - left-align-fill                  ; (laf 6 #\* "foo")
+;; raf - right-align-fill                 ; (raf 6 #\- "bar")
+;; caf - center-align-fill                ; (caf 7 #\+ "dii")
+;; cat - concatenate                      ; (cat "foo" "bar")
+;; rev - concatenate in reverse           ; (rev "foo" "bar")
+;; gap - gap                              ; (gap ("foo" "-") "bar")
+;; scm - scheme pretty print              ; (scm #f '(a b))
+
+;; lep - left-pad (same as indent, with arguments in fmt-group)
+;; rip - right-pad                        ; (rip 5 "foo")
+
+;; Converters (with zero as default pad):
+;;
+;; bin - binary code (default pad: 0)     ; (bin (8 " ") 123)
+;; oct - octal  code (default pad: 0)     ; (oct 8 123)
+;; hex - hex    code (default pad: 0)     ; (hex 8 123)
+;; dec - decimal     (default pad: #\ )   ; (dec 8 123)
+
 ;; 0123456789012301234567890123012345678901230
 ;; |      :      |      :      |      :      |
 ;; foo                 bar                 dii  ; left-align, center-align, right-align
 ;; foo       bar       dii                      ; gap with 7
-
-;; Formatters (with space as default pad):
-;;
-;; ind - indent, no string arguments
-;; lal - left-align
-;; ral - right-align
-;; cal - center-align
-;; laf - left-align-fill
-;; raf - right-align-fill
-;; caf - center-align-fill
-;; gap - gap
-;; lep - left-pad (same as indent, with arguments in fmt-group)
-;; rip - right-pad
-;; cat - concatenate
-;; rev - concatenate in reverse
-;; scm - scheme pretty print
-
-;; Converters (with zero as default pad):
-;;
-;; bin - binary code (default pad: 0)
-;; oct - octal  code (default pad: 0)
-;; hex - hex    code (default pad: 0)
-;; dec - decimal     (default pad: #\ )
 
 
 
@@ -230,7 +231,7 @@
   (string-concatenate (map fmt (list-specified rest))))
 
 (define (format-rev rest)
-  (string-concatenate (map fmt (reverse rest))))
+  (string-concatenate (map fmt (reverse (list-specified rest)))))
 
 (define (format-scm rest)
   (with-output-to-string (lambda ()
