@@ -227,7 +227,7 @@
                  (string-repeat size char))))
 
 (define (format-cat rest)
-  (string-concatenate (list-specified (map fmt rest))))
+  (string-concatenate (map fmt (list-specified rest))))
 
 (define (format-rev rest)
   (string-concatenate (map fmt (reverse rest))))
