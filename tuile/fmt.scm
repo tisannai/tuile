@@ -4,7 +4,7 @@
   #:use-module ((srfi srfi-11) #:select (let-values))
   #:use-module ((ice-9 match) #:select (match))
   #:use-module ((ice-9 pretty-print) #:select (pretty-print))
-  #:use-module ((tuile utils) #:select (delete-nth list-split))
+  #:use-module ((tuile utils) #:select (delete-nth list-split list-specified))
   #:export
   (
    fmt
@@ -227,7 +227,7 @@
                  (string-repeat size char))))
 
 (define (format-cat rest)
-  (string-concatenate (map fmt rest)))
+  (string-concatenate (list-specified (map fmt rest))))
 
 (define (format-rev rest)
   (string-concatenate (map fmt (reverse rest))))
