@@ -702,7 +702,7 @@
 
   ;; Display all usage info.
   (define (usage como)
-    (let* ((longest-label (apply max (map (lambda (spec) (string-length (->string (second spec))))
+    (let* ((longest-label (apply max (map (compose string-length ->string second)
                                           (append (list (list '*default* '*default*))
                                                   actions
                                                   options))))
