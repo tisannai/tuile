@@ -124,18 +124,18 @@
         (cons (list->string (reverse word)) words)
         words))
 
-  (let loop ((chars (string->list str))
+  (let loop ((i 0)
              (words '())
              (word '())
              (state 'in-string))
 
-    (if (null? chars)
+    (if (>= i (string-length str))
 
         ;; Done.
         (reverse (update-words words word))
 
         ;; Continue.
-        (let ((ch (car chars)))
+        (let ((ch (string-ref str i)))
 
           (case state
 
@@ -144,27 +144,27 @@
 
               ;; Escape.
               ((char=? ch #\\)
-               (loop (cddr chars)
+               (loop (+ i 2)
                      words
-                     (cons (cadr chars) word)
+                     (cons (string-ref str (+ i 1)) word)
                      state))
 
               ;; Interpolation (potentially).
               ((char=? ch #\#)
-               (if (char=? (cadr chars)
+               (if (char=? (string-ref str (+ i 1))
                            #\{)
                    ;; Interpolation.
-                   (loop (cddr chars)
+                   (loop (+ i 2)
                          (update-words words word)
                          '()
                          'in-interpolation)
-                   (loop (cdr chars)
+                   (loop (+ i 1)
                          words
                          (cons ch word)
                          state)))
 
               (else
-               (loop (cdr chars)
+               (loop (+ i 1)
                      words
                      (cons ch word)
                      state))))
@@ -175,22 +175,22 @@
 
               ;; Escape.
               ((char=? ch #\\)
-               (loop (cddr chars)
+               (loop (+ i 2)
                      words
-                     (cons (cadr chars) word)
+                     (cons (string-ref str (+ i 1)) word)
                      state))
 
               ;; Terminate interpolation.
               ((char=? ch #\})
                (let ((expr (read (open-input-string
                                   (list->string (reverse word))))))
-                 (loop (cdr chars)
+                 (loop (+ i 1)
                        (cons expr words)
                        '()
                        'in-string)))
 
               (else
-               (loop (cdr chars)
+               (loop (+ i 1)
                      words
                      (cons ch word)
                      state)))))))))
