@@ -39,8 +39,8 @@
   (let ((sock (socket PF_INET SOCK_STREAM 0)))
     (if sock
         (with-exception-handler (lambda (exn)
-                                  (display (si "comms: No server!") (current-error-port))
-                                  (newline (current-error-port))
+;;                                   (display (si "comms: No server!") (current-error-port))
+;;                                   (newline (current-error-port))
                                   #f)
           (lambda ()
             (connect sock AF_INET (inet-pton AF_INET (car addr-port)) (cdr addr-port))
@@ -75,8 +75,8 @@
                                     #f))))))
     (if sock-connectfn
         (with-exception-handler (lambda (exn)
-                                  (display (si "comms: No server!") (current-error-port))
-                                  (newline (current-error-port))
+;;                                   (display (si "comms: No server!") (current-error-port))
+;;                                   (newline (current-error-port))
                                   #f)
           (lambda ()
             ((cdr sock-connectfn))
