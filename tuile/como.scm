@@ -34,6 +34,7 @@
   #:use-module ((ice-9 control) #:select (call/ec))
   #:use-module ((srfi srfi-1)   #:select (find first second third last fold))
   #:use-module ((srfi srfi-13)  #:select (string-contains))
+;;   #:use-module (tuile pr)
 ;;   #:use-module (tuile compatible)
   #:export ( ;; Como classic:
             como-command
@@ -50,7 +51,6 @@
             como-actions
             como-var
             ))
-
 
 
 ;; ------------------------------------------------------------
@@ -271,7 +271,7 @@
              (cnt 0))
     (if (or (null? rest)
             (= cnt take)
-            (equal? #\- (car (string->list (car rest)))))
+            (equal? #\- (string-ref (car rest) 0)))
         (cons cnt rest)
         (begin
           (add-opt-value! opt (car rest))
@@ -334,27 +334,30 @@
    (lambda (ec)
      (let parse-next ((rest (cdr cli))) ; Skip first, i.e. exe.
        (when (pair? rest)
-         (let ((opt (find-opt-with-cli como (car rest))))
-           (if opt
-               (case (opt-type opt)
-                 ((help)       (ec #t))
-                 ((switch)     (parse-next (parse-switch! opt rest)))
-                 ((single)     (parse-next (parse-single! opt rest)))
-                 ((opt-single) (parse-next (parse-single! opt rest)))
-                 ((repeat)     (parse-next (parse-single! opt rest)))
-                 ((opt-repeat) (parse-next (parse-single! opt rest)))
-                 ((multi)      (parse-next (parse-multi!  opt rest)))
-                 ((opt-multi)  (parse-next (parse-multi!  opt rest)))
-                 ((any)        (parse-next (parse-any!    opt rest)))
-                 ((opt-any)    (parse-next (parse-any!    opt rest)))
-                 ((priority)   (parse-next (parse-switch! opt rest)))
-                 (else '()))
-               (let ((default (find-opt-with como 'default opt-type)))
-                 (if default
-                     (begin
-                       (opt-given-set! default #t)
-                       (parse-values! default rest -1))
-                     (parse-error (ss "Unknown option: " (car rest)))))))))
+         (if (string=? (car rest) "--")
+             ;; Skip separator option.
+             (parse-next (cdr rest))
+             (let ((opt (find-opt-with-cli como (car rest))))
+               (if opt
+                   (case (opt-type opt)
+                     ((help)       (ec #t))
+                     ((switch)     (parse-next (parse-switch! opt rest)))
+                     ((single)     (parse-next (parse-single! opt rest)))
+                     ((opt-single) (parse-next (parse-single! opt rest)))
+                     ((repeat)     (parse-next (parse-single! opt rest)))
+                     ((opt-repeat) (parse-next (parse-single! opt rest)))
+                     ((multi)      (parse-next (parse-multi!  opt rest)))
+                     ((opt-multi)  (parse-next (parse-multi!  opt rest)))
+                     ((any)        (parse-next (parse-any!    opt rest)))
+                     ((opt-any)    (parse-next (parse-any!    opt rest)))
+                     ((priority)   (parse-next (parse-switch! opt rest)))
+                     (else '()))
+                   (let ((default (find-opt-with como 'default opt-type)))
+                     (if default
+                         (begin
+                           (opt-given-set! default #t)
+                           (parse-values! default rest -1))
+                         (parse-error (ss "Unknown option: " (car rest))))))))))
      #f)))
 
 
