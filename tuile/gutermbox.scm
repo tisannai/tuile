@@ -10,6 +10,18 @@
    readline
    message
 
+   init
+   shutdown
+   width
+   height
+   clear
+   present
+   set-cursor
+   hide-cursor
+   put-ch
+   poll-event
+   peek-event
+
    ;; Constants
    TB_KEY_F1
    TB_KEY_F2
