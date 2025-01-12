@@ -40,6 +40,7 @@
    hide-layer
    toggle-layer
    toggle-layers
+   map-layers
    last-layer
 
    put-ch
@@ -50,10 +51,10 @@
    del-ring
 
    make-ch
-   ch-p
    ch-x
    ch-y
    ch-c
+   ch-p
 
    get-lines-vector
    get-lines-vector-for-layer
@@ -67,6 +68,8 @@
    layer-count
    layer-content
    layer-visibility
+   layer-hide
+   layer-hide-set!
    dimensions
    dimensions-for-layer
    ))
@@ -88,11 +91,11 @@
 
 
 (define make-ch vector)
-(define (ch-p ch) (p. (ch-x ch) (ch-y ch))) ; Char position.
 (define (ch-x ch) (vector-ref ch 0))    ; Char x.
 (define (ch-y ch) (vector-ref ch 1))    ; Char y.
 (define (ch-c ch) (vector-ref ch 2))    ; Char character.
 (define (ch-c-set! ch char) (vector-set! ch 2 char))
+(define (ch-p ch) (p. (ch-x ch) (ch-y ch))) ; Char position.
 
 
 ;; Reset layer dimension values.
@@ -250,19 +253,15 @@
 
 
 (define (toggle-layers cv)
-  (let* ((canvas (proxy-canvas cv))
-         (layers (massoc-values canvas))
-         (some-hidden (fold (lambda (i s)
-                               (or s (layer-hide i)))
-                             #f
-                             layers)))
-    (if some-hidden
-        (for-each (lambda (i)
-                    (layer-hide-set! i #f))
-                  layers)
-        (for-each (lambda (i)
-                    (layer-hide-set! i #t))
-                  layers))))
+  (let* ((layers (layer-list cv))
+         (has-hidden? (find (lambda (i) (layer-hide i)) layers)))
+    (if has-hidden?
+        (for-each (lambda (i) (layer-hide-set! i #f)) layers)
+        (for-each (lambda (i) (layer-hide-set! i #t)) layers))))
+
+
+(define (map-layers cv proc)
+  (map proc (layer-list cv)))
 
 
 ;; Return proxy for last layer.
@@ -458,7 +457,7 @@
 
 ;; Return canvas dimensions (size pair).
 (define (dimensions cv)
-  (let lp ((layers (massoc-values (proxy-canvas cv)))
+  (let lp ((layers (layer-list cv))
            (xmax -1)
            (ymax -1))
     (if (pair? layers)
