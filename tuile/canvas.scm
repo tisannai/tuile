@@ -46,6 +46,7 @@
    put-str-in-dir
    del-pos
    del-area
+   del-ring
 
    make-ch
    ch-p
@@ -315,9 +316,14 @@
   (del-by-pos-pred cv (lambda (p) (equal? p pos))))
 
 
-;; Delete char from position (on active layer).
+;; Delete char from area (on active layer).
 (define (del-area cv a b)
   (del-by-pos-pred cv (lambda (p) (p-contained? p a b))))
+
+
+;; Delete char from ring (on active layer).
+(define (del-ring cv a b)
+  (del-by-pos-pred cv (lambda (p) (p-on-boundary? p a b))))
 
 
 ;; Get canvas content (lines) as vector of strings.

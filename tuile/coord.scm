@@ -15,6 +15,8 @@
    px-
    py-
    p=
+   p=x
+   p=y
    p+x
    p+y
    p-x
@@ -35,8 +37,10 @@
    points->xy
    p-p->trace
    p-p-point
+   p-on-line?
    p-inside?
    p-contained?
+   p-on-boundary?
 
    pp.
    xy->pp
@@ -86,6 +90,8 @@
 (define (px- a b) (p. (- (px a) (px b)) (py a)))
 (define (py- a b) (p. (px a) (- (py a) (py b))))
 (define (p= a b) (and (= (px a) (px b)) (= (py a) (py b))))
+(define (p=x a b) (= (px a) (px b)))
+(define (p=y a b) (= (py a) (py b)))
 (define (p+x p x) (p. (+ (px p) x) (py p)))
 (define (p+y p y) (p. (px p) (+ (py p) y)))
 (define (p-x p x) (p. (- (px p) x) (py p)))
@@ -215,6 +221,14 @@
       (let ((dir (p-p-dir p0 p1)))
         (p+dir p0 dir nth))))
 
+(define (p-on-line? p p0 p1)
+  (or (and (p=y p p0)
+           (and (>= (px p) (px p0))
+                (<= (px p) (px p1))))
+      (and (p=x p p0)
+           (and (>= (py p) (py p0))
+                (<= (py p) (py p1))))))
+
 ;; Check that p is inside boundaries (not on boundaries), defined by
 ;; p0 and p1.
 (define (p-inside? p p0 p1)
@@ -238,6 +252,34 @@
         (y1 (py p1)))
     (and (and (>= x x0) (<= x x1))
          (and (>= y y0) (<= y y1)))))
+
+;; Check that p is on boundaries, defined by p0 and p1.
+;;
+;;
+;;    p0         p
+;;      \       /
+;;       +-----o---+
+;;       |         |
+;;       |         |
+;;       +---------+
+;;                  \
+;;                   p1
+;;
+(define (p-on-boundary? p p0 p1)
+  (let ((x (px p))
+        (y (py p))
+        (x0 (px p0))
+        (y0 (py p0))
+        (x1 (px p1))
+        (y1 (py p1)))
+    (or (and (or (= y y0)
+                 (= y y1))
+             (>= x x0)
+             (<= x x1))
+        (and (or (= x x0)
+                 (= x x1))
+             (>= y y0)
+             (<= y y1)))))
 
 ;; Create point-pair.
 (define pp. cons)

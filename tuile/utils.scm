@@ -14,6 +14,7 @@
   #:use-module ((srfi srfi-19) #:prefix srfi:)
   #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
+  #:use-module ((ice-9 match) #:select (match))
   #:use-module (tuile re)
   #:use-module ((tuile pr) #:select (ss si :in :rj))
   #:use-module ((tuile fmt) #:select (fmt))
@@ -180,6 +181,7 @@
    string-split-unscape
    string-split-with
    string-split-param
+   string-gen
    make-string-list
    number-sequence
    number-range
@@ -2192,6 +2194,85 @@
 (define (string-split-param str)
   (string-split-with str "=" #t))
 
+
+;; Generate strings.
+;;
+;;     (/ 10 (: 2 0))
+;;     (* 3 (: 9 0))
+;;     (: a z)
+;;     (: z a)
+;;     (+ "a" (* 3 (: 9 0))
+;;     (* 3 (: 0 9))
+;;     (- "foobar" "ob")
+;;     (- "foobar" "kk")
+;;
+(define (string-gen spec)
+
+  (define (gen-multi spec)
+    (let ((mul (second spec))
+          (str (third spec)))
+      (string-concatenate (make-list mul str))))
+
+  (define (gen-repeat spec)
+    (let ((mul (second spec))
+          (str (third spec)))
+      (string-concatenate (map list->string
+                               (map (lambda (i) (make-list mul i))
+                                    (string->list str))))))
+
+  (define (gen-concat spec)
+    (string-concatenate (map gen-item (cdr spec))))
+
+  (define (gen-remove spec)
+    (let ((str (second spec))
+          (rem (third spec)))
+      (aif (string-contains str rem)
+           (string-append (substring str 0 it)
+                          (substring str (+ it (string-length rem))))
+           str)))
+
+  (define (gen-range spec)
+
+    (define (number->charval n)
+      (+ (char->integer #\0) n))
+
+    (define (symbol->charval n)
+      (char->integer (string-ref (symbol->string n) 0)))
+
+    (define (gen-up ll rl)
+      (apply string (map integer->char (iota (1+ (- rl ll)) ll))))
+
+    (define (gen-down ll rl)
+      (apply string (map integer->char (iota (1+ (- ll rl)) ll -1))))
+
+    (define (gen ll rl)
+      (cond
+       ((<= ll rl) (gen-up ll rl))
+       (else (gen-down ll rl))))
+
+    (match spec
+      ((? (lambda (spec) (symbol? (second spec))) (#{:}# ll rl))
+       (gen (symbol->charval ll) (symbol->charval rl)))
+      ((#{:}# ll rl)
+       (gen (number->charval ll) (number->charval rl)))
+      (else "")))
+
+  (define (gen-item spec)
+    (if (list? spec)
+        (case (car spec)
+          ((*) (gen-multi (list (first spec)
+                                (second spec)
+                                (gen-item (third spec)))))
+          ((/) (gen-repeat (list (first spec)
+                                 (second spec)
+                                 (gen-item (third spec)))))
+          ((+) (gen-concat spec))
+          ((-) (gen-remove spec))
+          ((#{:}#) (gen-range spec)))
+        spec))
+
+  (gen-item spec))
+
 ;; Create list of string from symbols, i.e. non-quoted text.
 ;;
 ;;     (make-string-list foo bar dii)
@@ -2470,3 +2551,15 @@
 ;;
 ;; (use-modules (tuile pr))
 ;; (pr (seconds->minutes:seconds 100))
+
+;; (use-modules (tuile pr))
+;; (when #t
+;;   (pr (string-gen `(/ 10 (: 2 0))))
+;;   (pr (string-gen `(* 3 (: 9 0))))
+;;   (pr (string-gen `(: a z)))
+;;   (pr (string-gen `(: z a)))
+;;   (pr (string-gen `(+ "nums: " (* 3 (: 9 0)))))
+;;   (pr (string-gen `(* 3 (: 0 9))))
+;;   (pr (string-gen `(- "foobar" "ob")))
+;;   (pr (string-gen `(- "foobar" "kk")))
+;;   )

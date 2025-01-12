@@ -4,7 +4,7 @@
   #:use-module ((srfi srfi-11) #:select (let-values))
   #:use-module ((ice-9 match) #:select (match))
   #:use-module ((ice-9 pretty-print) #:select (pretty-print))
-  #:use-module ((tuile utils) #:select (delete-nth list-split list-specified))
+  #:use-module ((tuile utils) #:select (delete-nth list-split list-specified aif string-gen))
   #:export
   (
    fmt
@@ -25,6 +25,7 @@
 ;; cat - concatenate                      ; (cat "foo" "bar")
 ;; rev - concatenate in reverse           ; (rev "foo" "bar")
 ;; gap - gap                              ; (gap ("foo" "-") "bar")
+;; gen - generate strings                 ; (gen (* 3 (: 0 9)))
 ;; scm - scheme pretty print              ; (scm #f '(a b))
 
 ;; lep - left-pad (same as indent, with arguments in fmt-group)
@@ -65,6 +66,7 @@
                                (rip . 2)
                                (cat . 0)
                                (rev . 0)
+                               (gen . 1)
                                (scm . 0)
                                (bin . 2)
                                (oct . 2)
@@ -215,6 +217,7 @@
              str-def)
         (fn (->str str-def) width pad))))
 
+
 ;; Separate fields with sized gap.
 ;;
 ;;     (gap 4 "foo" "bar")
@@ -226,6 +229,20 @@
                                      ((size field ...) (values size " " field)))))
     (string-join (flatten (map format-atom (cdr rest)))
                  (string-repeat size char))))
+
+
+;; Generate strings.
+;;
+;;     (gen (/ 10 (: 2 0)))
+;;     (gen (* 3 (: 9 0)))
+;;     (gen (: a z))
+;;     (gen (: z a))
+;;     (gen (+ "a" (* 3 (: 9 0))))
+;;     (gen (* 3 (: 0 9)))
+;;     (gen (- "foobar" "ob"))
+;;     (gen (- "foobar" "kk"))
+(define (format-gen rest)
+  (string-gen (car rest)))
 
 (define (format-cat rest)
   (string-concatenate (map fmt (list-specified rest))))
@@ -248,10 +265,9 @@
 (define (fmt-gap atom) (format-gap atom))
 (define (fmt-lep atom) (left-pad-entry atom))
 (define (fmt-rip atom) (right-pad-entry atom))
-;; (define (fmt-cat atom) (map fmt atom))
-;; (define (fmt-rev atom) (map fmt (reverse atom)))
 (define (fmt-cat atom) (format-cat atom))
 (define (fmt-rev atom) (format-rev atom))
+(define (fmt-gen atom) (format-gen atom))
 (define (fmt-scm atom) (format-scm atom))
 (define (fmt-bin atom) (format-bin atom))
 (define (fmt-hex atom) (format-hex atom))
@@ -278,6 +294,7 @@
       ((rip) (fmt-rip (cdr atom)))
       ((cat) (fmt-cat (cdr atom)))
       ((rev) (fmt-rev (cdr atom)))
+      ((gen) (fmt-gen (cdr atom)))
       ((scm) (fmt-scm (cdr atom)))
       ((bin) (fmt-bin (cdr atom)))
       ((oct) (fmt-oct (cdr atom)))
@@ -582,3 +599,16 @@
 ;; (pr (fmt '(lal 5 "foo" "bar")))
 ;; (pr (fmt '(lal 5 "foo" (cat "foo" "bar"))))
 ;; (pr (fmt '(lal 5 (cat "foo" "bar"))))
+
+
+;; (use-modules (tuile pr))
+;; (when #t
+;;   (pr (fmt `(gen (/ 10 (: 2 0)))))
+;;   (pr (fmt `(gen (* 3 (: 9 0)))))
+;;   (pr (fmt `(gen (: a z))))
+;;   (pr (fmt `(gen (: z a))))
+;;   (pr (fmt `(gen (+ "nums: " (* 3 (: 9 0))))))
+;;   (pr (fmt `(gen (* 3 (: 0 9)))))
+;;   (pr (fmt `(gen (- "foobar" "ob"))))
+;;   (pr (fmt `(gen (- "foobar" "kk"))))
+;;   )
