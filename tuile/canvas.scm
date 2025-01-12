@@ -22,7 +22,7 @@
   #:use-module (tuile pr)
   #:use-module (tuile coord)
   #:use-module (rnrs bytevectors)
-  #:use-module ((srfi srfi-1) #:select (first second third last find))
+  #:use-module ((srfi srfi-1) #:select (first second third last find fold))
   #:use-module (srfi srfi-43)
   #:export
   (
@@ -39,6 +39,7 @@
    swap-layers
    hide-layer
    toggle-layer
+   toggle-layers
    last-layer
 
    put-ch
@@ -55,6 +56,7 @@
    ch-c
 
    get-lines-vector
+   get-lines-vector-for-layer
    get-lines-list
    put-lines-list
    canvas-size
@@ -66,6 +68,7 @@
    layer-content
    layer-visibility
    dimensions
+   dimensions-for-layer
    ))
 
 
@@ -246,6 +249,22 @@
     (layer-hide-set! cur (not (layer-hide cur)))))
 
 
+(define (toggle-layers cv)
+  (let* ((canvas (proxy-canvas cv))
+         (layers (massoc-values canvas))
+         (some-hidden (fold (lambda (i s)
+                               (or s (layer-hide i)))
+                             #f
+                             layers)))
+    (if some-hidden
+        (for-each (lambda (i)
+                    (layer-hide-set! i #f))
+                  layers)
+        (for-each (lambda (i)
+                    (layer-hide-set! i #t))
+                  layers))))
+
+
 ;; Return proxy for last layer.
 (define (last-layer cv)
   (make-proxy (proxy-canvas cv) (car (last (proxy-canvas cv)))))
@@ -337,7 +356,7 @@
         (vector-set! lines i (make-bytevector (px dims) (char->integer #\ )))
         (lp (1+ i))))
 
-    ;; Overwrite bytevectros with chars from layers in order.
+    ;; Overwrite bytevectors with chars from layers in order.
     (let loop-layers ((sorted-li (stable-sort (massoc-keys (proxy-canvas cv))
                                               <)))
       (when (pair? sorted-li)
@@ -349,6 +368,30 @@
               (bytevector-u8-set! (vector-ref lines y) x (char->integer ch))
               (loop (cdr chars)))))
         (loop-layers (cdr sorted-li))))
+
+    (vector-map (lambda (i line) (utf8->string line))
+                lines)))
+
+
+;; Get canvas content (lines) as vector of strings for the current layer only.
+(define (get-lines-vector-for-layer cv)
+  (let* ((dims (dimensions-for-layer cv))
+         (lines (make-vector (py dims))))
+
+    ;; Pre-fill bytevectors with spaces.
+    (let lp ((i 0))
+      (when (< i (py dims))
+        (vector-set! lines i (make-bytevector (px dims) (char->integer #\ )))
+        (lp (1+ i))))
+
+    ;; Overwrite bytevectors with chars from layer.
+    (let loop ((chars (reverse (get-chars cv (proxy-lindex cv)))))
+      (when (pair? chars)
+        (let ((x (ch-x (car chars)))
+              (y (ch-y (car chars)))
+              (ch (ch-c (car chars))))
+          (bytevector-u8-set! (vector-ref lines y) x (char->integer ch))
+          (loop (cdr chars)))))
 
     (vector-map (lambda (i line) (utf8->string line))
                 lines)))
@@ -423,6 +466,13 @@
             (if (> (layer-xmax (car layers)) xmax) (layer-xmax (car layers)) xmax)
             (if (> (layer-ymax (car layers)) ymax) (layer-ymax (car layers)) ymax))
         (p. (1+ xmax) (1+ ymax)))))
+
+
+;; Return canvas dimensions (size pair) for current layer only.
+(define (dimensions-for-layer cv)
+  (let ((layer (get-current-layer cv)))
+    (p. (1+ (layer-xmax layer))
+        (1+ (layer-ymax layer)))))
 
 
 
