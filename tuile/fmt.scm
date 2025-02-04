@@ -24,7 +24,7 @@
 ;; caf - center-align-fill                ; (caf 7 #\+ "dii")
 ;; cat - concatenate                      ; (cat "foo" "bar")
 ;; rev - concatenate in reverse           ; (rev "foo" "bar")
-;; gap - gap                              ; (gap ("foo" "-") "bar")
+;; gap - gap                              ; (gap (4 "-") "foo" "bar")
 ;; gen - generate strings                 ; (gen (* 3 (: 0 9)))
 ;; scm - scheme pretty print              ; (scm #f '(a b))
 

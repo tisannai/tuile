@@ -3,15 +3,16 @@
   #:use-module (tuile pr)
   #:use-module ((tuile utils) #:select (char-separator? char-nonseparator?))
   #:use-module (tuile strpos)
-  #:use-module ((srfi srfi-1) #:select (first second third))
+  #:use-module ((srfi srfi-1) #:select (first second third drop drop-right last))
   #:export
   (
    strline-render-lines
-   strline-prefix-lines
+   strline-decorate-lines
    ))
 
 
-(define (strline-render-lines text width)
+;; Render text to given line width.
+(define (strline-render-lines width text)
 
   (define (create-lines specs)
     (map (lambda (spec)
@@ -63,52 +64,47 @@
         (create-lines (reverse ret)))))
 
 
-(define (strline-prefix-lines lines style)
-  (case (car style)
-    ((all)
+;; Decorate each line with style.
+;;
+;; style: (pre <prefix>)
+;;        (pre-first-tail <first-prefix> <tail-prefix>)
+;;        (pre-head-last <head-prefix> <last-prefix>)
+;;        (post <postfix>)
+;;        (post-first-tail <first-postfix> <tail-postfix>)
+;;        (post-head-last <head-postfix> <last-postfix>)
+;;
+(define (strline-decorate-lines style lines)
+  (case (first style)
+
+    ((pre)
      (map (lambda (line) (string-append (second style) line)) lines))
-    ((first-rest)
+
+    ((pre-first-tail)
      (cons (string-append (second style) (first lines))
            (map (lambda (line) (string-append (third style) line)) (cdr lines))))
+
+    ((pre-head-last)
+     (append (map (lambda (line) (string-append (second style) line)) (drop-right lines 1))
+             (list (string-append (third style) (last lines)))))
+
+    ((post)
+     (map (lambda (line) (string-append line (second style))) lines))
+
+    ((post-first-tail)
+     (cons (string-append (first lines) (second style))
+           (map (lambda (line) (string-append line (third style))) (cdr lines))))
+
+    ((post-head-last)
+     (append (map (lambda (line) (string-append line (second style))) (drop-right lines 1))
+             (list (string-append (last lines) (third style)))))
+
     (else lines)))
 
-#;
-(define (strline-render-lines-opt text width)
-  ;; NOTE: This does not support multiple spaces!
-  (define (create-lines specs)
-    (map (lambda (spec)
-           (let ((la (car spec))
-                 (lb (cdr spec)))
-             (substring text la lb)))
-         specs))
 
-  ;;      
-  ;;     ,la    ,lb       ,i
-  ;;     foo bar foobardii dii duu jii haa juu hii"
-  (let lp ((la 0)                       ; Line start.
-           (lb #f)                      ; Last whitespace, if any.
-           (i 0)                        ; Current char.
-           (ret '()))                   ; List of start-last pairs.
-    (cond
-     ((>= i (string-length text))
-      (create-lines (reverse (if (not (= la i))
-                                 (if lb
-                                     (if (> (- i la) width)
-                                         (cons (cons (1+ lb) i)
-                                               (cons (cons la lb) ret))
-                                         (cons (cons la i) ret))
-                                     (cons (cons la i) ret))
-                                 ret))))
-     ((char-whitespace? (string-ref text i))
-      (if (> (- i la) width)
-          (if lb
-              (lp (1+ lb) #f (1+ lb) (cons (cons la lb) ret))
-              (lp (1+ i) #f (1+ i) (cons (cons la i) ret)))
-          (lp la i (1+ i) ret)))
-     (else (lp la lb (1+ i) ret)))))
-
-
-
-;; (pd (strline-render-lines "foo bar foobardii dii duuu jii haa juu hii" 7))
-;; (pd (strline-render-lines "foo bar foobardii dii duuu jii haa juuhuuuuuu hii" 7))
-;; (pd (strline-render-lines "foo bar foobardii dii duuu jii haa juu hiihuuuuuuu" 7))
+;; (pd (strline-render-lines 7 "foo bar foobardii dii duuu jii haa juu hii"))
+;; (pd (strline-render-lines 7 "foo bar foobardii dii duuu jii haa juuhuuuuuu hii"))
+;; (pd (strline-render-lines 7 "foo bar foobardii dii duuu jii haa juu hiihuuuuuuu"))
+;; (pd (strline-decorate-lines '(pre-head-last "++" "--")
+;;                             (strline-render-lines 7 "foo bar foobardii dii duuu jii haa juu hii")))
+;; (pd (strline-decorate-lines '(post-head-last "," "")
+;;                             (strline-render-lines 7 "foo bar foobardii dii duuu jii haa juu hii")))

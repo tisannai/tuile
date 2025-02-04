@@ -1013,7 +1013,9 @@
                                              (cons (getenv "HOME") ret)))
                              ))
                        (let ((parts (reverse ret)))
-                         (string-join (if (unspecified? (car parts))
+                         (string-join (if (or (and (string? (car parts))
+                                                   (string-null? (car parts)))
+                                              (unspecified? (car parts)))
                                           (cdr parts)
                                           parts)
                                       "/")))))
@@ -1140,3 +1142,7 @@
 ;; (ppr (fps-join "./dii/duu" "../foo/bar"))
 ;; (ppr (fps-join "./dii/duu" "/foo/bar"))
 ;; (ppr (fps-join "./dii/duu" "./foo/bar"))
+
+;; (pd (fpl "duu.daa" "db"))
+;; (pd (fpl "./duu.daa" "db"))
+;; (pd (fpl "../duu.daa" "db"))
