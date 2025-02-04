@@ -234,7 +234,7 @@
 ;; Generate strings.
 ;;
 ;;     (gen (* 3 (: 9 0)))            ; Multiply whole
-;;     (gen (/ 10 (: 2 0)))           ; Multiply within
+;;     (gen (/ 10 (: 2 0)))           ; Multiply chars
 ;;     (gen (: a z))                  ; Range
 ;;     (gen (: z a))                  ; Range
 ;;     (gen (+ "a" (* 3 (: 9 0))))    ; Concatenate
