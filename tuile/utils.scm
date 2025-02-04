@@ -52,6 +52,16 @@
    lref-2
    lref-3
    lref-4
+   l0
+   l1
+   l2
+   l3
+   l4
+   l5
+   l6
+   l7
+   l8
+   l9
    flatten
    flatten-0
    flatten-1
@@ -668,6 +678,24 @@
       #`(begin #,@(-> x (map get-list-ref-function (iota (cadr (syntax->datum x)))))))))
 
 (expand-list-ref-index-functions 5)
+
+
+;; Create function definitions (by x amount) using list-ref as:
+;;
+;;     (define (l0 lst) (list-ref lst 0))
+;;     (define (l1 lst) (list-ref lst 1))
+;;     ...
+;;
+(define-syntax expand-short-list-ref-index-functions
+  (lambda (x)
+    (define (get-list-ref-function index)
+      (list 'define
+            (list (string->symbol (string-append "l" (number->string index))) 'lst)
+            (list 'list-ref 'lst index)))
+    (let* ((-> datum->syntax))
+      #`(begin #,@(-> x (map get-list-ref-function (iota (cadr (syntax->datum x)))))))))
+
+(expand-short-list-ref-index-functions 10)
 
 ;; Flatten (and join) argument list as deep as list goes.
 ;;
@@ -2257,6 +2285,15 @@
        (gen (number->charval ll) (number->charval rl)))
       (else "")))
 
+  (define (gen-head spec)
+    (string-take (gen-item (third spec)) (second spec)))
+
+  (define (gen-tail spec)
+    (string-take-right (gen-item (third spec)) (second spec)))
+
+  (define (gen-clip spec)
+    (substring (gen-item (l3 spec)) (l1 spec) (l2 spec)))
+
   (define (gen-item spec)
     (if (list? spec)
         (case (car spec)
@@ -2268,7 +2305,11 @@
                                  (gen-item (third spec)))))
           ((+) (gen-concat spec))
           ((-) (gen-remove spec))
-          ((#{:}#) (gen-range spec)))
+          ((#{:}#) (gen-range spec))
+          ((<) (gen-head spec))
+          ((>) (gen-tail spec))
+          ((^) (gen-clip spec))
+          )
         spec))
 
   (gen-item spec))
@@ -2562,4 +2603,7 @@
 ;;   (pr (string-gen `(* 3 (: 0 9))))
 ;;   (pr (string-gen `(- "foobar" "ob")))
 ;;   (pr (string-gen `(- "foobar" "kk")))
+;;   (pr (string-gen `(< 3 "foobar")))
+;;   (pr (string-gen `(> 3 "foobar")))
+;;   (pr (string-gen `(^ 2 4 "foobar")))
 ;;   )
