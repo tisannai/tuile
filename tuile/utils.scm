@@ -2197,14 +2197,14 @@
 
 ;; Generate strings.
 ;;
-;;     (/ 10 (: 2 0))
-;;     (* 3 (: 9 0))
-;;     (: a z)
-;;     (: z a)
-;;     (+ "a" (* 3 (: 9 0))
-;;     (* 3 (: 0 9))
-;;     (- "foobar" "ob")
-;;     (- "foobar" "kk")
+;;     (* 3 (: 9 0))           ; Multiply whole
+;;     (/ 10 (: 2 0))          ; Multiply chars
+;;     (: a z)                 ; Range
+;;     (: z a)                 ; Range
+;;     (+ "a" (* 3 (: 9 0))    ; Concatenate
+;;     (* 3 (: 0 9))           ; Multiply whole
+;;     (- "foobar" "ob")       : Subtract
+;;     (- "foobar" "kk")       ; Subtract
 ;;
 (define (string-gen spec)
 

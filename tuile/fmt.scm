@@ -233,14 +233,15 @@
 
 ;; Generate strings.
 ;;
-;;     (gen (/ 10 (: 2 0)))
-;;     (gen (* 3 (: 9 0)))
-;;     (gen (: a z))
-;;     (gen (: z a))
-;;     (gen (+ "a" (* 3 (: 9 0))))
-;;     (gen (* 3 (: 0 9)))
-;;     (gen (- "foobar" "ob"))
-;;     (gen (- "foobar" "kk"))
+;;     (gen (* 3 (: 9 0)))            ; Multiply whole
+;;     (gen (/ 10 (: 2 0)))           ; Multiply within
+;;     (gen (: a z))                  ; Range
+;;     (gen (: z a))                  ; Range
+;;     (gen (+ "a" (* 3 (: 9 0))))    ; Concatenate
+;;     (gen (* 3 (: 0 9)))            ; Multiply whole
+;;     (gen (- "foobar" "ob"))        : Subtract
+;;     (gen (- "foobar" "kk"))        ; Subtract
+;;
 (define (format-gen rest)
   (string-gen (car rest)))
 
