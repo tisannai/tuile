@@ -2294,6 +2294,12 @@
   (define (gen-clip spec)
     (substring (gen-item (l3 spec)) (l1 spec) (l2 spec)))
 
+  (define (gen-drop spec)
+    (let* ((base (l3 spec))
+           (left (string-take base (l1 spec)))
+           (right (substring base (l2 spec))))
+      (string-append left right)))
+
   (define (gen-item spec)
     (if (list? spec)
         (case (car spec)
@@ -2309,6 +2315,7 @@
           ((<) (gen-head spec))
           ((>) (gen-tail spec))
           ((^) (gen-clip spec))
+          ((_) (gen-drop spec))
           )
         spec))
 
@@ -2606,4 +2613,5 @@
 ;;   (pr (string-gen `(< 3 "foobar")))
 ;;   (pr (string-gen `(> 3 "foobar")))
 ;;   (pr (string-gen `(^ 2 4 "foobar")))
+;;   (pr (string-gen `(_ 2 4 "foobar")))
 ;;   )
