@@ -2236,6 +2236,8 @@
 ;;
 (define (string-gen spec)
 
+  (define vtab #f)
+
   (define (gen-multi spec)
     (let ((mul (second spec))
           (str (third spec)))
@@ -2300,6 +2302,18 @@
            (right (substring base (l2 spec))))
       (string-append left right)))
 
+  (define (gen-vset spec)
+    (when (not vtab)
+      (set! vtab (make-hash-table)))
+    (let ((value (gen-item (l2 spec))))
+      (hash-set! vtab (l1 spec) value)
+      value))
+
+  (define (gen-vget spec)
+    (if vtab
+        (hash-ref vtab (l1 spec))
+        ""))
+
   (define (gen-item spec)
     (if (list? spec)
         (case (car spec)
@@ -2316,6 +2330,8 @@
           ((>) (gen-tail spec))
           ((^) (gen-clip spec))
           ((_) (gen-drop spec))
+          ((!) (gen-vset spec))
+          ((=) (gen-vget spec))
           )
         spec))
 
@@ -2614,4 +2630,5 @@
 ;;   (pr (string-gen `(> 3 "foobar")))
 ;;   (pr (string-gen `(^ 2 4 "foobar")))
 ;;   (pr (string-gen `(_ 2 4 "foobar")))
+;;   (pr (string-gen `(+ (! a "dii") (= a))))
 ;;   )
