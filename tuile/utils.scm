@@ -343,7 +343,7 @@
 
 (define -> fn-pipe)
 
-(define (repeat fn cnt)
+(define (repeat cnt fn)
   (let lp ((i 0)
            (ret '()))
     (if (< i cnt)
