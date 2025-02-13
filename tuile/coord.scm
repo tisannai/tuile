@@ -62,6 +62,7 @@
    r-corner
 
    dir-orientation
+   dir-diagonal?
    dir-opposite
    diridx->dir
 
@@ -341,7 +342,14 @@
 (define (dir-orientation dir)
   (case dir
     ((left right) 'horizontal)
-    ((down up)    'vertical)))
+    ((down up)    'vertical)
+    (else 'horizontal)))
+
+
+(define (dir-diagonal? dir)
+  (case dir
+    ((up-left up-right down-left down-right) #t)
+    (else #f)))
 
 
 (define (dir-opposite dir)
@@ -349,7 +357,11 @@
     ((left)  'right)
     ((right) 'left)
     ((up)    'down)
-    ((down)  'up)))
+    ((down)  'up)
+    ((up-left) 'down-right)
+    ((up-right) 'down-left)
+    ((down-left) 'up-right)
+    ((down-right) 'up-left)))
 
 
 (define (diridx->dir idx)
