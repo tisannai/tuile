@@ -28,6 +28,17 @@
                        (car dir-len))))
 
 
+
+;;
+;;     |--------|    |--..        |-.          |-.          |.
+;;                        ''--|      '..          '.          '.
+;;                                      ''-|        '.          '.
+;;                                                    '-|         '.
+;;                                                                  '|
+(define (freeline cv spec pa pb)
+  #t)
+
+
 ;; Draw rectangle to canvas.
 ;;
 ;;     (rectangle cv (p. 5 3) (p. 16 7))
