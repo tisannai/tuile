@@ -1073,12 +1073,19 @@
 
 ;; Return integer and fractional parts of real as pair.
 (define (->integer-fraction real decimals)
-  (call-with-values (lambda ()
-                      (let ((scaler (expt 10 decimals)))
-                        (floor/ (* real scaler) scaler)))
-    (lambda (q r)
-      (cons (inexact->exact (round q))
-            (inexact->exact (round r))))))
+  (if (< real 0.0)
+      (call-with-values (lambda ()
+                          (let ((scaler (expt 10 decimals)))
+                            (floor/ (* real (- scaler)) scaler)))
+        (lambda (q r)
+          (cons (- (inexact->exact (round q)))
+                (inexact->exact (round r)))))
+      (call-with-values (lambda ()
+                          (let ((scaler (expt 10 decimals)))
+                            (floor/ (* real scaler) scaler)))
+        (lambda (q r)
+          (cons (inexact->exact (round q))
+                (inexact->exact (round r)))))))
 
 (define (prime-numbers n)
 

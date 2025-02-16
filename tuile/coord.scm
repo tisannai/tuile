@@ -33,6 +33,9 @@
    p-p-hdir
    p-p-orientation
    p-p-angle
+   p-p-type-and-angle
+   p-p-type-and-slope
+   p-p-length
    xy->points
    points->xy
    p-p->trace
@@ -187,6 +190,92 @@
      ((and (> xd 0) (< yd 0)) (- p2 (atan (/ (* -1.0 yd) (* +1.0 xd))))) ;; Right down \v.
      (else *unspecified*) ;; +, a and b are same position.
      )))
+
+
+;;
+;;          4
+;;       5     3
+;;     6 .  |  . 2
+;;    7   '.|.'   1
+;;   8  ----+----  0
+;;    9   .'|'.   15
+;;    10 '  |  ' 14
+;;      11     13
+;;         12
+;;
+(define (p-p-type-and-angle a b)
+  (let* ((xd (- (px b) (px a)))
+         (yd (- (py b) (py a)))
+         (p2 (* pi 2)))
+
+    (cond
+     ((and (> xd 0) (= yd 0)) (cons 0 0.0))           ;; Straight right ->.
+     ((and (< xd 0) (= yd 0)) (cons 8 pi))            ;; Straight left  <-.
+     ((and (= xd 0) (> yd 0)) (cons 4 (* pi 0.5)))    ;; Straight up   |^.
+     ((and (= xd 0) (< yd 0)) (cons 12 (* pi 1.5)))   ;; Straight down |v.
+
+     ((and (> xd 0) (= (+ xd) (+ yd))) (cons  2 (* pi 0.25))) ;; Right up /^.
+     ((and (< xd 0) (= (- xd) (+ yd))) (cons  6 (* pi 0.75))) ;; Left up  ^\.
+     ((and (< xd 0) (= (+ xd) (+ yd))) (cons 10 (* pi 1.25))) ;; Left down /v.
+     ((and (> xd 0) (= (+ xd) (- yd))) (cons 14 (* pi 1.75))) ;; Right down \v.
+
+     (else
+      (let ((angle (atan (/ (exact->inexact yd) xd))))
+        (cond
+         ((and (> xd 0) (> yd 0) (> (+ xd) (+ yd))) (cons  1 (+  0 angle)))
+         ((and (> xd 0) (> yd 0) (< (+ xd) (+ yd))) (cons  3 (+  0 angle)))
+         ((and (< xd 0) (> yd 0) (< (- xd) (+ yd))) (cons  5 (+ pi angle)))
+         ((and (< xd 0) (> yd 0) (> (- xd) (+ yd))) (cons  7 (+ pi angle)))
+
+         ((and (< xd 0) (< yd 0) (> (- xd) (- yd))) (cons  9 (+ pi angle)))
+         ((and (< xd 0) (< yd 0) (< (- xd) (- yd))) (cons 11 (+ pi angle)))
+         ((and (> xd 0) (< yd 0) (< (+ xd) (- yd))) (cons 13 (+ p2 angle)))
+         ((and (> xd 0) (< yd 0) (> (+ xd) (- yd))) (cons 15 (+ p2 angle)))))))))
+
+;;
+;;          4
+;;       5     3
+;;     6 .  |  . 2
+;;    7   '.|.'   1
+;;   8  ----+----  0
+;;    9   .'|'.   15
+;;    10 '  |  ' 14
+;;      11     13
+;;         12
+;;
+(define (p-p-type-and-slope a b)
+  (let* ((xd (- (px b) (px a)))
+         (yd (- (py b) (py a))))
+
+    (cond
+     ((and (> xd 0) (= yd 0)) (cons 0 0.0))    ;; Straight right ->.
+     ((and (< xd 0) (= yd 0)) (cons 8 0.0))    ;; Straight left  <-.
+     ((and (= xd 0) (> yd 0)) (cons 4 0.0))    ;; Straight up   |^.
+     ((and (= xd 0) (< yd 0)) (cons 12 0.0))   ;; Straight down |v.
+
+     ((and (> xd 0) (= (+ xd) (+ yd))) (cons  2 +1.0)) ;; Right up /^.
+     ((and (< xd 0) (= (- xd) (+ yd))) (cons  6 -1.0)) ;; Left up  ^\.
+     ((and (< xd 0) (= (+ xd) (+ yd))) (cons 10 +1.0)) ;; Left down /v.
+     ((and (> xd 0) (= (+ xd) (- yd))) (cons 14 -1.0)) ;; Right down \v.
+
+     (else
+      (let ((slope (/ (exact->inexact yd) xd)))
+        (cond
+         ((and (> xd 0) (> yd 0) (> (+ xd) (+ yd))) (cons  1 slope))
+         ((and (> xd 0) (> yd 0) (< (+ xd) (+ yd))) (cons  3 slope))
+         ((and (< xd 0) (> yd 0) (< (- xd) (+ yd))) (cons  5 slope))
+         ((and (< xd 0) (> yd 0) (> (- xd) (+ yd))) (cons  7 slope))
+
+         ((and (< xd 0) (< yd 0) (> (- xd) (- yd))) (cons  9 slope))
+         ((and (< xd 0) (< yd 0) (< (- xd) (- yd))) (cons 11 slope))
+         ((and (> xd 0) (< yd 0) (< (+ xd) (- yd))) (cons 13 slope))
+         ((and (> xd 0) (< yd 0) (> (+ xd) (- yd))) (cons 15 slope))))))))
+(define (p-p-length a b)
+  (let ((xd (- (px b) (px a)))
+        (yd (- (py b) (py a))))
+    (expt (+ (expt xd 2.0)
+             (expt yd 2.0))
+          0.5)))
 
 ;; Convert pairs of xy to points.
 (define (xy->points . xy-pairs)
@@ -414,3 +503,23 @@
 (define (path-start-dir path)
   (pp-dir (pp. (first path)
                (second path))))
+
+
+;; (use-modules (tuile pr))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. 4 0)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. 4 4)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. 0 4)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. -4 4)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. -4 0)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. -4 -4)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. 0 -4)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. 4 -4)))
+;;
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. 4 1)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. 1 4)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. -1 4)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. -4 1)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. -4 -1)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. -1 -4)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. 1 -4)))
+;; (ppr (p-p-type-and-angle (p. 0 0) (p. 4 -1)))
