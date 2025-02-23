@@ -71,6 +71,7 @@
    listify
    list->cons
    cons->list
+   list-join
    list-clean
    list-specified
    list-split
@@ -825,6 +826,11 @@
 ;; Convert cons to a list.
 (define (cons->list arg)
   (list (car arg) (cdr arg)))
+
+;; Append all arguments to flat list.
+(define (list-join . rest)
+  (apply append (map (lambda (i) (if (list? i) i (list i)))
+                     rest)))
 
 ;; Return a clean list (no falses, no unspecified).
 (define (list-clean lst)

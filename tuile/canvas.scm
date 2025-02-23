@@ -37,6 +37,7 @@
    set-layer
    reset-layers
    swap-layers
+   merge-layers
    hide-layer
    toggle-layer
    toggle-layers
@@ -160,14 +161,18 @@
     (layer-chars-set! layer '())))
 
 
+(define (del-layer-by-index cv index)
+  (massoc-del! (proxy-canvas cv) index)
+  (if (massoc-empty? (proxy-canvas cv))
+      (create)
+      (make-proxy (proxy-canvas cv) (car (first (proxy-canvas cv))))))
+
+
 ;; Delete given layer (through proxy). The last layer is never
 ;; deleted, but it is emptied if delete is requested for it. Also the
 ;; layer lindex is turned into 0.
 (define (del-layer cv)
-  (massoc-del! (proxy-canvas cv) (proxy-lindex cv))
-  (if (massoc-empty? (proxy-canvas cv))
-      (create)
-      (make-proxy (proxy-canvas cv) (car (first (proxy-canvas cv))))))
+  (del-layer-by-index cv (proxy-lindex cv)))
 
 
 ;; Map layer characters to new state with proc. Proc is provided with
@@ -241,6 +246,22 @@
         cv)))
 
 
+;; Merge to a layer b.
+(define (merge-layers cv a b)
+  (let ((canvas (proxy-canvas cv)))
+    (if (and (massoc-ref canvas a)
+             (massoc-ref canvas b))
+        (let ((layer-a (massoc-ref canvas a))
+              (content-a (layer-chars (massoc-ref canvas a)))
+              (content-b (layer-chars (massoc-ref canvas b))))
+          (for-each (lambda (ch)
+                      (put-ch-to-layer layer-a (ch-c ch) (ch-p ch)))
+                    content-b)
+          (del-layer-by-index cv b)
+          (make-proxy canvas a))
+        cv)))
+
+
 ;; Set layer "hide" status (false=visible, true=hidden).
 (define (hide-layer cv state)
   (layer-hide-set! (get-current-layer cv) state))
@@ -269,10 +290,8 @@
   (make-proxy (proxy-canvas cv) (car (last (proxy-canvas cv)))))
 
 
-;; Put char to position (on active layer).
-(define (put-ch cv ch pos)
-  (let ((layer (get-current-layer cv))
-        (x (px pos))
+(define (put-ch-to-layer layer ch pos)
+  (let ((x (px pos))
         (y (py pos)))
     (when (> x (layer-xmax layer)) (layer-xmax-set! layer x))
     (when (> y (layer-ymax layer)) (layer-ymax-set! layer y))
@@ -282,6 +301,11 @@
       (if old-ch
           (ch-c-set! old-ch ch)
           (layer-chars-set! layer (cons (make-ch (px pos) (py pos) ch) (layer-chars layer)))))))
+
+
+;; Put char to position (on active layer).
+(define (put-ch cv ch pos)
+  (put-ch-to-layer (get-current-layer cv) ch pos))
 
 
 ;; Put string of chars starting from position (on active layer).
