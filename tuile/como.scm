@@ -380,7 +380,9 @@
 
 
 (define (opt-cli-switch opt)
-  (opt-dash-opt opt))
+  ;; (opt-dash-opt opt)
+  (ss "[" (opt-dash-opt opt) "]")
+  )
 
 
 (define (opt-cli-single opt)
@@ -416,7 +418,7 @@
 
 
 (define (opt-cli-priority opt)
-  (ss "[" (opt-dash-opt opt) " !" "]"))
+  (ss "{" (opt-dash-opt opt) "}"))
 
 
 (define (opt-cli-default opt)
