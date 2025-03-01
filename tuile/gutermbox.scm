@@ -7,6 +7,7 @@
    get-key
    put-str
 
+   readline-with-input
    readline
    message
 
@@ -604,7 +605,7 @@
 ;; EOF-type value (#f) is returned, when Ctrl-D is given on empty an
 ;; line.
 ;;
-(define (readline prompt x y)
+(define (readline-with-input prompt input x y)
 
   (define (show ls rs)
 
@@ -655,15 +656,12 @@
 
   (put-str prompt x y)
 
-  (let loop ((ls '())
+  (let loop ((ls (if input (string->list input) '()))
              (rs '()))
 
     (show ls rs)
 
-
-    (let (
-;;           (key (read-key))
-          (key (get-key))
+    (let ((key (get-key))
           (all (append ls rs)))
 
       (cond
@@ -734,6 +732,10 @@
        (else
         (loop (append ls (list key))
               rs))))))
+
+
+(define (readline prompt x y)
+  (readline-with-input prompt #f x y))
 
 
 ;; Display message to the given terminal position.

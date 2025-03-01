@@ -1246,10 +1246,17 @@
   (stat:mtime (stat file)))
 
 ;; Compare modify time of source(s) to target(s). If any of the
-;; sources is newer than any of the targets, return true.
+;; sources is newer than any of the targets or a target is missing,
+;; return true.
 (define (file-update? sources targets)
-  (let ((source-times (map file-modify-time (listify sources)))
-        (target-times (map file-modify-time (listify targets))))
+
+  (define (file-time file)
+    (if (not (file-exists? file))
+        0
+        (file-modify-time file)))
+
+  (let ((source-times (map file-time (listify sources)))
+        (target-times (map file-time (listify targets))))
     (> (apply max source-times)
        (apply min target-times))))
 
