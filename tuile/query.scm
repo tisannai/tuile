@@ -5,6 +5,7 @@
   #:use-module (ice-9 match)
   #:export
   (
+   query-prompt
    query-ask
    query-yn
    query-yn-bool
@@ -21,11 +22,14 @@
    (else #f)))
 
 (define (query-question->yes-no question default-answer)
-  (let ((default (query-default-answer default-answer)))
+  (let ((default (query-default-answer default-answer))
+        (question (if (string-null? question)
+                      ""
+                      (si "#{question} "))))
     (cond
-     ((not default) (si "#{question} [y/n]? "))
-     ((eq? default 'yes) (si "#{question} [Y/n]? "))
-     ((eq? default 'no) (si "#{question} [y/N]? ")))))
+     ((not default) (si "#{question}[y/n]? "))
+     ((eq? default 'yes) (si "#{question}[Y/n]? "))
+     ((eq? default 'no) (si "#{question}[y/N]? ")))))
 
 (define (query-readline prompt default-answer)
   (let ((answer (readline prompt)))
@@ -51,6 +55,9 @@
 ;; Internal:
 ;; ------------------------------------------------------------
 
+
+(define (query-prompt question . default-answer)
+  (query-readline question default-answer))
 
 (define (query-ask question . default-answer)
   (query-readline (si "#{question}? ") default-answer))
