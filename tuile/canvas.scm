@@ -85,6 +85,10 @@
           ))
 
 ;; Proxy to specified canvas layer.
+;;
+;;     canvas      Massoc with indeces as keys to layers.
+;;     lindex      Index of current layer.
+;;
 (define-record-type proxy
   (fields canvas                        ; Canvas massoc.
           lindex                        ; Current layer index.
@@ -287,7 +291,7 @@
 
 ;; Return proxy for last layer.
 (define (last-layer cv)
-  (make-proxy (proxy-canvas cv) (car (last (proxy-canvas cv)))))
+  (make-proxy (proxy-canvas cv) (car (first (proxy-canvas cv)))))
 
 
 (define (put-ch-to-layer layer ch pos)
