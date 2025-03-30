@@ -17,18 +17,19 @@
 ;;
 (define-module (tuile canvas)
   #:use-module (tuile record-r6rs)
-  #:use-module (tuile massoc)
+;;   #:use-module (tuile massoc)
   #:use-module (tuile utils)
   #:use-module (tuile pr)
   #:use-module (tuile coord)
   #:use-module (rnrs bytevectors)
-  #:use-module ((srfi srfi-1) #:select (first second third last find fold))
+  #:use-module ((srfi srfi-1) #:select (first second third last find fold drop-right))
   #:use-module (srfi srfi-43)
   #:export
   (
    create
    use-layer
    push-layer
+   pop-layer
    insert-layer
    clear-layer
    del-layer
@@ -64,6 +65,7 @@
    canvas-size
 
    layer-index
+   layer-last?
    layer-indeces
    layer-list
    layer-count
@@ -86,12 +88,14 @@
 
 ;; Proxy to specified canvas layer.
 ;;
-;;     canvas      Massoc with indeces as keys to layers.
+;;     layers      List of layers, in order.
 ;;     lindex      Index of current layer.
 ;;
 (define-record-type proxy
-  (fields canvas                        ; Canvas massoc.
-          lindex                        ; Current layer index.
+  (fields layers
+          active
+          lindex
+          count
           ))
 
 
@@ -119,43 +123,72 @@
 
 ;; Create canvas as layer 0.
 (define (create)
-  (make-proxy (make-massoc (list (cons 0 (create-layer 0))))
-              0))
+  (let ((active (create-layer)))
+    (make-proxy (list active)
+                active
+                0
+                1)))
+
+
+(define (create-proxy-for-index cv li)
+  (make-proxy (proxy-layers cv)
+              (list-ref (proxy-layers cv) li)
+              li
+              (proxy-count cv)))
 
 
 ;; Create proxy for "cv" at layer index "lindex".
 (define (use-layer cv li)
   (ensure-layer cv li)
-  (make-proxy (proxy-canvas cv) li))
+;;   (create-proxy-for-index cv li)
+  )
 
 
-;; Create proxy for "cv" at next layer index.
+;; Push layer as last layer.
 (define (push-layer cv)
-  (if cv
-      (let ((li (1+ (proxy-lindex cv))))
-        (ensure-layer cv li)
-        (make-proxy (proxy-canvas cv) li))
-      (create)))
+;;   (if cv
+;;       (let ((li (1+ (proxy-lindex cv))))
+;;         (ensure-layer cv li)
+;;         (create-proxy-for-index cv li))
+;;       (create))
+  (let ((active (create-layer)))
+    (make-proxy (append (proxy-layers cv) (list active))
+                active
+                (proxy-count cv)
+                (1+ (proxy-count cv)))))
+
+
+;; Pop the last layer.
+(define (pop-layer cv)
+  (let ((layers (drop-right (proxy-layers cv) 1)))
+    (make-proxy layers
+                (last layers)
+                (- (proxy-count cv) 2)
+                (- (proxy-count cv) 1))))
 
 
 ;; Create proxy for "cv" at next layer index.
 (define (insert-layer cv)
-  (let* ((canvas (proxy-canvas cv))
-         (lindex (proxy-lindex cv))
-         (layers (massoc-values canvas)))
-    (massoc-clear! canvas)
-    (let lp ((layers layers)
-             (i 0)
-             (ret #f))
-      (if (pair? layers)
-          (if (= i lindex)
-              (begin
-                (massoc-add! canvas i (create-layer i))
-                (lp layers (1+ i) (make-proxy canvas i)))
-              (begin
-                (massoc-add! canvas i (car layers))
-                (lp (cdr layers) (1+ i) ret)))
-          ret))))
+  (if (layer-last? cv)
+      (push-layer cv)
+      (let* ((layers (proxy-layers cv))
+             (lindex (proxy-lindex cv))
+             (update (let lp ((layers layers)
+                              (i 0)
+                              (ret '()))
+                       (if (pair? layers)
+                           (if (= i lindex)
+                               (append (reverse ret)
+                                       (list (create-layer))
+                                       (cdr layers))
+                               (lp (cdr layers)
+                                   (1+ i)
+                                   (cons (car layers) ret)))
+                           (reverse (cons (create-layer) ret))))))
+        (make-proxy update
+                    (list-ref update (1+ lindex))
+                    (1+ lindex)
+                    (1+ (proxy-count cv))))))
 
 
 ;; Empty layer content.
@@ -166,10 +199,32 @@
 
 
 (define (del-layer-by-index cv index)
-  (massoc-del! (proxy-canvas cv) index)
-  (if (massoc-empty? (proxy-canvas cv))
+  (if (= (proxy-count cv) 1)
       (create)
-      (make-proxy (proxy-canvas cv) (car (first (proxy-canvas cv))))))
+      (let* ((layers (proxy-layers cv))
+             (lindex index)
+             (update (let lp ((layers layers)
+                              (i 0)
+                              (ret '()))
+                       (if (pair? layers)
+                           (if (= i lindex)
+                               (cond
+                                ((= (1+ i) (proxy-count cv))
+                                 (cons (car ret) (reverse ret)))
+                                (else
+                                 (cons (cadr layers) (append (reverse ret)
+                                                             (cddr layers)))))
+                               (lp (cdr layers)
+                                   (1+ i)
+                                   (cons (car layers) ret)))
+                           (reverse ret)))))
+        (let ((updated-index (if (= (1+ index) (proxy-count cv))
+                                 (1- index)
+                                 index)))
+          (make-proxy update
+                      (list-ref update updated-index)
+                      updated-index
+                      (1- (proxy-count cv)))))))
 
 
 ;; Delete given layer (through proxy). The last layer is never
@@ -217,52 +272,69 @@
           (reverse ret)))))
 
 
-;; Set layer content
+;; Set layer content.
 (define (set-layer cv content)
-  (let ((canvas (proxy-canvas cv))
-        (lindex (proxy-lindex cv)))
-    (massoc-set! canvas lindex content)))
+  (let* ((layers (proxy-layers cv))
+         (lindex (proxy-lindex cv))
+         (update (let lp ((layers layers)
+                          (i 0)
+                          (ret '()))
+                   (if (pair? layers)
+                       (if (= i lindex)
+                           (append (reverse ret)
+                                   (list content)
+                                   (cdr layers))
+                           (lp (cdr layers)
+                               (1+ i)
+                               (cons (car layers) ret)))))))
+    (make-proxy update
+                (list-ref update lindex)
+                lindex
+                (proxy-count cv))))
 
 
 ;; Rename layer indeces to run from 0 to end, in order and with gaps.
-(define (reset-layers cv)
-  (let* ((canvas (proxy-canvas cv))
-         (layers (massoc-values canvas)))
-    (massoc-clear! canvas)
-    (let lp ((layers layers)
-             (i 0))
-      (when (pair? layers)
-        (massoc-add! canvas i (car layers))
-        (lp (cdr layers)
-            (1+ i))))))
+(define (reset-layers cv) #f)
 
 
-;; Swap content of layers.
+;; Swap content of layers, given layer indeces.
 (define (swap-layers cv a b)
-  (let ((canvas (proxy-canvas cv)))
-    (if (and (massoc-ref canvas a)
-             (massoc-ref canvas b))
-        (let ((content-a (massoc-ref canvas a))
-              (content-b (massoc-ref canvas b)))
-          (massoc-set! canvas a content-b)
-          (massoc-set! canvas b content-a)
-          (make-proxy canvas b))
-        cv)))
+
+  (let ((layer-a (get-layer cv a))
+        (layer-b (get-layer cv b)))
+
+      (let* ((layers (proxy-layers cv))
+             (lindex (proxy-lindex cv))
+             (update (let lp ((layers layers)
+                              (i 0)
+                              (ret '()))
+                       (if (pair? layers)
+                           (lp (cdr layers)
+                               (1+ i)
+                               (cons (cond
+                                      ((= i a) b)
+                                      ((= i b) a)
+                                      (else (car layers)))
+                                     ret))
+                           (reverse ret)))))
+        (make-proxy update
+                    (list-ref update lindex)
+                    lindex
+                    (proxy-count cv)))))
 
 
-;; Merge to a layer b.
+;; Merge to layer "a", the layer "b".
 (define (merge-layers cv a b)
-  (let ((canvas (proxy-canvas cv)))
-    (if (and (massoc-ref canvas a)
-             (massoc-ref canvas b))
-        (let ((layer-a (massoc-ref canvas a))
-              (content-a (layer-chars (massoc-ref canvas a)))
-              (content-b (layer-chars (massoc-ref canvas b))))
+  (let* ((canvas (proxy-layers cv))
+         (layer-a (get-layer cv a))
+         (layer-b (get-layer cv b)))
+    (if (and layer-a layer-b)
+        (let ((content-b (layer-chars layer-b)))
           (for-each (lambda (ch)
                       (put-ch-to-layer layer-a (ch-c ch) (ch-p ch)))
                     content-b)
           (del-layer-by-index cv b)
-          (make-proxy canvas a))
+          (create-proxy-for-index cv a))
         cv)))
 
 
@@ -291,7 +363,7 @@
 
 ;; Return proxy for last layer.
 (define (last-layer cv)
-  (make-proxy (proxy-canvas cv) (car (first (proxy-canvas cv)))))
+  (create-proxy-for-index cv (1- (proxy-count cv))))
 
 
 (define (put-ch-to-layer layer ch pos)
@@ -384,17 +456,28 @@
         (lp (1+ i))))
 
     ;; Overwrite bytevectors with chars from layers in order.
-    (let loop-layers ((sorted-li (stable-sort (massoc-keys (proxy-canvas cv))
-                                              <)))
-      (when (pair? sorted-li)
-        (let loop ((chars (reverse (get-chars cv (car sorted-li)))))
+;;     (let loop-layers ((sorted-li (stable-sort (massoc-keys (proxy-layers cv))
+;;                                               <)))
+;;       (when (pair? sorted-li)
+;;         (let loop ((chars (reverse (get-chars cv (car sorted-li)))))
+;;           (when (pair? chars)
+;;             (let ((x (ch-x (car chars)))
+;;                   (y (ch-y (car chars)))
+;;                   (ch (ch-c (car chars))))
+;;               (bytevector-u8-set! (vector-ref lines y) x (char->integer ch))
+;;               (loop (cdr chars)))))
+;;         (loop-layers (cdr sorted-li))))
+
+    (let loop-layers ((layers (proxy-layers cv)))
+      (when (pair? layers)
+        (let loop ((chars (reverse (layer-visible-chars (car layers)))))
           (when (pair? chars)
             (let ((x (ch-x (car chars)))
                   (y (ch-y (car chars)))
                   (ch (ch-c (car chars))))
               (bytevector-u8-set! (vector-ref lines y) x (char->integer ch))
               (loop (cdr chars)))))
-        (loop-layers (cdr sorted-li))))
+        (loop-layers (cdr layers))))
 
     (vector-map (lambda (i line) (utf8->string line))
                 lines)))
@@ -412,7 +495,15 @@
         (lp (1+ i))))
 
     ;; Overwrite bytevectors with chars from layer.
-    (let loop ((chars (reverse (get-chars cv (proxy-lindex cv)))))
+;;     (let loop ((chars (reverse (get-chars cv (proxy-lindex cv)))))
+;;       (when (pair? chars)
+;;         (let ((x (ch-x (car chars)))
+;;               (y (ch-y (car chars)))
+;;               (ch (ch-c (car chars))))
+;;           (bytevector-u8-set! (vector-ref lines y) x (char->integer ch))
+;;           (loop (cdr chars)))))
+
+    (let loop ((chars (reverse (layer-visible-chars (get-current-layer cv)))))
       (when (pair? chars)
         (let ((x (ch-x (car chars)))
               (y (ch-y (car chars)))
@@ -446,7 +537,7 @@
 
 ;; Return the total number of characters for all layers combined.
 (define (canvas-size cv)
-  (let lp ((layers (proxy-canvas cv))
+  (let lp ((layers (proxy-layers cv))
            (size 0))
     (if (pair? layers)
         (lp (cdr layers)
@@ -459,19 +550,27 @@
   (proxy-lindex cv))
 
 
+;; Current layer is last?
+(define (layer-last? cv)
+  (= (1+ (proxy-lindex cv)) (proxy-count cv)))
+
+
 ;; Return canvas indeces.
 (define (layer-indeces cv)
-  (massoc-keys (proxy-canvas cv)))
+;;   (massoc-keys (proxy-layers cv))
+  (iota (1- (proxy-count cv))))
 
 
 ;; Return canvas layers.
 (define (layer-list cv)
-  (massoc-values (proxy-canvas cv)))
+;;   (massoc-values (proxy-layers cv))
+  (proxy-layers cv))
 
 
 ;; Return the number of layers.
 (define (layer-count cv)
-  (massoc-length (proxy-canvas cv)))
+;;   (massoc-length (proxy-layers cv))
+  (proxy-count cv))
 
 
 ;; Current layer content.
@@ -515,21 +614,34 @@
         (layer-chars layer))))
 
 ;; Create data for new layer.
-(define (create-layer li)
+(define (create-layer)
   (make-layer '() -1 -1 #f))
+
+;; Return layer characters, if visible.
+(define (layer-visible-chars layer)
+  (if (layer-hide layer)
+      '()
+      (reverse (layer-chars layer))))
 
 ;; Make sure layer exists, before use.
 (define (ensure-layer cv li)
-  (unless (massoc-has-key? (proxy-canvas cv) li)
-    (massoc-set! (proxy-canvas cv) li (create-layer li))))
+  (if (< li (proxy-count cv))
+      (create-proxy-for-index cv li)
+      (push-layer cv))
+;;   (unless (massoc-has-key? (proxy-layers cv) li)
+;;     (massoc-set! (proxy-layers cv) li (create-layer)))
+  )
 
 ;; Return current layer.
 (define (get-current-layer cv)
-  (get-layer cv (proxy-lindex cv)))
+;;   (get-layer cv (proxy-lindex cv))
+  (proxy-active cv))
 
 ;; Get active layer.
 (define (get-layer cv li)
-  (massoc-ref (proxy-canvas cv) li))
+  (if (< li (proxy-count cv))
+      (list-ref (proxy-layers cv) li)
+      #f))
 
 
 #;
@@ -537,5 +649,4 @@
   (define cv (create))
   (put-ch cv #\a (p. 3 1))
   (put-ch cv #\b (p. 10 10))
-  ;;(get-lines cv)
   (for-each pr (get-lines-list cv)))
