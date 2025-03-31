@@ -86,16 +86,19 @@
           (mutable hide)                ; Hide layer (default: visible).
           ))
 
-;; Proxy to specified canvas layer.
+
+;; Proxy to canvas.
 ;;
-;;     layers      List of layers, in order.
-;;     lindex      Index of current layer.
+;; Canvas user holds the proxy to the canvas. User can manipulate the
+;; canvas throught this handle. Also, this proxy includes all
+;; information about the canvas, and therefore it serves as the only
+;; handle to the canvas resource.
 ;;
 (define-record-type proxy
-  (fields layers
-          active
-          lindex
-          count
+  (fields layers                        ; List of layers, in order.
+          active                        ; Current layer.
+          lindex                        ; Index of current layer.
+          count                         ; Number of layers.
           ))
 
 
@@ -139,18 +142,11 @@
 
 ;; Create proxy for "cv" at layer index "lindex".
 (define (use-layer cv li)
-  (ensure-layer cv li)
-;;   (create-proxy-for-index cv li)
-  )
+  (ensure-layer cv li))
 
 
 ;; Push layer as last layer.
 (define (push-layer cv)
-;;   (if cv
-;;       (let ((li (1+ (proxy-lindex cv))))
-;;         (ensure-layer cv li)
-;;         (create-proxy-for-index cv li))
-;;       (create))
   (let ((active (create-layer)))
     (make-proxy (append (proxy-layers cv) (list active))
                 active
@@ -192,6 +188,9 @@
 
 
 ;; Empty layer content.
+;;
+;; NOTE: the canvas maximum values are not
+;; effected.
 (define (clear-layer cv)
   (let ((layer (get-current-layer cv)))
     (layer-max-reset layer)
@@ -456,18 +455,6 @@
         (lp (1+ i))))
 
     ;; Overwrite bytevectors with chars from layers in order.
-;;     (let loop-layers ((sorted-li (stable-sort (massoc-keys (proxy-layers cv))
-;;                                               <)))
-;;       (when (pair? sorted-li)
-;;         (let loop ((chars (reverse (get-chars cv (car sorted-li)))))
-;;           (when (pair? chars)
-;;             (let ((x (ch-x (car chars)))
-;;                   (y (ch-y (car chars)))
-;;                   (ch (ch-c (car chars))))
-;;               (bytevector-u8-set! (vector-ref lines y) x (char->integer ch))
-;;               (loop (cdr chars)))))
-;;         (loop-layers (cdr sorted-li))))
-
     (let loop-layers ((layers (proxy-layers cv)))
       (when (pair? layers)
         (let loop ((chars (reverse (layer-visible-chars (car layers)))))
@@ -495,14 +482,6 @@
         (lp (1+ i))))
 
     ;; Overwrite bytevectors with chars from layer.
-;;     (let loop ((chars (reverse (get-chars cv (proxy-lindex cv)))))
-;;       (when (pair? chars)
-;;         (let ((x (ch-x (car chars)))
-;;               (y (ch-y (car chars)))
-;;               (ch (ch-c (car chars))))
-;;           (bytevector-u8-set! (vector-ref lines y) x (char->integer ch))
-;;           (loop (cdr chars)))))
-
     (let loop ((chars (reverse (layer-visible-chars (get-current-layer cv)))))
       (when (pair? chars)
         (let ((x (ch-x (car chars)))
@@ -627,14 +606,10 @@
 (define (ensure-layer cv li)
   (if (< li (proxy-count cv))
       (create-proxy-for-index cv li)
-      (push-layer cv))
-;;   (unless (massoc-has-key? (proxy-layers cv) li)
-;;     (massoc-set! (proxy-layers cv) li (create-layer)))
-  )
+      (push-layer cv)))
 
 ;; Return current layer.
 (define (get-current-layer cv)
-;;   (get-layer cv (proxy-lindex cv))
   (proxy-active cv))
 
 ;; Get active layer.
