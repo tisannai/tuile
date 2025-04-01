@@ -664,74 +664,77 @@
     (let ((key (get-key))
           (all (append ls rs)))
 
-      (cond
+      (if (char? key)
 
-       ;; RETURN
-       ((char=? key #\return)
-        (clean-and-return (list->string (append ls rs))))
+          (cond
 
-       ;; ESCAPE
-       ((char=? key #\escape)
-        (clean-and-return #f))
+           ;; RETURN
+           ((char=? key #\return)
+            (clean-and-return (list->string (append ls rs))))
 
-       ;; DELETE / CTRL-H
-       ((char=? key #\delete)
-        (cond
-         ((not (null? ls))
-          (loop (drop-right ls 1) rs))
-         (else
-          (loop ls rs))))
+           ;; ESCAPE
+           ((char=? key #\escape)
+            (clean-and-return #f))
 
-       ;; CTRL-D
-       ((char=? key #\eot)
-        (cond
-         ;; Nothing in cli.
-         ((and (null? ls)
-               (null? rs))
-          (clean-and-return #f))
-         ;; Tail exists.
-         ((pair? rs)
-          (loop ls (cdr rs)))
-         ;; Nothing to delete.
-         (else
-          (loop ls rs))))
+           ;; DELETE / CTRL-H
+           ((char=? key #\delete)
+            (cond
+             ((not (null? ls))
+              (loop (drop-right ls 1) rs))
+             (else
+              (loop ls rs))))
 
-       ;; CTRL-K
-       ((char=? key #\vtab)
-        (cond
-         ;; Tail exists.
-         ((pair? rs)
-          (clean-input ls rs)
-          (loop ls '()))
-         ;; Nothing to delete.
-         (else
-          (loop ls rs))))
+           ;; CTRL-D
+           ((char=? key #\eot)
+            (cond
+             ;; Nothing in cli.
+             ((and (null? ls)
+                   (null? rs))
+              (clean-and-return #f))
+             ;; Tail exists.
+             ((pair? rs)
+              (loop ls (cdr rs)))
+             ;; Nothing to delete.
+             (else
+              (loop ls rs))))
 
-       ;; CTRL-B
-       ((char=? key #\stx)
-        (if (null? ls)
-            (loop ls rs)
-            (loop (drop-right ls 1)
-                  (cons (last ls) rs))))
+           ;; CTRL-K
+           ((char=? key #\vtab)
+            (cond
+             ;; Tail exists.
+             ((pair? rs)
+              (clean-input ls rs)
+              (loop ls '()))
+             ;; Nothing to delete.
+             (else
+              (loop ls rs))))
 
-       ;; CTRL-F
-       ((char=? key #\ack)
-        (if (null? rs)
-            (loop ls rs)
-            (loop (append ls (list (car rs)))
-                  (cdr rs))))
+           ;; CTRL-B
+           ((char=? key #\stx)
+            (if (null? ls)
+                (loop ls rs)
+                (loop (drop-right ls 1)
+                      (cons (last ls) rs))))
 
-       ;; CTRL-A
-       ((char=? key #\soh)
-        (loop '() (append ls rs)))
+           ;; CTRL-F
+           ((char=? key #\ack)
+            (if (null? rs)
+                (loop ls rs)
+                (loop (append ls (list (car rs)))
+                      (cdr rs))))
 
-       ;; CTRL-E
-       ((char=? key #\enq)
-        (loop all '()))
+           ;; CTRL-A
+           ((char=? key #\soh)
+            (loop '() (append ls rs)))
 
-       (else
-        (loop (append ls (list key))
-              rs))))))
+           ;; CTRL-E
+           ((char=? key #\enq)
+            (loop all '()))
+
+           (else
+            (loop (append ls (list key))
+                  rs)))
+          #f))))
 
 
 (define (readline prompt x y)
