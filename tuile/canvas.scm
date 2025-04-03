@@ -44,6 +44,7 @@
    toggle-layers
    map-layers
    last-layer
+   get-layer-copy
 
    put-ch
    put-str
@@ -401,6 +402,20 @@
 ;; Return proxy for last layer.
 (define (last-layer cv)
   (create-proxy-for-index cv (1- (proxy-count cv))))
+
+(define (get-layer-copy cv index)
+  (let ((layer (get-layer cv index)))
+    (make-layer (map vector-copy (layer-chars layer))
+                (layer-xmax layer)
+                (layer-ymax layer)
+                (layer-hide layer))))
+
+(define (set-layer! cv index)
+  (let ((layer (get-layer cv index)))
+    (make-layer (list-copy (layer-chars layer))
+                (layer-xmax layer)
+                (layer-ymax layer)
+                (layer-hide layer))))
 
 
 (define (put-ch-to-layer layer ch pos)
