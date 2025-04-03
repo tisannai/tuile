@@ -197,29 +197,63 @@
     (layer-chars-set! layer '())))
 
 
+;; Delete indexed layer and return a new handle.
+;;
+;; case 1:
+;;      cur -> 0 aaaa
+;;             1 bbbb
+;;      idx -> 2 cccc
+;;             3 dddd
+;;             4 eeee
+;;
+;; case 2:
+;;             0 aaaa
+;;      idx -> 1 bbbb
+;;             2 cccc
+;;      cur -> 3 dddd
+;;             4 eeee
+;;
+;; case 3:
+;;             0 aaaa
+;;             1 bbbb
+;;      idx -> 2 cccc <- cur
+;;             3 dddd
+;;             4 eeee
+;;
+;; case 4:
+;;             0 aaaa
+;;             1 bbbb
+;;             2 cccc
+;;             3 dddd
+;;      idx -> 4 eeee <- cur
+;;
 (define (del-layer-by-index cv index)
   (if (= (proxy-count cv) 1)
       (create)
       (let* ((layers (proxy-layers cv))
-             (lindex index)
+             (last-layer? (= (1+ index) (proxy-count cv)))
              (update (let lp ((layers layers)
                               (i 0)
                               (ret '()))
                        (if (pair? layers)
-                           (if (= i lindex)
+                           (if (= i index)
                                (cond
                                 ((= (1+ i) (proxy-count cv))
-                                 (cons (car ret) (reverse ret)))
+                                 (reverse ret))
                                 (else
-                                 (cons (cadr layers) (append (reverse ret)
-                                                             (cddr layers)))))
+                                 (append (reverse ret)
+                                         (cdr layers))))
                                (lp (cdr layers)
                                    (1+ i)
                                    (cons (car layers) ret)))
                            (reverse ret)))))
-        (let ((updated-index (if (= (1+ index) (proxy-count cv))
-                                 (1- index)
-                                 index)))
+        (let ((updated-index (cond
+                              ;; case 1:
+                              ((< (proxy-lindex cv) index) (proxy-lindex cv))
+                              ;; case 3 and 4:
+                              ((= (proxy-lindex cv) index) (if last-layer? (1- index) index))
+                              ;; case 2:
+                              (else (- (proxy-lindex cv) 1)))))
           (make-proxy update
                       (list-ref update updated-index)
                       updated-index
@@ -324,17 +358,21 @@
 
 ;; Merge to layer "a", the layer "b".
 (define (merge-layers cv a b)
-  (let* ((canvas (proxy-layers cv))
-         (layer-a (get-layer cv a))
-         (layer-b (get-layer cv b)))
-    (if (and layer-a layer-b)
-        (let ((content-b (layer-chars layer-b)))
-          (for-each (lambda (ch)
-                      (put-ch-to-layer layer-a (ch-c ch) (ch-p ch)))
-                    content-b)
-          (del-layer-by-index cv b)
-          (create-proxy-for-index cv a))
-        cv)))
+  (when (not (= a b))
+    (let* ((in-order? (< a b)))
+      (let* ((canvas (proxy-layers cv))
+             (layer-a (get-layer cv a))
+             (layer-b (get-layer cv b)))
+        (if (and layer-a layer-b)
+            (let ((content-b (layer-chars layer-b)))
+              (for-each (lambda (ch)
+                          (put-ch-to-layer layer-a (ch-c ch) (ch-p ch)))
+                        content-b)
+              (let ((cv (del-layer-by-index cv b)))
+                (if in-order?
+                    (create-proxy-for-index cv a)
+                    (create-proxy-for-index cv (1- a)))))
+            cv)))))
 
 
 ;; Set layer "hide" status (false=visible, true=hidden).
