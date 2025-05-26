@@ -2,6 +2,7 @@
   #:use-module ((rnrs records syntactic) #:select (define-record-type))
   #:use-module (tuile utils)
   #:use-module (tuile pr)
+  #:use-module (tuile fmt)
   #:export
   (
    bits-value
@@ -114,7 +115,9 @@
   (if (logbit? i (bits-value a)) 1 0))
 
 (define (bits->bin-string bits)
-  (:rj (bits-width bits) "0" (number->string (bits-value bits) 2)))
+  ;; (:rj (bits-width bits) "0" (number->string (bits-value bits) 2))
+  (fmt `(ral (,(bits-width bits) "0") ,(number->string (bits-value bits) 2)))
+  )
 
 
 
@@ -130,14 +133,7 @@
 (define bw bits-width)
 
 
-
-#|
-(use-modules (tuile bits))
-(bits->bin-string (bits-new 3 4))
-|#
-
-
-#|
-
-
-|#
+#;
+(begin
+  (use-modules (tuile bits))
+  (pr (bits->bin-string (bits-new 3 4))))

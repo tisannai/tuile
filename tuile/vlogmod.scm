@@ -2,6 +2,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (tuile utils)
   #:use-module (tuile pr)
+  #:use-module (tuile fmt)
   #:use-module (tuile re)
   #:use-module (tuile codeprint)
   #:use-module (tuile record-r6rs)
@@ -223,7 +224,7 @@
   (initialize-variable self initargs))
 
 (define-method (sizedef (self <variable>))
-  (ss (:lj 32 " " (width-fulldef (slot-ref self 'width)))
+  (ss (fmt `(lal 32 ,(width-fulldef (slot-ref self 'width))))
       (slot-ref self 'name)))
 
 (define-method (portdef (self <variable>))
