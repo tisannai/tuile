@@ -32,6 +32,7 @@
    ?inputs
    ?inputs+
    ?outputs
+   ?inouts
 
    ))
 
@@ -117,6 +118,7 @@
           (mutable resets)              ; 2: reset list
           (mutable inputs)              ; 3: input list
           (mutable outputs)             ; 4: output list
+          (mutable inouts)              ; 4: inout list
           (mutable regs)                ; 5: reg list
           (mutable wires)               ; 6: wire list
           (mutable combs)               ; 7: comb list
@@ -135,15 +137,18 @@
                         (vlogmod-resets v)
                         (vlogmod-inputs v))))
 
-(define outputs vlogmod-outputs)
+(define (outputs v) (append (vlogmod-outputs v)
+                            (vlogmod-inouts v)))
 
-(define (ports v) (append (inputs v) (outputs v)))
+(define (ports v) (append (inputs v)
+                          (outputs v)))
 
 (define ?clocks vlogmod-clocks)
 (define ?resets vlogmod-resets)
 (define ?inputs vlogmod-inputs)
 (define ?inputs+ inputs)
 (define ?outputs vlogmod-outputs)
+(define ?inouts vlogmod-inouts)
 
 
 ;; ------------------------------------------------------------
@@ -235,6 +240,9 @@
 (define-class <output> (<variable>))
 (define-method (vardef (self <output>)) (ss "output " (sizedef self) ";"))
 
+(define-class <inout> (<variable>))
+(define-method (vardef (self <inout>)) (ss "inout  " (sizedef self) ";"))
+
 (define-class <reg> (<variable>)
   value
   )
@@ -295,6 +303,7 @@
           ((reset) (vlogmod-resets-set! v (add vlogmod-resets (make <reset> name width))))
           ((input) (vlogmod-inputs-set! v (add vlogmod-inputs (make <input> name width))))
           ((output) (vlogmod-outputs-set! v (add vlogmod-outputs (make <output> name width))))
+          ((inout) (vlogmod-inouts-set! v (add vlogmod-inouts (make <inout> name width))))
           ((reg) (vlogmod-regs-set! v (add vlogmod-regs (make <reg> name width value))))
           ((wire) (vlogmod-wires-set! v (add vlogmod-wires (make <wire> name width))))
           ((comb) (vlogmod-combs-set! v (add vlogmod-combs (make <comb> name width))))
@@ -584,6 +593,7 @@
   (output-vardefs (vlogmod-locals v))
   (output-vardefs (inputs v))
   (output-vardefs (outputs v))
+;;   (output-vardefs (inouts v))
   (output-vardefs (vlogmod-regs v))
   (output-vardefs (vlogmod-combs v))
   (output-vardefs (vlogmod-wires v))
@@ -664,6 +674,7 @@
        (+var v 'input "init")
        (+var v 'input "ending")
        (+var v '(output reg) "count" 3)
+       (+var v 'inout "io2" 1)
        (+var v '(reg) "foobar" 1)
        (+var v 'param "my_par" 13)
        (+var v 'local "my_loc" 15)
