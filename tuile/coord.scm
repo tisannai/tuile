@@ -67,6 +67,7 @@
    dir-orientation
    dir-diagonal?
    dir-opposite
+   dir-clockwise
    diridx->dir
 
    path->segments
@@ -115,7 +116,7 @@
   (let ((count (if (pair? step) (car step) 1)))
     (case dir
       ((left) (p+x p count))
-      ((rigth) (p-x p count))
+      ((right) (p-x p count))
       ((down) (p-y p count))
       ((up) (p+y p count)))))
 
@@ -451,6 +452,18 @@
     ((up-right) 'down-left)
     ((down-left) 'up-right)
     ((down-right) 'up-left)))
+
+
+(define (dir-clockwise dir)
+  (case dir
+    ((left)  'up)
+    ((right) 'down)
+    ((up)    'right)
+    ((down)  'left)
+    ((up-left) 'up-right)
+    ((up-right) 'down-right)
+    ((down-left) 'up-left)
+    ((down-right) 'down-left)))
 
 
 (define (diridx->dir idx)

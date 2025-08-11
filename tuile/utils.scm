@@ -1952,7 +1952,7 @@
     (values (status:exit-val status) stdout stderr)))
 
 
-(define (capture-shell-command command)
+(define (capture-shell-command-values command)
   (let* ((stdout-pipe (pipe))
          (stderr-pipe (pipe))
          (pid (primitive-fork)))
