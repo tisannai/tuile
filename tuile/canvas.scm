@@ -59,9 +59,10 @@
    ch-c
    ch-p
 
-   get-lines-vector
-   get-lines-vector-for-layer
-   get-lines-list
+   get-content-view
+   get-content
+   get-content-view-for-active
+   get-content-for-active
    put-lines-list
    canvas-size
 
@@ -75,7 +76,7 @@
    layer-hide
    layer-hide-set!
    dimensions
-   dimensions-for-layer
+   dimensions-for-active
    ))
 
 
@@ -496,26 +497,27 @@
   (del-by-pos-pred cv (lambda (p) (p-on-boundary? p a b))))
 
 
-;; Get canvas content (lines) as vector of strings.
-(define (get-lines-vector cv)
-  (let* ((dims (dimensions cv))
-         (lines (make-vector (py dims))))
+;; Get content view for layers
+(define (get-content-view-for-layers layers p0 p1)
+  (let* ((dims (p- p1 p0))
+         (lines (make-vector (1+ (py dims)))))
 
     ;; Pre-fill bytevectors with spaces.
     (let lp ((i 0))
-      (when (< i (py dims))
-        (vector-set! lines i (make-bytevector (px dims) (char->integer #\ )))
+      (when (<= i (py dims))
+        (vector-set! lines i (make-bytevector (1+ (px dims)) (char->integer #\ )))
         (lp (1+ i))))
 
     ;; Overwrite bytevectors with chars from layers in order.
-    (let loop-layers ((layers (proxy-layers cv)))
+    (let loop-layers ((layers layers))
       (when (pair? layers)
-        (let loop ((chars (reverse (layer-visible-chars (car layers)))))
+        (let loop ((chars (layer-visible-chars (car layers))))
           (when (pair? chars)
             (let ((x (ch-x (car chars)))
                   (y (ch-y (car chars)))
                   (ch (ch-c (car chars))))
-              (bytevector-u8-set! (vector-ref lines y) x (char->integer ch))
+              (when (p-contained? (p. x y) p0 p1)
+                (bytevector-u8-set! (vector-ref lines (- y (py p0))) (- x (px p0)) (char->integer ch)))
               (loop (cdr chars)))))
         (loop-layers (cdr layers))))
 
@@ -523,33 +525,24 @@
                 lines)))
 
 
-;; Get canvas content (lines) as vector of strings for the current layer only.
-(define (get-lines-vector-for-layer cv)
-  (let* ((dims (dimensions-for-layer cv))
-         (lines (make-vector (py dims))))
-
-    ;; Pre-fill bytevectors with spaces.
-    (let lp ((i 0))
-      (when (< i (py dims))
-        (vector-set! lines i (make-bytevector (px dims) (char->integer #\ )))
-        (lp (1+ i))))
-
-    ;; Overwrite bytevectors with chars from layer.
-    (let loop ((chars (reverse (layer-visible-chars (get-current-layer cv)))))
-      (when (pair? chars)
-        (let ((x (ch-x (car chars)))
-              (y (ch-y (car chars)))
-              (ch (ch-c (car chars))))
-          (bytevector-u8-set! (vector-ref lines y) x (char->integer ch))
-          (loop (cdr chars)))))
-
-    (vector-map (lambda (i line) (utf8->string line))
-                lines)))
+;; Return view (p0,p1) of content for specified area.
+(define (get-content-view cv p0 p1)
+  (get-content-view-for-layers (proxy-layers cv) p0 p1))
 
 
-;; Get canvas content (lines) as list of strings.
-(define (get-lines-list cv)
-  (vector->list (get-lines-vector cv)))
+(define (get-content cv)
+  (get-content-view cv (p. 0 0) (p- (dimensions cv) (p. 1 1))))
+
+
+;; Return view (p0,p1) of content for specified area.
+(define (get-content-view-for-active cv p0 p1)
+  (get-content-view-for-layers (list (get-current-layer cv)) p0 p1))
+
+
+;; Return pair including dimensions and vector of chars, for active layer only.
+;;     ( <dims> <chars> )
+(define (get-content-for-active cv)
+  (get-content-view-for-active cv (p. 0 0) (p- (dimensions-for-active cv) (p. 1 1))))
 
 
 ;; Put lines of text to canvas.
@@ -627,7 +620,7 @@
 
 
 ;; Return canvas dimensions (size pair) for current layer only.
-(define (dimensions-for-layer cv)
+(define (dimensions-for-active cv)
   (let ((layer (get-current-layer cv)))
     (p. (1+ (layer-xmax layer))
         (1+ (layer-ymax layer)))))
