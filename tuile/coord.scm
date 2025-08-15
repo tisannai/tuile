@@ -29,6 +29,7 @@
    p-p-len
    p-p-distance
    p-p-dir-len
+   p-p-order
    p-p-manhattan-distance
    p-p-hdir
    p-p-orientation
@@ -147,6 +148,14 @@
        ((and (< xd 0) (= yd 0)) (cons 'left  (+ (- xd) 1)))
        ((and (< yd 0) (= xd 0)) (cons 'up    (+ (- yd) 1)))
        (else (cons *unspecified* *unspecified*)))))
+
+;; Order a and b, so that p0 is top-left and p1 is bottom-right. If a
+;; and b are not area corners, return #f.
+(define (p-p-order a b)
+  (if (and (> (px a) (px b))
+           (> (py a) (py b)))
+      (pp. b a)
+      #f))
 
 ;; Distance for horizontally or vertically aligned points.
 (define (p-p-manhattan-distance a b)
