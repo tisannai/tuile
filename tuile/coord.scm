@@ -150,12 +150,12 @@
        (else (cons *unspecified* *unspecified*)))))
 
 ;; Order a and b, so that p0 is top-left and p1 is bottom-right. If a
-;; and b are not area corners, return #f.
+;; and b are not area corners, return a and b in argument list order.
 (define (p-p-order a b)
-  (if (and (> (px a) (px b))
-           (> (py a) (py b)))
+  (if (and (>= (px a) (px b))
+           (>= (py a) (py b)))
       (pp. b a)
-      #f))
+      (pp. a b)))
 
 ;; Distance for horizontally or vertically aligned points.
 (define (p-p-manhattan-distance a b)
@@ -528,6 +528,8 @@
 
 
 ;; (use-modules (tuile pr))
+;; (ppr (p-p-order (p. 0 0) (p. 1 1)))
+;; (ppr (p-p-order (p. 1 1) (p. 0 0)))
 ;; (ppr (p-p-type-and-angle (p. 0 0) (p. 4 0)))
 ;; (ppr (p-p-type-and-angle (p. 0 0) (p. 4 4)))
 ;; (ppr (p-p-type-and-angle (p. 0 0) (p. 0 4)))
