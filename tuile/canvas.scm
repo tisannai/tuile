@@ -33,8 +33,6 @@
    insert-layer
    clear-layer
    del-layer
-   map-layer
-   from-layer
    set-layer
    reset-layers
    swap-layers
@@ -42,7 +40,6 @@
    hide-layer
    toggle-layer
    toggle-layers
-   map-layers
    last-layer
    get-layer-copy
 
@@ -72,6 +69,7 @@
    layer-list
    layer-count
    layer-content
+   layer-content-set!
    layer-visibility
    layer-hide
    layer-hide-set!
@@ -269,55 +267,17 @@
   (del-layer-by-index cv (proxy-lindex cv)))
 
 
-;; Map layer characters to new state with proc. Proc is provided with
-;; the char and it should return a new char. If return value is #f,
-;; the char will be removed.
-(define (map-layer cv proc)
-  (let* ((layer (get-current-layer cv))
-         (chars (layer-chars layer)))
-    (layer-max-reset layer)
-    (layer-chars-set! layer
-                      (let lp ((chars chars)
-                               (ret '()))
-                        (if (pair? chars)
-                            (let ((new-char (proc (car chars))))
-                              (if new-char
-                                  (begin
-                                    (layer-max-update layer new-char)
-                                    (lp (cdr chars)
-                                        (cons new-char ret)))
-                                  (lp (cdr chars)
-                                      ret)))
-                            (reverse ret))))))
-
-
-;; Select layer characters that match pred.
-(define (from-layer cv pred)
-  (let* ((layer (get-current-layer cv))
-         (chars (layer-chars layer)))
-    (let lp ((chars chars)
-             (ret '()))
-      (if (pair? chars)
-          (let ((res (pred (car chars))))
-            (if res
-                (lp (cdr chars)
-                    (cons (car chars) ret))
-                (lp (cdr chars)
-                    ret)))
-          (reverse ret)))))
-
-
-;; Set layer content.
-(define (set-layer cv content)
+;; Set current layer value.
+(define (set-layer cv layer)
   (let* ((layers (proxy-layers cv))
          (lindex (proxy-lindex cv))
          (update (let lp ((layers layers)
                           (i 0)
                           (ret '()))
-                   (if (pair? layers)
+                   (when (pair? layers)
                        (if (= i lindex)
                            (append (reverse ret)
-                                   (list content)
+                                   (list layer)
                                    (cdr layers))
                            (lp (cdr layers)
                                (1+ i)
@@ -394,10 +354,6 @@
     (if has-hidden?
         (for-each (lambda (i) (layer-hide-set! i #f)) layers)
         (for-each (lambda (i) (layer-hide-set! i #t)) layers))))
-
-
-(define (map-layers cv proc)
-  (map proc (layer-list cv)))
 
 
 ;; Return proxy for last layer.
@@ -477,7 +433,7 @@
 
 ;; Delete char using position-predicate.
 (define (del-by-pos-pred cv pred)
-  (map-layer cv (lambda (ch) (if (pred (p. (ch-x ch) (ch-y ch)))
+  (layer-map cv (lambda (ch) (if (pred (p. (ch-x ch) (ch-y ch)))
                                  #f
                                  ch))))
 
@@ -602,9 +558,40 @@
 (define (layer-content cv)
   (reverse (layer-chars (get-current-layer cv))))
 
+
+;; Current layer content.
+(define (layer-content-set! cv content)
+  (let ((layer (get-current-layer cv)))
+    (layer-max-reset layer)
+    (for-each (lambda (char) (layer-max-update layer char)) content)
+    (layer-chars-set! layer content)))
+
+
 ;; Return layer hide status.
 (define (layer-visibility cv)
   (layer-hide (get-current-layer cv)))
+
+
+;; Map layer characters to new state with proc. Proc is provided with
+;; the char and it should return a new char. If return value is #f,
+;; the char will be removed.
+(define (layer-map cv proc)
+  (let* ((layer (get-current-layer cv))
+         (chars (layer-chars layer)))
+    (layer-max-reset layer)
+    (layer-chars-set! layer
+                      (let lp ((chars chars)
+                               (ret '()))
+                        (if (pair? chars)
+                            (let ((new-char (proc (car chars))))
+                              (if new-char
+                                  (begin
+                                    (layer-max-update layer new-char)
+                                    (lp (cdr chars)
+                                        (cons new-char ret)))
+                                  (lp (cdr chars)
+                                      ret)))
+                            (reverse ret))))))
 
 
 ;; Return canvas dimensions (size pair).
