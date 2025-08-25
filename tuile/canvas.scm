@@ -34,7 +34,7 @@
    clear-layer
    del-layer
    set-layer
-   reset-layers
+;;    reset-layers
    swap-layers
    merge-layers
    hide-layer
@@ -288,8 +288,8 @@
                 (proxy-count cv))))
 
 
-;; Rename layer indeces to run from 0 to end, in order and with gaps.
-(define (reset-layers cv) #f)
+;; ;; Rename layer indeces to run from 0 to end, in order and with gaps.
+;; (define (reset-layers cv) #f)
 
 
 ;; Swap content of layers, given layer indeces.
@@ -367,12 +367,12 @@
                 (layer-ymax layer)
                 (layer-hide layer))))
 
-(define (set-layer! cv index)
-  (let ((layer (get-layer cv index)))
-    (make-layer (list-copy (layer-chars layer))
-                (layer-xmax layer)
-                (layer-ymax layer)
-                (layer-hide layer))))
+;; (define (set-layer! cv index)
+;;   (let ((layer (get-layer cv index)))
+;;     (make-layer (list-copy (layer-chars layer))
+;;                 (layer-xmax layer)
+;;                 (layer-ymax layer)
+;;                 (layer-hide layer))))
 
 
 (define (put-ch-to-layer layer ch pos)
