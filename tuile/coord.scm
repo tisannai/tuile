@@ -69,6 +69,7 @@
    dir-diagonal?
    dir-opposite
    dir-clockwise
+   dir-counterclockwise
    diridx->dir
 
    path->segments
@@ -473,6 +474,18 @@
     ((up-right) 'down-right)
     ((down-left) 'up-left)
     ((down-right) 'down-left)))
+
+
+(define (dir-counterclockwise dir)
+  (case dir
+    ((left)  'down)
+    ((right) 'up)
+    ((up)    'left)
+    ((down)  'right)
+    ((up-left) 'down-left)
+    ((up-right) 'up-left)
+    ((down-left) 'down-right)
+    ((down-right) 'up-right)))
 
 
 (define (diridx->dir idx)
