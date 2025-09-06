@@ -17,7 +17,6 @@
 ;;
 (define-module (tuile canvas)
   #:use-module (tuile record-r6rs)
-;;   #:use-module (tuile massoc)
   #:use-module (tuile utils)
   #:use-module (tuile pr)
   #:use-module (tuile coord)
@@ -34,7 +33,6 @@
    clear-layer
    del-layer
    set-layer
-;;    reset-layers
    swap-layers
    merge-layers
    hide-layer
@@ -288,10 +286,6 @@
                 (proxy-count cv))))
 
 
-;; ;; Rename layer indeces to run from 0 to end, in order and with gaps.
-;; (define (reset-layers cv) #f)
-
-
 ;; Swap content of layers, given layer indeces.
 (define (swap-layers cv a b)
 
@@ -360,19 +354,13 @@
 (define (last-layer cv)
   (create-proxy-for-index cv (1- (proxy-count cv))))
 
+
 (define (get-layer-copy cv index)
   (let ((layer (get-layer cv index)))
     (make-layer (map vector-copy (layer-chars layer))
                 (layer-xmax layer)
                 (layer-ymax layer)
                 (layer-hide layer))))
-
-;; (define (set-layer! cv index)
-;;   (let ((layer (get-layer cv index)))
-;;     (make-layer (list-copy (layer-chars layer))
-;;                 (layer-xmax layer)
-;;                 (layer-ymax layer)
-;;                 (layer-hide layer))))
 
 
 (define (put-ch-to-layer layer ch pos)
@@ -538,19 +526,16 @@
 
 ;; Return canvas indeces.
 (define (layer-indeces cv)
-;;   (massoc-keys (proxy-layers cv))
   (iota (1- (proxy-count cv))))
 
 
 ;; Return canvas layers.
 (define (layer-list cv)
-;;   (massoc-values (proxy-layers cv))
   (proxy-layers cv))
 
 
 ;; Return the number of layers.
 (define (layer-count cv)
-;;   (massoc-length (proxy-layers cv))
   (proxy-count cv))
 
 
