@@ -44,6 +44,8 @@
    put-ch
    put-str
    put-str-in-dir
+   put-lines
+
    del-pos
    del-area
    del-ring
@@ -58,19 +60,20 @@
    get-content
    get-content-view-for-active
    get-content-for-active
-   put-lines-list
    canvas-size
 
    layer-index
    layer-last?
-   layer-indeces
+;;    layer-indeces
    layer-list
    layer-count
    layer-content
+   layer-content-from-area
    layer-content-set!
    layer-visibility
    layer-hide
    layer-hide-set!
+
    dimensions
    dimensions-for-active
    ))
@@ -419,6 +422,21 @@
             (step pos dir)))))
 
 
+;; Put lines of text to canvas.
+(define (put-lines cv lines)
+  (let lp ((lines lines)
+           (y 0))
+    (if (pair? lines)
+        (let lp2 ((x 0))
+          (if (< x (string-length (car lines)))
+              (let ((ch (string-ref (car lines) x)))
+                (when (not (char=? ch #\ ))
+                  (put-ch cv ch (p. x y)))
+                (lp2 (1+ x)))
+              (lp (cdr lines)
+                  (1+ y)))))))
+
+
 ;; Delete char using position-predicate.
 (define (del-by-pos-pred cv pred)
   (layer-map cv (lambda (ch) (if (pred (p. (ch-x ch) (ch-y ch)))
@@ -489,21 +507,6 @@
   (get-content-view-for-active cv (p. 0 0) (p- (dimensions-for-active cv) (p. 1 1))))
 
 
-;; Put lines of text to canvas.
-(define (put-lines-list cv lines)
-  (let lp ((lines lines)
-           (y 0))
-    (if (pair? lines)
-        (let lp2 ((x 0))
-          (if (< x (string-length (car lines)))
-              (let ((ch (string-ref (car lines) x)))
-                (when (not (char=? ch #\ ))
-                  (put-ch cv ch (p. x y)))
-                (lp2 (1+ x)))
-              (lp (cdr lines)
-                  (1+ y)))))))
-
-
 ;; Return the total number of characters for all layers combined.
 (define (canvas-size cv)
   (let lp ((layers (proxy-layers cv))
@@ -524,9 +527,9 @@
   (= (1+ (proxy-lindex cv)) (proxy-count cv)))
 
 
-;; Return canvas indeces.
-(define (layer-indeces cv)
-  (iota (1- (proxy-count cv))))
+;; ;; Return canvas indeces.
+;; (define (layer-indeces cv)
+;;   (iota (1- (proxy-count cv))))
 
 
 ;; Return canvas layers.
@@ -542,6 +545,26 @@
 ;; Current layer content.
 (define (layer-content cv)
   (reverse (layer-chars (get-current-layer cv))))
+
+
+;; Current layer content from area.
+;;
+;; Note: The captured chars are normalized to origin, i.e. the char
+;; location is relative to top-left of area.
+;;
+(define (layer-content-from-area cv a b)
+  (let lp ((chars (layer-chars (get-current-layer cv)))
+           (ret '()))
+    (if (pair? chars)
+        (lp (cdr chars)
+            (let ((ch (car chars)))
+                (if (p-contained? (ch-p ch) a b)
+                    (cons (make-ch (- (ch-x ch) (px a))
+                                   (- (ch-y ch) (py a))
+                                   (ch-c ch))
+                          ret)
+                    ret)))
+        (reverse ret))))
 
 
 ;; Current layer content.
