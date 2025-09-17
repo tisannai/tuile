@@ -459,7 +459,7 @@
   (del-by-pos-pred cv (lambda (p) (p-on-boundary? p a b))))
 
 
-;; Get content view for layers
+;; Get content view for layers, vector of string.
 (define (get-content-view-for-layers layers p0 p1)
   (let* ((dims (p- p1 p0))
          (lines (make-vector (1+ (py dims)))))
@@ -533,6 +533,11 @@
 
 
 ;; Return canvas layers.
+;;
+;; NOTE: The layer references are not usable for layer content
+;; manipulation, because this would be in conflict with what the
+;; corresponding c implementation is able to provide.
+;;
 (define (layer-list cv)
   (proxy-layers cv))
 
