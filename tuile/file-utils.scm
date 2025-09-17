@@ -20,6 +20,7 @@
    file-file?
    file-executable?
    file-list
+   file-list-full
    file-list-files
    file-list-dirs
    file-list-files-r
@@ -31,6 +32,10 @@
    file-dir-empty?
    file-find-upwards
    ))
+
+
+(define (->full-path dir file)
+  (string-concatenate (list dir "/" file)))
 
 
 ;; Copy file or directory to destination file or directory.
@@ -135,7 +140,7 @@
        (not (= (logand #o110 (stat:perms (stat file-or-dir)))
                0))))
 
-;; List entries in directory.
+;; List entries in directory (names only).
 (define (file-list dir)
   (if (file-directory? dir)
       (let* ((ds (opendir dir))
@@ -160,15 +165,17 @@
         ret)
       #f))
 
+;; List entries in directory (full paths).
+(define (file-list-full dir)
+  (map (lambda (file) (->full-path dir file)) (file-list dir)))
 
 ;; List files in the directory.
 (define (file-list-files dir)
-  (filter (negate file-is-directory?) (file-list dir)))
-
+  (filter (lambda (file) (not (file-is-directory? file))) (file-list dir)))
 
 ;; List directories in the directory.
 (define (file-list-dirs dir)
-  (filter file-is-directory? (file-list dir)))
+  (filter (lambda (file) (file-is-directory? file)) (file-list dir)))
 
 
 ;; List files recursively.
