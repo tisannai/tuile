@@ -13,7 +13,8 @@
 ;; scheme objects and not (just) strings. Since strings are also a
 ;; scheme objects, we are effectively using a superset of what is
 ;; possible with just strings. Therefore, don't send data with
-;; "display", but with "write".
+;; "display", but with "write", or simply use comms-port-send and
+;; comms-port-recv.
 ;;
 ;;
 ;; Port reservations:
@@ -32,6 +33,9 @@
             comms-server-start
             comms-client-send
             comms-client-send-recv
+
+            comms-port-send
+            comms-port-recv
 
             comms-make-descriptor
 
@@ -166,7 +170,7 @@
     (if sock
         (begin
           ;; (ppr (list "client-send" message))
-          (write message sock)
+          (comms-port-send sock message)
           (close-port sock)
           #t)
         #f)))
@@ -176,11 +180,19 @@
   (let ((sock (connect-to-server addr-port)))
     (if sock
         (begin
-          (write message sock)
-          (let ((ret (read sock)))
+          (comms-port-send sock message)
+          (let ((ret (comms-port-recv sock)))
             (close-port sock)
             ret))
         #f)))
+
+
+(define (comms-port-send port msg)
+  (write msg port))
+
+
+(define (comms-port-recv port)
+  (read port))
 
 
 ;; Start a generic-server service.
@@ -249,7 +261,7 @@
     (if sock
         (begin
           ;; (ppr (list "client-send" message))
-          (write message sock)
+          (comms-port-send sock message)
           (close-port sock)
           #t)
         #f)))
@@ -259,8 +271,8 @@
   (let ((sock (generic-connect-to-server comms-descriptor)))
     (if sock
         (begin
-          (write message sock)
-          (let ((ret (read sock)))
+          (comms-port-send sock message)
+          (let ((ret (comms-port-recv sock)))
             (close-port sock)
             ret))
         #f)))
