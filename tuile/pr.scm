@@ -24,19 +24,21 @@
    ppr
    ppre
    ippr
-   :lj
-   :rj
-   :cj
-   :ls
-   :rs
-   :lc
-   :rc
-   :jn
-   :sp
-   :ms
-   :in
-   :nl
-   :ow
+
+   ;; Deprecated:
+   ;;    :lj
+   ;;    :rj
+   ;;    :cj
+   ;;    :ls
+   ;;    :rs
+   ;;    :lc
+   ;;    :rc
+   ;;    :jn
+   ;;    :sp
+   ;;    :ms
+   ;;    :in
+   ;;    :nl
+   ;;    :ow
 
    mp
 
@@ -211,9 +213,6 @@
     (let ((stx (syntax->datum x)))
       #`(pr #,@(datum->syntax x (expand-string-interpolation (cadr stx)))))))
 
-;; (define-syntax-rule (pri s ...)
-;;   (pr (si s ...)))
-
 
 ;; Datum to string.
 (define (ds datum)
@@ -287,11 +286,7 @@
 ;; Line print from args.
 (define (pr . args)
   (display (apply ss args))
-  (newline)
-;;  (display "flush")
-;;  (newline)
-;;  (force-output)
-  )
+  (newline))
 
 ;; Line print from args to stderr.
 (define (pre . args)
@@ -333,6 +328,7 @@
 ;; Left justify with padding.
 ;;
 ;; left-just <width> <pad-str-or-ch> <strings>
+#;
 (define (:lj width pad . rest)
   (let* ((pad-ch (ch-or-str-as-ch pad))
          (str (string-concatenate (fa rest)))
@@ -345,6 +341,7 @@
 ;; Right justify with padding.
 ;;
 ;; right-just <width> <pad-str-or-ch> <strings>
+#;
 (define (:rj width pad . rest)
   (let* ((pad-ch (ch-or-str-as-ch pad))
          (str (string-concatenate (fa rest)))
@@ -357,6 +354,7 @@
 ;; Center justify with padding.
 ;;
 ;; center-just <width> <pad-str-or-ch> <strings>
+#;
 (define (:cj width pad . rest)
   (let* ((str (string-concatenate (fa rest)))
          (len (string-length str)))
@@ -371,15 +369,18 @@
 
 
 ;; Left-justify with space.
+#;
 (define (:ls width . rest)
   (:lj width #\  rest))
 
 
 ;; Right-justify with space.
+#;
 (define (:rs width . rest)
   (:rj width #\  rest))
 
 
+#;
 (define (align-or-clip-with fn width pad rest)
   (let ((str (string-concatenate (fa rest))))
     (if (> (string-length str)
@@ -389,37 +390,30 @@
                           rest)))))
 
 ;; Left-just-clip with pad.
+#;
 (define (:lc width pad . rest)
   (align-or-clip-with :lj width pad rest))
 
 ;; Right-just-clip with pad.
+#;
 (define (:rc width pad . rest)
   (align-or-clip-with :rj width pad rest))
 
 
-;; Right-just-clip with pad.
-#;
-(define (:rc width pad . rest)
-  (let ((str (string-concatenate (fa rest))))
-    (if (> (string-length str)
-           width)
-        (let ((off (- (string-length str) width)))
-          (substring str off (+ width off)))
-        (apply :rj (append (list width pad)
-                           rest)))))
-
-
 ;; Join with given string (or char).
+#;
 (define (:jn join-str-or-char . rest)
   (string-join (fa rest) (ch-or-str-as-str join-str-or-char)))
 
 
 ;; Join with space.
+#;
 (define (:sp . args)
   (string-join (fa args) " "))
 
 
 ;; Make string from template (string or char).
+#;
 (define (:ms count char-or-str)
   (if (char? char-or-str)
       (make-string count char-or-str)
@@ -427,15 +421,18 @@
 
 
 ;; Space indentation by count.
+#;
 (define (:in count)
   (make-string count #\ ))
 
 ;; Newline string.
+#;
 (define :nl "\n")
 
 
 ;; String overwrite with list of cons arguments. Each cons is a
 ;; (<index> . <overwrite>) pair.
+#;
 (define (:ow str . rest)
   (if (or (null? rest)
           (not (car rest)))
