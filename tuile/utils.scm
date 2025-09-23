@@ -48,25 +48,38 @@
    best
    all
    one
-   lref-0
-   lref-1
-   lref-2
-   lref-3
-   lref-4
-   l0
-   l1
-   l2
-   l3
-   l4
-   l5
-   l6
-   l7
-   l8
-   l9
+
+   ;; Deprecated
+;;    lref-0
+;;    lref-1
+;;    lref-2
+;;    lref-3
+;;    lref-4
+;;    l0
+;;    l1
+;;    l2
+;;    l3
+;;    l4
+;;    l5
+;;    l6
+;;    l7
+;;    l8
+;;    l9
+   lr0
+   lr1
+   lr2
+   lr3
+   lr4
+   lr5
+   lr6
+   lr7
+   lr8
+   lr9
    flatten
    flatten-0
    flatten-1
-   nth
+   ;; Deprecated
+   ;; nth
    delete-nth
 ;;    list/
    listify
@@ -670,6 +683,7 @@
 ;;     (define (lref-1 lst) (list-ref lst 1))
 ;;     ...
 ;;
+#;
 (define-syntax expand-list-ref-index-functions
   (lambda (x)
     (define (get-list-ref-function index)
@@ -679,6 +693,7 @@
     (let* ((-> datum->syntax))
       #`(begin #,@(-> x (map get-list-ref-function (iota (cadr (syntax->datum x)))))))))
 
+#;
 (expand-list-ref-index-functions 5)
 
 
@@ -688,11 +703,21 @@
 ;;     (define (l1 lst) (list-ref lst 1))
 ;;     ...
 ;;
+#;
 (define-syntax expand-short-list-ref-index-functions
   (lambda (x)
     (define (get-list-ref-function index)
       (list 'define
             (list (string->symbol (string-append "l" (number->string index))) 'lst)
+            (list 'list-ref 'lst index)))
+    (let* ((-> datum->syntax))
+      #`(begin #,@(-> x (map get-list-ref-function (iota (cadr (syntax->datum x)))))))))
+
+(define-syntax expand-short-list-ref-index-functions
+  (lambda (x)
+    (define (get-list-ref-function index)
+      (list 'define
+            (list (string->symbol (string-append "lr" (number->string index))) 'lst)
             (list 'list-ref 'lst index)))
     (let* ((-> datum->syntax))
       #`(begin #,@(-> x (map get-list-ref-function (iota (cadr (syntax->datum x)))))))))
@@ -794,6 +819,7 @@
 
 
 ;; Return nth element of list.
+#;
 (define (nth i lst)
   (list-ref lst i))
 
