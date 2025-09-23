@@ -43,6 +43,9 @@
 
 
 ;; Return keyed entry as key-value pair, or #f.
+;;
+;;     (treelist-assoc treelist '(a))
+;;
 (define (treelist-assoc treelist key)
   (if (null? (car treelist))
       #f
@@ -59,6 +62,10 @@
 
 
 ;; Return keyed entry as value, or #f.
+;;
+;;     (treelist-get treelist '(a))
+;;     (treelist-get treelist '(b b-a))
+;;
 (define (treelist-get treelist key)
   (let ((value (treelist-assoc treelist key)))
     (if (pair? value)
@@ -68,6 +75,10 @@
 
 ;; Set keyed value, existing or not, and create path to it, if not
 ;; existing.
+;;
+;;     (treelist-set! treelist '(a) 'a)
+;;     (treelist-set! treelist '(b b-b) 'b-b)
+;;
 (define (treelist-set! treelist key value)
 
   (define (new-branch key value)
@@ -95,6 +106,10 @@
 
 
 ;; Set keyed value only if missing, i.e. no overwrite.
+;;
+;;     (treelist-fill! treelist '(a) 'a)
+;;     (treelist-fill! treelist '(b b-b) 'b-b)
+;;
 (define (treelist-fill! treelist key value)
   (let ((leaf (treelist-assoc treelist key)))
     (unless leaf
@@ -103,8 +118,11 @@
 
 ;; Delete keyed entry and destroy the whole branch if it becomes
 ;; empty.
+;;
+;;     (treelist-delete! treelist '(c c-c c-c-a))
+;;
 (define (treelist-delete! treelist key)
-  
+
   (define (del-proper branch key coll id)
     (cond
      ((not (assoc (car key) branch))
@@ -156,7 +174,7 @@
 ;; Recursively copy the tree.
 (define (treelist-copy treelist)
   (if (null? (car treelist))
-      (list (list))
+      (treelist-make)
       (cdr
        ;; Make treelist look like an alist entry in order to allow simple
        ;; recursion.
@@ -169,9 +187,6 @@
           (else
            (cons (car entry) (map lp (cdr entry)))))))))
 
-
-;; (define treelist (treelist-make))
-;; (ppre (treelist-get treelist '(a b)))
 
 (when #f
   (let ()
