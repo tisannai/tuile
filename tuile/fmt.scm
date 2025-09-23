@@ -365,44 +365,6 @@
 ;;
 ;;     '((ind (3 "-")) (lal 6 (cat "*")) (lal 12))
 ;;
-(define (old-fmt-compile format)
-
-  (define index 0)
-
-  ;; Convert format definitions to format function calls (fmt-lal etc.).
-  (define (transform expr)
-    (let* ((cmd (first expr))
-           (argcount (assoc-ref format-commands-spec cmd)))
-      (case cmd
-        ;; (ind (3 "-"))
-        ((ind) `(fmt-ind '(,@(cdr expr))))
-        (else (let ((last-arg (last expr)))
-                (if (list? last-arg)
-                    ;; (lal 6 (cat "*"))
-                    (case argcount
-                      ((2) `(,(symbol-append 'fmt- cmd) (list ,(second expr)
-                                                              ,(transform (third expr)))))
-                      (else
-                       (let ((parts (list-split expr (1- (length expr)))))
-                         `(,(symbol-append 'fmt- cmd) (list ,@(append (cdr (car parts))
-                                                                        (list (transform (cadr parts)))))))))
-                    ;; (lal 12)
-                    (let ((next-index (1+ index))
-                          (ret (case argcount
-                                 ((2) `(,(symbol-append 'fmt- cmd) (list ,(second expr)
-                                                                         (list-ref fn ,index))))
-                                 (else `(,(symbol-append 'fmt- cmd) (list ,@(append (cdr expr)
-                                                                                    (list `(list-ref fn ,index)))))))))
-                      (set! index next-index)
-                      ret)))))))
-
-  ((@ (system base compile) compile)
-   `(lambda (fn)
-      (string-concatenate (append (list ,@(map transform format))
-                                  (list-tail fn ,index))))
-   #:env (current-module)))
-
-
 (define (fmt-compile format)
 
   (define index 0)
@@ -480,6 +442,7 @@
 ;;
 (define (fmt-group format lines)
 
+  ;; Place argument to the format description.
   (define (wrap format expr)
     (let* ((cmd (first format))
            (argcount (assoc-ref format-commands-spec cmd)))
@@ -497,15 +460,6 @@
                     (append (drop-right format 1) (list (wrap last-arg expr)))
                     ;; (cat "*") OR (cat)
                     (append format (list expr))))))))
-
-  ;; Place argument to the format description.
-  (define (old-wrap host expr)
-    (let ((sub-host-index (list-index list? host)))
-      (if sub-host-index
-          (append (list-head host sub-host-index)
-                  (list (wrap (list-ref host sub-host-index) expr))
-                  (list-tail host (1+ sub-host-index)))
-          (append host (list expr)))))
 
   (let lp ((lines lines)
            (ret '()))
