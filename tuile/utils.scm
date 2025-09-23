@@ -16,7 +16,8 @@
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
   #:use-module ((ice-9 match) #:select (match))
   #:use-module (tuile re)
-  #:use-module ((tuile pr) #:select (ss si :in :rj))
+;;   #:use-module ((tuile pr) #:select (ss si :in :rj))
+  #:use-module ((tuile pr) #:select (ss si))
   #:use-module ((tuile fmt) #:select (fmt))
   #:use-module ((tuile fnmatch) #:select (fnmatch-for-glob))
 ;;   #:use-module (tuile compatible)
@@ -2470,7 +2471,9 @@
          (todo-len (- width done-len))
          (done-str (make-string done-len #\+))
          (todo-str (make-string todo-len #\-)))
-    (string-append "\r" (:in gap-left) (:rj 3 " " done-pct) "% " "[" done-str todo-str "]" )))
+    ;; (string-append "\r" (:in gap-left) (:rj 3 " " done-pct) "% " "[" done-str todo-str "]" )
+    (string-append "\r" (fmt 'ind gap-left) (fmt 'ral 3 done-pct) "% " "[" done-str todo-str "]" )
+    ))
 
 ;; Usage:
 ;;
