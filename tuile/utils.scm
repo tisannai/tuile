@@ -2387,24 +2387,24 @@
     (string-take-right (gen-item (third spec)) (second spec)))
 
   (define (gen-clip spec)
-    (substring (gen-item (l3 spec)) (l1 spec) (l2 spec)))
+    (substring (gen-item (lr3 spec)) (lr1 spec) (lr2 spec)))
 
   (define (gen-drop spec)
-    (let* ((base (l3 spec))
-           (left (string-take base (l1 spec)))
-           (right (substring base (l2 spec))))
+    (let* ((base (lr3 spec))
+           (left (string-take base (lr1 spec)))
+           (right (substring base (lr2 spec))))
       (string-append left right)))
 
   (define (gen-vset spec)
     (when (not vtab)
       (set! vtab (make-hash-table)))
-    (let ((value (gen-item (l2 spec))))
-      (hash-set! vtab (l1 spec) value)
+    (let ((value (gen-item (lr2 spec))))
+      (hash-set! vtab (lr1 spec) value)
       value))
 
   (define (gen-vget spec)
     (if vtab
-        (hash-ref vtab (l1 spec))
+        (hash-ref vtab (lr1 spec))
         ""))
 
   (define (gen-item spec)

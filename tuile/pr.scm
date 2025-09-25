@@ -184,8 +184,10 @@
 
               ;; Terminate interpolation.
               ((char=? ch #\})
-               (let ((expr (read (open-input-string
-                                  (list->string (reverse word))))))
+               (let* ((port (open-input-string
+                             (list->string (reverse word))))
+                      (expr (read port)))
+                 (close-input-port port)
                  (loop (+ i 1)
                        (cons expr words)
                        '()
