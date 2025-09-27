@@ -20,7 +20,7 @@
    file-file?
    file-executable?
    file-list
-   file-list-full
+   file-list-with-dir
    file-list-files
    file-list-dirs
    file-list-files-r
@@ -31,10 +31,12 @@
    file-remove
    file-dir-empty?
    file-find-upwards
+   file-with-dirs
+   file-with-absolute-dirs
    ))
 
 
-(define (->full-path dir file)
+(define (add-dir-to-file dir file)
   (string-concatenate (list dir "/" file)))
 
 
@@ -165,17 +167,17 @@
         ret)
       #f))
 
-;; List entries in directory (full paths).
-(define (file-list-full dir)
-  (map (lambda (file) (->full-path dir file)) (file-list dir)))
+;; List entries in directory including the directory path.
+(define (file-list-with-dir dir)
+  (file-with-dirs file-list dir))
 
 ;; List files in the directory.
 (define (file-list-files dir)
-  (filter (lambda (file) (not (file-is-directory? file))) (file-list dir)))
+  (filter (lambda (file) (not (file-is-directory? (add-dir-to-file dir file)))) (file-list dir)))
 
 ;; List directories in the directory.
 (define (file-list-dirs dir)
-  (filter (lambda (file) (file-is-directory? file)) (file-list dir)))
+  (filter (lambda (file) (file-is-directory? (add-dir-to-file dir file))) (file-list dir)))
 
 
 ;; List files recursively.
@@ -259,3 +261,23 @@
             (if (file-exists? file)
                 dir
                 (lp (fpd-up fpd 1))))))))
+
+
+;; Return the files with directory path included given by proc. Proc
+;; is a one argument function taking the directory as argument.
+;;
+;;     (file-with-dirs file-list "tuile")
+;;
+(define (file-with-dirs proc dir)
+  (map (lambda (file) (add-dir-to-file dir file)) (proc dir)))
+
+
+;; Return the files with absolute directory path included given by
+;; proc. Proc is a one argument function taking the directory as
+;; argument.
+;;
+;;     (file-with-absolute-dirs file-list-files "tuile")
+;;
+(define (file-with-absolute-dirs proc dir)
+  (let ((absdir (fps->abs dir)))
+    (map (lambda (file) (add-dir-to-file absdir file)) (proc dir))))
