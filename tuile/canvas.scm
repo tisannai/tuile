@@ -691,4 +691,4 @@
   (define cv (create))
   (put-ch cv #\a (p. 3 1))
   (put-ch cv #\b (p. 10 10))
-  (for-each pr (get-lines-list cv)))
+  (for-each pr (vector->list (get-content cv))))

@@ -316,7 +316,7 @@
 ;;     [file]    Optional output file (default: stdout).
 ;;
 (define (draw cv)
-  (cv.get-lines-list cv))
+  (vector->list (cv.get-content cv)))
 
 
 ;; Show drawing from canvas.
