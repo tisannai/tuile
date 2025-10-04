@@ -165,7 +165,7 @@
 
 
 ;; Create proxy for "cv" at next layer index.
-(define (insert-layer cv)
+(define (old-insert-layer cv)
   (if (layer-last? cv)
       (push-layer cv)
       (let* ((layers (proxy-layers cv))
@@ -186,6 +186,27 @@
                     (list-ref update (1+ lindex))
                     (1+ lindex)
                     (1+ (proxy-count cv))))))
+(define (insert-layer cv)
+  (let* ((layers (proxy-layers cv))
+         (lindex (proxy-lindex cv))
+         (update (let lp ((layers layers)
+                          (i 0)
+                          (ret '()))
+                   (if (pair? layers)
+                       (if (= i lindex)
+                           (append (reverse ret)
+                                   (list (create-layer))
+                                   layers)
+                           (lp (cdr layers)
+                               (1+ i)
+                               (cons (car layers) ret)))
+                       (reverse (cons (create-layer) ret))))))
+    (make-proxy update
+                (list-ref update lindex)
+                lindex
+                (1+ (proxy-count cv)))))
+
+
 
 
 ;; Empty layer content.

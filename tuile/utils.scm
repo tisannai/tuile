@@ -11,7 +11,7 @@
   #:use-module (ice-9 popen)
   #:use-module ((ice-9 control) #:select (% abort))
 ;;  #:use-module ((srfi srfi-9 gnu) #:select (define-immutable-record-type))
-  #:use-module ((srfi srfi-19) #:prefix srfi:)
+  #:use-module ((srfi srfi-19) #:prefix srfi.)
   #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
   #:use-module ((ice-9 match) #:select (match))
@@ -2066,7 +2066,7 @@
                      "~y~m~d_~H~M")
                     (else
                      "~y~m~d"))))
-    (srfi:date->string (srfi:current-date)
+    (srfi.date->string (srfi.current-date)
                        formatter)))
 
 
@@ -2075,7 +2075,7 @@
 ;;     Format: <yyyy-mm-dd>
 ;;
 (define (datestamp)
-  (srfi:date->string (srfi:current-date)
+  (srfi.date->string (srfi.current-date)
                      "~Y-~m-~d"))
 
 
