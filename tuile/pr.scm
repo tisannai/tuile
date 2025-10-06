@@ -77,10 +77,13 @@
    (else (object->string obj))))
 
 ;; Macro to flatten args and convert all arguments to strings.
-(define-syntax fa
-  (syntax-rules ()
-    ((_ args)
-     (map to-string (apply flat-args args)))))
+;; (define-syntax fa
+;;   (syntax-rules ()
+;;     ((_ args)
+;;      (map to-string (apply flat-args args)))))
+
+(define (fa . args)
+  (map to-string (apply flat-args args)))
 
 
 ;; Char or string argument as char.

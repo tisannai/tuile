@@ -1,7 +1,11 @@
 (define-module (tuile fnmatch)
+  #:use-module ((tuile basic) #:select (dir-list))
   #:export
-  (fnmatch
-   fnmatch-for-glob))
+  (
+   fnmatch
+   fnmatch-for-glob
+   fnmatch-dir-glob
+   ))
 
 (define* (fnmatch pat
                   str
@@ -221,7 +225,15 @@
   (fnmatch pat
            str
            #:pathname #t
-           #:extglob #t))
+           #:extglob #t
+           #:dotmatch dotmatch))
+
+;; Match glob pattern for dir entries.
+;;
+;;     (fmmatch-dir-glob "foo/bar" "*.mp3")
+;;
+(define (fnmatch-dir-glob dir pat)
+  (filter (lambda (str) (fnmatch-for-glob pat str)) (dir-list dir)))
 
 
 ;; (use-modules (tuile pr))

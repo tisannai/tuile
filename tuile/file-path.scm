@@ -62,7 +62,8 @@
 ;;
 (define-module (tuile file-path)
   #:use-module ((srfi srfi-1) #:select (first second fold take drop take-right drop-right))
-  #:use-module ((tuile utils) #:select (dir-glob))
+  #:use-module ((tuile basic) #:select (dir-list))
+  #:use-module ((tuile fnmatch) #:select (fnmatch-dir-glob))
   #:use-module (tuile pr)
   #:export (
             fps-file
@@ -485,7 +486,7 @@
 ;;
 (define (fps-glob pattern)
   (let ((fpd (fps->fpd pattern)))
-    (dir-glob (fps-final (fpd->fps (fpd-dir fpd))) (fpd-file fpd))))
+    (fnmatch-dir-glob (fps-final (fpd->fps (fpd-dir fpd))) (fpd-file fpd))))
 
 
 ;; Recurse directory hierarchy and execute "fn" for each file.

@@ -1,6 +1,8 @@
 (define-module (tuile file-utils)
   #:use-module (tuile file-path)
-  #:use-module ((tuile utils) #:select (dir-glob opt-arg))
+  #:use-module ((tuile fnmatch) #:select (fnmatch-dir-glob))
+;;   #:use-module ((tuile utils) #:select (dir-glob opt-arg))
+  #:use-module ((tuile utils) #:select (opt-arg))
   #:export
   (
    file-copy
@@ -23,6 +25,7 @@
    file-list-with-dir
    file-list-files
    file-list-dirs
+   file-list-r
    file-list-files-r
    file-list-dirs-r
    file-glob
@@ -180,6 +183,15 @@
   (filter (lambda (file) (file-is-directory? (add-dir-to-file dir file))) (file-list dir)))
 
 
+;; List recursively.
+(define (file-list-r dir)
+  (let ((entries '()))
+    (fps-recurse-dir-before dir
+                            (lambda (dir) (set! entries (cons dir entries)))
+                            (lambda (file) (set! entries (cons file entries))))
+    (reverse entries)))
+
+
 ;; List files recursively.
 (define (file-list-files-r dir)
   (let ((files '()))
@@ -199,7 +211,7 @@
 ;; Glob for pattern.
 (define (file-glob pat)
   (let ((fpd (fps->fpd pat)))
-    (dir-glob (fpd-dir fpd) (fpd-file fpd))))
+    (fnmatch-dir-glob (fpd-dir fpd) (fpd-file fpd))))
 
 
 ;; Return filtered list of files.

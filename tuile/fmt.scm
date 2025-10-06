@@ -4,7 +4,7 @@
   #:use-module ((srfi srfi-11) #:select (let-values))
   #:use-module ((ice-9 match) #:select (match))
   #:use-module ((ice-9 pretty-print) #:select (pretty-print))
-  #:use-module ((tuile utils) #:select (delete-nth list-split list-specified aif string-gen))
+  #:use-module ((tuile basic) #:select (delete-nth list-split list-specified aif string-gen))
   #:export
   (
    fmt
