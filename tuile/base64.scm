@@ -1,7 +1,10 @@
 (define-module (tuile base64)
   #:export
   (
+   base64-encode
+   base64-decode
    ))
+
 
 (use-modules (rnrs bytevectors))
 (use-modules (srfi srfi-1))
