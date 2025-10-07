@@ -7,29 +7,29 @@
 (use-modules (srfi srfi-1))
 
 
-(define codec-list (map integer->char
-                        (append (iota 26 (char->integer #\A))
-                                (iota 26 (char->integer #\a))
-                                (iota 10 (char->integer #\0))
-                                (map char->integer (list #\+ #\/)))))
+;; (define codec-list (map integer->char
+;;                         (append (iota 26 (char->integer #\A))
+;;                                 (iota 26 (char->integer #\a))
+;;                                 (iota 10 (char->integer #\0))
+;;                                 (map char->integer (list #\+ #\/)))))
+;;
+;; (define (print-encode-table)
+;;   (ppr (list->vector codec-list)))
+;;
+;;
+;; (define (print-decode-table)
+;;   (let ((table (make-vector 128 #f)))
+;;     (let lp ((chars codec-list)
+;;              (index 0))
+;;       (when (pair? chars)
+;;         (let ((ch (car chars)))
+;;           (vector-set! table (char->integer ch) index)
+;;           (lp (cdr chars)
+;;               (1+ index)))))
+;;     (ppr table)))
 
-(define (print-encode-table)
-  (ppr (list->vector codec-list)))
 
-
-(define (print-decode-table)
-  (let ((table (make-vector 128 #f)))
-    (let lp ((chars codec-list)
-             (index 0))
-      (when (pair? chars)
-        (let ((ch (car chars)))
-          (vector-set! table (char->integer ch) index)
-          (lp (cdr chars)
-              (1+ index)))))
-    (ppr table)))
-
-
-;; Convert from 6 bits to 8 bits (note: update with print-encode-vector).
+;; Convert from 6 bits to char (8 bits) (note: update with print-encode-table).
 (define encode-table #(#\A #\B #\C #\D #\E #\F #\G #\H
                        #\I #\J #\K #\L #\M #\N #\O #\P
                        #\Q #\R #\S #\T #\U #\V #\W #\X
@@ -39,6 +39,7 @@
                        #\w #\x #\y #\z #\0 #\1 #\2 #\3
                        #\4 #\5 #\6 #\7 #\8 #\9 #\+ #\/))
 
+;; Convert from char (8 bits) to 6 bits (note: update with print-decode-table).
 (define decode-table #(#f #f #f #f #f #f #f #f
                           #f #f #f #f #f #f #f #f
                           #f #f #f #f #f #f #f #f
@@ -153,14 +154,23 @@
       ((#\space) #f)
       (else (vector-ref decode-table (char->integer ch)))))
 
-  (define (bsel a am al b bm bl)
-    (logior (ash (bit-extract a al (1+ am)) (1+ (- bm bl)))
-            (bit-extract b bl (1+ bm))))
+  ;; v    nib
+  ;; ai   index of a to v
+  ;; bi   index of b to v
+  ;; am   msb of a
+  ;; al   lsb of a
+  ;; bm   msb of b
+  ;; bl   lsb of b
+  (define (bsel v ai am al bi bm bl)
+    (logior (ash (bit-extract (vector-ref v ai) al (1+ am))
+                 (1+ (- bm bl)))
+            (bit-extract (vector-ref v bi) bl (1+ bm))))
 
   (let* ((slen (string-length str))
          ;; Make temporary bvec size sufficient.
          (bvec (make-bytevector slen))
          (fill 0))
+
     ;; Fill bvec with decoded data and copy it correctly sized
     ;; bytevector as result to be returned.
     (let lp ((si 0)
@@ -180,26 +190,21 @@
                            (cond
                             ((number? val)
                              (vector-set! nib ni val)
-                             (lp2 (1+ si)
-                                  (1+ ni)))
+                             (lp2 (1+ si) (1+ ni)))
                             (val
                              (set! fill (1+ fill))
                              (vector-set! nib ni 0)
-                             (lp2 (1+ si)
-                                  (1+ ni)))
+                             (lp2 (1+ si) (1+ ni)))
                             (else
                              (lp2 (1+ si) ni))))
-                         (let ((a (vector-ref nib 0))
-                               (b (vector-ref nib 1))
-                               (c (vector-ref nib 2))
-                               (d (vector-ref nib 3)))
+                         (begin
                            ;; A        B        C
                            ;; 76543210 76543210 76543210
                            ;; 54321054 32105432 10543210
                            ;; a     b      c      d
-                           (bs! 0 (bsel a 5 0 b 5 4))
-                           (bs! 1 (bsel b 3 0 c 5 2))
-                           (bs! 2 (bsel c 1 0 d 5 0))
+                           (bs! 0 (bsel nib 0 5 0 1 5 4))
+                           (bs! 1 (bsel nib 1 3 0 2 5 2))
+                           (bs! 2 (bsel nib 2 1 0 3 5 0))
                            si))))))
             (lp next-si
                 (+ bi 3)))
@@ -207,15 +212,10 @@
             (bytevector-copy! bvec 0 res 0 (- bi fill))
             res)))))
 
+
 ;; (use-modules (tuile pr))
 ;; (define str "fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR12fooBAR1")
 ;; (define encoded (base64-encode (string->utf8 str)))
 ;; (pr encoded)
 ;; (define decoded (base64-decode encoded))
 ;; (pr (utf8->string decoded))
-
-
-
-
-
-
