@@ -32,77 +32,55 @@
 ;;     (ppr table)))
 
 
-;; Convert from 6 bits to char (8 bits) (note: update with print-encode-table).
-(define encode-table #(#\A #\B #\C #\D #\E #\F #\G #\H
-                       #\I #\J #\K #\L #\M #\N #\O #\P
-                       #\Q #\R #\S #\T #\U #\V #\W #\X
-                       #\Y #\Z #\a #\b #\c #\d #\e #\f
-                       #\g #\h #\i #\j #\k #\l #\m #\n
-                       #\o #\p #\q #\r #\s #\t #\u #\v
-                       #\w #\x #\y #\z #\0 #\1 #\2 #\3
-                       #\4 #\5 #\6 #\7 #\8 #\9 #\+ #\/))
-
-;; Convert from char (8 bits) to 6 bits (note: update with print-decode-table).
-(define decode-table #(#f #f #f #f #f #f #f #f
-                          #f #f #f #f #f #f #f #f
-                          #f #f #f #f #f #f #f #f
-                          #f #f #f #f #f #f #f #f
-                          #f #f #f #f #f #f #f #f
-                          #f #f #f 62 #f #f #f 63
-                          52 53 54 55 56 57 58 59
-                          60 61 #f #f #f #f #f #f
-                          #f 0 1 2 3 4 5 6
-                          7 8 9 10 11 12 13 14
-                          15 16 17 18 19 20 21 22
-                          23 24 25 #f #f #f #f #f
-                          #f 26 27 28 29 30 31 32
-                          33 34 35 36 37 38 39 40
-                          41 42 43 44 45 46 47 48
-                          49 50 51 #f #f #f #f #f))
-
-
-
-(define (bex b msb lsb)
-  (bit-extract b lsb (1+ msb)))
-(define (get-ch value)
-  (vector-ref encode-table value))
-
-(define (encode-full-group bytes)
-  (string (get-ch (bex (first bytes) 7 2))
-          (get-ch (+ (ash (bex (first bytes) 1 0) 4)
-                     (bex (second bytes) 7 4)))
-          (get-ch (+ (ash (bex (second bytes) 3 0) 2)
-                     (bex (third bytes) 7 6)))
-          (get-ch (bex (third bytes) 5 0))))
-
-
-(define (encode-group bytes)
-  (case (length bytes)
-    ;; A        B        C
-    ;; 76543210 76543210 76543210
-    ;; 54321|54 321|5432 1|543210
-    ;; a     b      c      d
-    ;;
-    ;; A        B        C
-    ;; 76543210 76543210 76543210
-    ;; 54321054 32105432 10543210
-    ;; a     b      c      d
-    ((3) (encode-full-group bytes))
-    ((2) (string (get-ch (bex (first bytes) 7 2))
-                 (get-ch (+ (ash (bex (first bytes) 1 0) 4)
-                            (bex (second bytes) 7 4)))
-                 (get-ch (+ (ash (bex (second bytes) 3 0) 2)
-                            0))
-                 #\=))
-    ((1) (string (get-ch (bex (first bytes) 7 2))
-                 (get-ch (+ (ash (bex (first bytes) 1 0) 4)
-                            0))
-                 #\=
-                 #\=))))
-
-
 ;; Encode u8 bytevector worth of data.
 (define (base64-encode bvec)
+
+  ;; Convert from 6 bits to char (8 bits) (note: update with print-encode-table).
+  (define encode-table #(#\A #\B #\C #\D #\E #\F #\G #\H
+                         #\I #\J #\K #\L #\M #\N #\O #\P
+                         #\Q #\R #\S #\T #\U #\V #\W #\X
+                         #\Y #\Z #\a #\b #\c #\d #\e #\f
+                         #\g #\h #\i #\j #\k #\l #\m #\n
+                         #\o #\p #\q #\r #\s #\t #\u #\v
+                         #\w #\x #\y #\z #\0 #\1 #\2 #\3
+                         #\4 #\5 #\6 #\7 #\8 #\9 #\+ #\/))
+
+  (define (bex b msb lsb)
+    (bit-extract b lsb (1+ msb)))
+  (define (get-ch value)
+    (vector-ref encode-table value))
+
+  (define (encode-full-group bytes)
+    (string (get-ch (bex (first bytes) 7 2))
+            (get-ch (+ (ash (bex (first bytes) 1 0) 4)
+                       (bex (second bytes) 7 4)))
+            (get-ch (+ (ash (bex (second bytes) 3 0) 2)
+                       (bex (third bytes) 7 6)))
+            (get-ch (bex (third bytes) 5 0))))
+
+  (define (encode-group bytes)
+    (case (length bytes)
+      ;; A        B        C
+      ;; 76543210 76543210 76543210
+      ;; 54321|54 321|5432 1|543210
+      ;; a     b      c      d
+      ;;
+      ;; A        B        C
+      ;; 76543210 76543210 76543210
+      ;; 54321054 32105432 10543210
+      ;; a     b      c      d
+      ((3) (encode-full-group bytes))
+      ((2) (string (get-ch (bex (first bytes) 7 2))
+                   (get-ch (+ (ash (bex (first bytes) 1 0) 4)
+                              (bex (second bytes) 7 4)))
+                   (get-ch (+ (ash (bex (second bytes) 3 0) 2)
+                              0))
+                   #\=))
+      ((1) (string (get-ch (bex (first bytes) 7 2))
+                   (get-ch (+ (ash (bex (first bytes) 1 0) 4)
+                              0))
+                   #\=
+                   #\=))))
 
   (define br bytevector-u8-ref)
 
@@ -112,10 +90,11 @@
         (1+ (quotient (1- count) modulo))))
 
   (define (string-write-4! str oi sub)
-    (string-set! str (+ oi 0) (string-ref sub 0))
-    (string-set! str (+ oi 1) (string-ref sub 1))
-    (string-set! str (+ oi 2) (string-ref sub 2))
-    (string-set! str (+ oi 3) (string-ref sub 3)))
+    (define-syntax-rule (sset! i) (string-set! str (+ oi i) (string-ref sub i)))
+    (sset! 0)
+    (sset! 1)
+    (sset! 2)
+    (sset! 3))
 
   (let* ((blen (bytevector-length bvec))
          (encoded-bytes (* 4 (rounded-quotient blen 3)))
@@ -149,6 +128,24 @@
 
 
 (define (base64-decode str)
+
+  ;; Convert from char (8 bits) to 6 bits (note: update with print-decode-table).
+  (define decode-table #(#f #f #f #f #f #f #f #f
+                            #f #f #f #f #f #f #f #f
+                            #f #f #f #f #f #f #f #f
+                            #f #f #f #f #f #f #f #f
+                            #f #f #f #f #f #f #f #f
+                            #f #f #f 62 #f #f #f 63
+                            52 53 54 55 56 57 58 59
+                            60 61 #f #f #f #f #f #f
+                            #f 0 1 2 3 4 5 6
+                            7 8 9 10 11 12 13 14
+                            15 16 17 18 19 20 21 22
+                            23 24 25 #f #f #f #f #f
+                            #f 26 27 28 29 30 31 32
+                            33 34 35 36 37 38 39 40
+                            41 42 43 44 45 46 47 48
+                            49 50 51 #f #f #f #f #f))
 
   (define (decode ch)
     (case ch
