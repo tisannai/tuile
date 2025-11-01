@@ -11,11 +11,12 @@
 ;; and FSM. Interpreter is easier to debug and understand, and FSM is
 ;; more performant.
 ;;
-;; Gulex is registered to the token-stream as the "token
-;; creator". Gulex is provided with the Gulex Token Table, which
-;; defines Regexp to Token mappings.
+;; Gulex is registered to the token-stream as the "token creator".
+;; Gulex is provided with the Gulex Token Table, which defines Regexp
+;; to Token mappings.
 ;;
-;; For usage and further documentation: see `gulex`, the Gulex CLI tool README.md.
+;; For usage and further documentation: see `gulex`, the Gulex CLI
+;; tool README.md.
 
 (define-module (tuile gulex)
   #:use-module (common base)

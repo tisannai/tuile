@@ -639,10 +639,10 @@
 
   (define (clean-and-return ret)
     (put-str (make-string (+ (if ret (string-length ret) 0)
-                                (string-length prompt))
-                             #\ )
-                x
-                y)
+                             (string-length prompt))
+                          #\ )
+             x
+             y)
     (hide-cursor)
     (present)
     ret)

@@ -611,7 +611,7 @@
 
 ;; Return directory part of fpd.
 (define (fpd-dir fpd)
-  (if (pair? (fpd-body fpd))
+  (if (pair? (cdr (fpd-body fpd)))
       (cons (car fpd) (cddr fpd))
       (cons (car fpd) '())))
 

@@ -24,6 +24,7 @@
 ;; caf - center-align-fill                ; (caf 7 #\+ "dii")
 ;; cat - concatenate                      ; (cat "foo" "bar")
 ;; rev - concatenate in reverse           ; (rev "foo" "bar")
+;; spc - space                            ; (spc "foo" "bar")
 ;; gap - gap                              ; (gap (4 "-") "foo" "bar")
 ;; gen - generate strings                 ; (gen (* 3 (: 0 9)))
 ;; scm - scheme pretty print              ; (scm #f '(a b))
@@ -61,6 +62,7 @@
                                (laf . 2)
                                (raf . 2)
                                (caf . 2)
+                               (spc . 0)
                                (gap . 0)
                                (lep . 2)
                                (rip . 2)
@@ -217,6 +219,16 @@
              str-def)
         (fn (->str str-def) width pad))))
 
+;; Join fields with one space.
+;;
+;;     (spc "foo" "bar")
+;;
+(define (format-spc rest)
+;;   (string-join (map fmt (list-specified rest)) " ")
+  (string-join (flatten (map format-atom rest))
+               " ")
+  )
+
 
 ;; Separate fields with sized gap.
 ;;
@@ -263,6 +275,7 @@
 (define (fmt-laf atom) (call-align left-align-or-clip (delete-nth atom 1) (second atom)))
 (define (fmt-raf atom) (call-align right-align-or-clip (delete-nth atom 1) (second atom)))
 (define (fmt-caf atom) (call-align center-align-or-clip (delete-nth atom 1) (second atom)))
+(define (fmt-spc atom) (format-spc atom))
 (define (fmt-gap atom) (format-gap atom))
 (define (fmt-lep atom) (left-pad-entry atom))
 (define (fmt-rip atom) (right-pad-entry atom))
@@ -290,6 +303,7 @@
       ((laf) (fmt-laf (cdr atom)))
       ((raf) (fmt-raf (cdr atom)))
       ((caf) (fmt-caf (cdr atom)))
+      ((spc) (fmt-spc (cdr atom)))
       ((gap) (fmt-gap (cdr atom)))
       ((lep) (fmt-lep (cdr atom)))
       ((rip) (fmt-rip (cdr atom)))

@@ -126,7 +126,7 @@
 
 ;;    dir-list
 ;;    dir-glob
-   dir-glob-re
+;;    dir-glob-re
 ;;    dir-glob-with-path
    extname
    expand-file-name
@@ -1181,6 +1181,7 @@
 ;;
 ;;     (dir-glob "../foo" "*.{c,cc}")
 ;;
+#;
 (define (old-dir-glob dir pat)
 
   ;; Glob pattern to regexp.
@@ -1227,15 +1228,15 @@
 ;;   (filter (lambda (str) (fnmatch-for-glob pat str)) (dir-list dir)))
 ;;
 
-;; Glob directory with regexp.
-;;
-;;     (dir-glob-re "../foo" ".*[.](c|cc)")
-;;
-(define (dir-glob-re dir pat)
-  ;;  (let ((rx (make-regexp pat)))
-  ;;    (filter (lambda (x) (regexp-exec rx x)) (dir-list dir)))
-  (let ((rx (re-comp pat)))
-    (filter (lambda (x) (re-match rx x)) (dir-list dir))))
+;; ;; Glob directory with regexp.
+;; ;;
+;; ;;     (dir-glob-re "../foo" ".*[.](c|cc)")
+;; ;;
+;; (define (dir-glob-re dir pat)
+;;   ;;  (let ((rx (make-regexp pat)))
+;;   ;;    (filter (lambda (x) (regexp-exec rx x)) (dir-list dir)))
+;;   (let ((rx (re-comp pat)))
+;;     (filter (lambda (x) (re-match rx x)) (dir-list dir))))
 
 
 ;; (define (dir-glob-with-path dir pat)
@@ -2008,7 +2009,7 @@
                        (let ((status (waitpid pid)))
                          (close-port (car stdout-pipe))
                          (close-port (car stderr-pipe))
-                         (values (cdr status) stdout stderr))
+                         (values (status:exit-val (cdr status)) stdout stderr))
                        (loop (string-append stdout new-out)
                              (string-append stderr new-err)))))
                 (_ ;; timeout or nothing

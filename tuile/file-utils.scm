@@ -3,6 +3,8 @@
   #:use-module ((tuile fnmatch) #:select (fnmatch-dir-glob))
 ;;   #:use-module ((tuile utils) #:select (dir-glob opt-arg))
   #:use-module ((tuile utils) #:select (opt-arg))
+  #:use-module ((tuile re) #:select (re-comp re-match))
+  #:use-module ((tuile basic) #:select (dir-list))
   #:export
   (
    file-copy
@@ -29,6 +31,8 @@
    file-list-files-r
    file-list-dirs-r
    file-glob
+   file-glob-with-dir
+   file-glob-re
    file-filter-files
    file-chdir
    file-remove
@@ -209,9 +213,33 @@
 
 
 ;; Glob for pattern.
+;;
+;;     (file-glob "foo/bar*")
+;;
 (define (file-glob pat)
   (let ((fpd (fps->fpd pat)))
-    (fnmatch-dir-glob (fpd-dir fpd) (fpd-file fpd))))
+    (fnmatch-dir-glob (fps-final (fpd->fps (fpd-dir fpd))) (fpd-file fpd))))
+
+
+;; Glob for pattern including the directory path.
+;;
+;;     (file-glob-with-dir "foo/bar*")
+;;
+(define (file-glob-with-dir pat)
+  (let* ((fpd (fps->fpd pat))
+         (dir (fps-final (fpd->fps (fpd-dir fpd)))))
+    (map (lambda (file) (add-dir-to-file dir file)) (fnmatch-dir-glob dir (fpd-file fpd)))))
+
+
+;; Glob for regexp.
+;;
+;;     (file-glob-re "foo/lib.*\\.so$")
+;;
+(define (file-glob-re pat)
+  (let* ((fpd (fps->fpd pat))
+         (dir (fps-final (fpd->fps (fpd-dir fpd))))
+         (rx (re-comp (fpd-file fpd))))
+    (filter (lambda (x) (re-match rx x)) (dir-list dir))))
 
 
 ;; Return filtered list of files.
