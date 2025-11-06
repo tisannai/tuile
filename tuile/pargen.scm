@@ -8,6 +8,7 @@
   #:export
   (
    pargen-write-parser-module
+   pargen-write-lalr-module
    ))
 
 
@@ -380,10 +381,10 @@
      #:export (parse)))
 
 
-(define (pargen-output-lexer-table grammar)
-  (let* ((lexer-def (car (assoc-ref grammar 'lexer))))
-    `(define lexer
-       (quote (,@(map (lambda (def) (list (first def) (second def))) lexer-def))))))
+;; (define (pargen-output-lexer-table grammar)
+;;   (let* ((lexer-def (car (assoc-ref grammar 'lexer))))
+;;     `(define lexer
+;;        (quote (,@(map (lambda (def) (list (first def) (second def))) lexer-def))))))
 
 
 (define (pargen-output-parse-error-fn)
@@ -410,6 +411,11 @@
 
 (define (pargen-output-lexer-fn grammar)
 
+  (define (pargen-output-lexer-table grammar)
+    (let* ((lexer-def (car (assoc-ref grammar 'lexer))))
+      `(define lexer
+         (quote (,@(map (lambda (def) (list (first def) (second def))) lexer-def))))))
+
   (define (token-output tokdef)
     (case (third tokdef)
       ((punct) `((,(second tokdef)) (return-and-next ret 'value)))
@@ -422,9 +428,18 @@
       ((error) *unspecified*)
       (else (issue-fatal "Unknown token klass in lexer table"))))
 
+  (define parser-lexer-table (pargen-output-lexer-table grammar))
+
+  (define parser-ts `(define ts (if (file-exists? filename)
+                                    (token-stream-open filename
+                                                       (gulex-create-lexer-fsm lexer))
+                                    (issue-fatal (si "File not found: \"#{filename}\"")))))
+
   (let* ((lexer-def (car (assoc-ref grammar 'lexer))))
     ;;(pde (unspecified? (token-output (car (last-pair lexer-def)))))
     `(define (make-lexer)
+       ,parser-lexer-table
+       ,parser-ts
        (define (gulex-tok->lalr-tok tok type)
          (make-lexical-token (token-type tok)
                              (make-source-location (token-file tok)
@@ -437,16 +452,17 @@
                                ((value) (token-value tok))
                                ((typeval) (cons (token-type tok)
                                                 (token-value tok))))))
-       (lambda ()
-         (define (return-and-next ret type)
-           (token-stream-get ts)
-           (gulex-tok->lalr-tok ret type))
-         (let loop ((ret (token-stream-token ts)))
-           (case (token-type ret)
-             ((eof) '*eoi*)
-             ,@(list-specified (map token-output lexer-def))
-             (else
-              (parse-error (token-type ret) "Unknown character"))))))))
+       (cons ts
+             (lambda ()
+               (define (return-and-next ret type)
+                 (token-stream-get ts)
+                 (gulex-tok->lalr-tok ret type))
+               (let loop ((ret (token-stream-token ts)))
+                 (case (token-type ret)
+                   ((eof) '*eoi*)
+                   ,@(list-specified (map token-output lexer-def))
+                   (else
+                    (parse-error (token-type ret) "Unknown character")))))))))
 
 
 (define (pargen-write-parser-module parser-file
@@ -459,17 +475,17 @@
   (define parser-id (string->symbol (ss parser-name "-parser")))
 
   (define parser-module-header (pargen-output-module-header module-id user-modules))
-  (define parser-lexer-table (pargen-output-lexer-table grammar))
+;;   (define parser-lexer-table (pargen-output-lexer-table grammar))
   (define parser-error-fn (pargen-output-parse-error-fn))
-  (define parser-ts `(define ts (if (file-exists? filename)
-                                    (token-stream-open filename
-                                                       (gulex-create-lexer-fsm lexer))
-                                    (issue-fatal (si "File not found: \"#{filename}\"")))))
+;;   (define parser-ts `(define ts (if (file-exists? filename)
+;;                                     (token-stream-open filename
+;;                                                        (gulex-create-lexer-fsm lexer))
+;;                                     (issue-fatal (si "File not found: \"#{filename}\"")))))
   (define parser-lexer (pargen-output-lexer-fn grammar))
   (define parser (pargen-output-parser-module parser-id parser-expect grammar))
-  (define parser-call `(let ((result (,parser-id (make-lexer)
-                                                 parse-error)))
-                         (token-stream-close ts)
+  (define parser-call `(let* ((ts-and-lexer (make-lexer))
+                              (result (,parser-id (cdr ts-and-lexer) parse-error)))
+                         (token-stream-close (car ts-and-lexer))
                          result))
 
   ;;   (define out write)
@@ -480,14 +496,21 @@
   (call-with-output-file parser-file
     (lambda (port)
       (out parser-module-header port)
+;;       (out `(define (parse filename)
+;;               ,@(list parser-lexer-table
+;;                       parser-error-fn
+;;                       parser-ts
+;;                       parser-lexer
+;;                       parser
+;;                       parser-call))
+;;            port)
       (out `(define (parse filename)
-              ,@(list parser-lexer-table
-                      parser-error-fn
-                      parser-ts
+              ,@(list parser-error-fn
                       parser-lexer
                       parser
                       parser-call))
-           port))))
+           port)
+      )))
 
 
 
