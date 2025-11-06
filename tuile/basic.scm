@@ -10,6 +10,9 @@
    aif
    awhen
 
+   uif
+   uwhen
+
    any?
    empty?
    len-0?
@@ -37,6 +40,7 @@
    list-clean
    list-specified
    list-split
+   list-split-tail
    list-slice
    list-range
    list-pick
@@ -89,6 +93,29 @@
       (with-syntax ((it (datum->syntax x 'it)))
         #`(let ((it #,(cadr lst)))
             (when it #,(caddr lst)))))))
+
+;; Anaphoric if macro for *unspecified*.
+(define-syntax uif
+  (lambda (x)
+    ;; "lst": Convert syntax to datum and convert back to a list of syntax.
+    (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
+      ;; Create template variable "it".
+      (with-syntax ((it (datum->syntax x 'it)))
+        #`(let ((it #,(cadr lst)))
+            (if (not (unspecified? it)) #,(caddr lst) #,(cadddr lst)))))))
+
+;; Anaphoric when macro for *unspecified*.
+;;
+;;     (awhen (1+ i)
+;;          it)
+(define-syntax uwhen
+  (lambda (x)
+    ;; "lst": Convert syntax to datum and convert back to a list of syntax.
+    (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
+      ;; Create template variable "it".
+      (with-syntax ((it (datum->syntax x 'it)))
+        #`(let ((it #,(cadr lst)))
+            (when (not (unspecified? it)) #,(caddr lst)))))))
 
 (define any?   pair?)
 (define empty? null?)
@@ -291,6 +318,21 @@
                    (cons (car rest) head)
                    (1+ i))
                (cons (reverse head) rest))))))
+
+
+;; Split list to head and tail, and return list parts as pair, where
+;; tail length matches count.
+(define (list-split-tail lst count)
+  (let lp ((lst (reverse lst))
+           (tail '())
+           (count count))
+    (if (and (pair? lst)
+             (> count 0))
+        (lp (cdr lst)
+            (cons (car lst) tail)
+            (1- count))
+        (cons (reverse lst)
+              tail))))
 
 
 ;; Take a slice of the list.

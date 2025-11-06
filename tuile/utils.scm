@@ -12,6 +12,8 @@
   #:use-module ((srfi srfi-88) #:select (string->keyword))
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
   #:use-module ((ice-9 match) #:select (match))
+  #:use-module ((ice-9 pretty-print) #:select (pretty-print))
+  #:use-module ((tuile pretty-match) #:select (pretty-match))
   #:use-module (tuile re)
   #:use-module ((tuile pr) #:select (ss si))
 
@@ -25,6 +27,8 @@
   (
    aif
    awhen
+   uif
+   uwhen
    any?
    empty?
    len-0?
@@ -52,6 +56,7 @@
    list-clean
    list-specified
    list-split
+   list-split-tail
    list-slice
    list-range
    list-pick
@@ -227,6 +232,14 @@
    define-with-memoize
 
    seconds->minutes:seconds
+
+   ->hex-width
+   ->oct-width
+   range->width
+   range->hex-width
+
+   datum->match
+
    ))
 
 
@@ -2426,6 +2439,7 @@
 ;;
 ;;   (gen-item spec))
 ;;
+;;
 ;; ;; Create list of string from symbols, i.e. non-quoted text.
 ;; ;;
 ;; ;;     (make-string-list foo bar dii)
@@ -2679,6 +2693,49 @@
   (let ((mins (quotient seconds 60))
         (secs (remainder seconds 60)))
     (fmt `(ral (2 "0") ,mins) ":" `(ral (2 "0") ,secs))))
+
+
+(define (->hex-width bit-width)
+  (case bit-width
+      ((0) 0)
+      (else (1+ (quotient (1- bit-width) 4)))))
+
+(define (->oct-width bit-width)
+  (case bit-width
+      ((0) 0)
+      (else (1+ (quotient (1- bit-width) 3)))))
+
+(define (range->width value)
+  (case value
+    ((0) 0)
+    ((1) 1)
+    ((2) 1)
+    (else (1+ (inexact->exact (floor (/ (log (1- value)) (log 2))))))))
+
+(define (range->hex-width value)
+  (let ((bit-width (range->width value)))
+    (case bit-width
+      ((0) 0)
+      (else (1+ (quotient (1- bit-width) 4))))))
+
+
+(define (datum->match pat)
+  (define (->match pat)
+    (cond
+     ((list? pat) (apply list (map ->match pat)))
+     ((pair? pat) (cons (->match (car pat)) (->match (cdr pat))))
+     ((symbol? pat) `',pat)
+     (else pat)))
+  (with-output-to-string
+    (lambda ()
+      (pretty-print (->match pat))
+      ;; (pretty-match (->match pat))
+      )))
+
+;; (pretty-print (datum->match '(input-var
+;;                               (var-range-zoo)
+;;                               (var-name-zom (var-name (ID . "clk") (opt-comma))))))
+
 ;;
 ;; (use-modules (tuile pr))
 ;; (pr (seconds->minutes:seconds 100))

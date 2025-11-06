@@ -7,8 +7,8 @@
 ;; * issue-info:    Information only (exception).
 ;; * issue-warn:    Warning only (exception).
 ;; * issue-problem: Issue problem and accumulate Issue Count (exception).
-;; * issue-errro:   Issue error and exit by default (exception).
-;; * fatal-issue:   Immediate fatal error and exit (non-exception).
+;; * issue-error:   Issue error and exit by default (exception).
+;; * issue-fatal:   Immediate fatal error and exit (non-exception).
 ;;
 ;; The exceptions are handled with '(issue-handle <body> ...)' macro
 ;; and exceptions are raise within the '<body> ...'. By default info,
@@ -64,7 +64,7 @@
    issue-problem
    issue-error
 
-   fatal-issue
+   issue-fatal
 
    issue-handle
    issue-handle-thunk
@@ -211,7 +211,7 @@
   (primitive-exit 1))
 
 ;; Report fatal issue and exit.
-(define (fatal-issue message . with-parts)
+(define (issue-fatal message . with-parts)
   (when message
     (display (format-message (build-message message with-parts) "FATAL ERROR") (current-error-port)))
   (primitive-exit 1))
