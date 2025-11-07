@@ -15,8 +15,15 @@
 ;; Pargen generates an lalr based parser. An example grammar is in the
 ;; end of the file.
 ;;
-;; This library should be used from a simple executable. The
-;; executable looks something like this (for parse-vlog.scm grammar):
+;; Pargen generates the parser from either abstract grammar or lalr
+;; grammar.
+;;
+;; This library should be used from a simple executable.
+;;
+;; The executable looks something like this (for parse-vlog.scm
+;; grammar):
+;;
+;; Abstract grammar:
 ;;
 ;;     (use-modules (tuile pargen))
 ;;     (define grammar-vlog #f)
@@ -26,6 +33,19 @@
 ;;                                 '()
 ;;                                 "parse-vlog"
 ;;                                 5
+;;                                 grammar-vlog)
+;;
+;; OR
+;;
+;; Lalr grammar:
+;;
+;;     (use-modules (tuile pargen))
+;;     (define grammar-vlog #f)
+;;     (primitive-load "rapid/grammar-vlog.scm")
+;;     (pargen-write-lalr-module "rapid/parse-vlog.scm"
+;;                                 '(rapid parse-vlog)
+;;                                 '()
+;;                                 "parse-vlog"
 ;;                                 grammar-vlog)
 ;;
 ;; Parsing is performed for a file:
@@ -365,10 +385,46 @@
 
     ))
 
+
+(define (pargen-output-lalr-module parser-id grammar)
+
+  (define (token-output tokdef)
+    (case (third tokdef)
+      ((comment space error) *unspecified*)
+      (else (second tokdef))))
+
+  (let* ((lexer-def (car (assoc-ref grammar 'lexer)))
+         (lexer-value (map (lambda (ld) (cons (second ld)
+                                              (or (eq? (third ld) 'value)
+                                                  (eq? (third ld) 'typeval)))) lexer-def))
+         (parser-def (assoc-ref grammar 'parser))
+         (parser-opts (map (lambda (item)
+                             (list (string->symbol
+                                    (string-append
+                                     (symbol->string (first item))
+                                     ":"))
+                                   (second item)))
+                           (first parser-def)))
+         (parser-tokens (list-specified (map token-output lexer-def)))
+         (parser-rules (second parser-def)))
+
+    `(define ,parser-id
+       (lalr-parser
+        ,@parser-opts
+        ,parser-tokens
+        ,@parser-rules))))
+
+
 ;; (pretty-print (pargen-output-parser-module "foobar" 5 grammar))
 
 (define (pargen-output-module-header module-id user-modules)
-  (define standard-modules '((system base lalr)
+;;   (define standard-modules '((system base lalr)
+;;                              (tuile basic)
+;;                              (tuile pr)
+;;                              (tuile gulex)
+;;                              (tuile issues)
+;;                              (srfi srfi-1)))
+  (define standard-modules '((tuile lalr)
                              (tuile basic)
                              (tuile pr)
                              (tuile gulex)
@@ -475,12 +531,7 @@
   (define parser-id (string->symbol (ss parser-name "-parser")))
 
   (define parser-module-header (pargen-output-module-header module-id user-modules))
-;;   (define parser-lexer-table (pargen-output-lexer-table grammar))
   (define parser-error-fn (pargen-output-parse-error-fn))
-;;   (define parser-ts `(define ts (if (file-exists? filename)
-;;                                     (token-stream-open filename
-;;                                                        (gulex-create-lexer-fsm lexer))
-;;                                     (issue-fatal (si "File not found: \"#{filename}\"")))))
   (define parser-lexer (pargen-output-lexer-fn grammar))
   (define parser (pargen-output-parser-module parser-id parser-expect grammar))
   (define parser-call `(let* ((ts-and-lexer (make-lexer))
@@ -488,7 +539,6 @@
                          (token-stream-close (car ts-and-lexer))
                          result))
 
-  ;;   (define out write)
   (define out pretty-print)
 
   (print-set! quote-keywordish-symbols #t)
@@ -496,14 +546,39 @@
   (call-with-output-file parser-file
     (lambda (port)
       (out parser-module-header port)
-;;       (out `(define (parse filename)
-;;               ,@(list parser-lexer-table
-;;                       parser-error-fn
-;;                       parser-ts
-;;                       parser-lexer
-;;                       parser
-;;                       parser-call))
-;;            port)
+      (out `(define (parse filename)
+              ,@(list parser-error-fn
+                      parser-lexer
+                      parser
+                      parser-call))
+           port)
+      )))
+
+
+(define (pargen-write-lalr-module parser-file
+                                  module-id
+                                  user-modules
+                                  parser-name
+                                  grammar)
+
+  (define parser-id (string->symbol (ss parser-name "-parser")))
+
+  (define parser-module-header (pargen-output-module-header module-id user-modules))
+  (define parser-error-fn (pargen-output-parse-error-fn))
+  (define parser-lexer (pargen-output-lexer-fn grammar))
+  (define parser (pargen-output-lalr-module parser-id grammar))
+  (define parser-call `(let* ((ts-and-lexer (make-lexer))
+                              (result (,parser-id (cdr ts-and-lexer) parse-error)))
+                         (token-stream-close (car ts-and-lexer))
+                         result))
+
+  (define out pretty-print)
+
+  (print-set! quote-keywordish-symbols #t)
+
+  (call-with-output-file parser-file
+    (lambda (port)
+      (out parser-module-header port)
       (out `(define (parse filename)
               ,@(list parser-error-fn
                       parser-lexer

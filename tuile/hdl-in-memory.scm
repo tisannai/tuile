@@ -699,6 +699,15 @@
           (map (lambda (expr) (ss ", " (render-expr-top expr))) (cdr ops)))
       " }"))
 
+
+(define (render-op-replicate ops)
+;;   (ppe ops)
+  (ss "{"
+      (render-expr-top (first ops))
+      "{"
+      (render-expr-top (second ops))
+      "}}"))
+
 (define (render-varran item)
   (ss
 ;;    (render-varref (second (first item)))
@@ -780,6 +789,7 @@
         ((parref)       (render-parref (second expr)))
 
         ((op-concat)    (render-op-concat (cdr expr)))
+        ((op-replicate) (render-op-replicate (cdr expr)))
         ((varran)       (render-varran (cdr expr)))
         ((varidx)       (render-varidx (cdr expr)))
 
