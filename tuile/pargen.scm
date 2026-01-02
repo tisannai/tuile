@@ -375,9 +375,9 @@
        (lalr-parser
         ;; NOTE: The "#{}#" syntax is for some reason required in
         ;; order to avoid "#:expect" to appear for Guile.
-        (#{expect:}# ,expect)
+        (expect* ,expect)
         ;; Uncomment for parsing table debugging.
-        (#{out-table:}# "pargen-tables.txt")
+        (out-table* "pargen-tables.txt")
         ,(list-specified (map token-output lexer-def))
         ,@(pargen-defs->lalr-defs pargen-defs)))
 
@@ -402,7 +402,9 @@
                              (list (string->symbol
                                     (string-append
                                      (symbol->string (first item))
-                                     ":"))
+                                     "*"
+                                     ;; ":"
+                                     ))
                                    (second item)))
                            (first parser-def)))
          (parser-tokens (list-specified (map token-output lexer-def)))
@@ -508,6 +510,7 @@
                                ((value) (token-value tok))
                                ((typeval) (cons (token-type tok)
                                                 (token-value tok))))))
+       ;; (token-stream-show-token #t)
        (cons ts
              (lambda ()
                (define (return-and-next ret type)
@@ -541,7 +544,7 @@
 
   (define out pretty-print)
 
-  (print-set! quote-keywordish-symbols #t)
+  ;; (print-set! quote-keywordish-symbols #t)
 
   (call-with-output-file parser-file
     (lambda (port)
@@ -574,7 +577,7 @@
 
   (define out pretty-print)
 
-  (print-set! quote-keywordish-symbols #t)
+  ;; (print-set! quote-keywordish-symbols #t)
 
   (call-with-output-file parser-file
     (lambda (port)

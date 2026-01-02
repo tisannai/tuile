@@ -10,7 +10,11 @@
    config-get
    config-set!
    config-atom?
-   config_list?
+   config-list?
+
+   ;; For modules/functions built on top of config.
+   config-cassoc
+
    ))
 
 

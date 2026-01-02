@@ -1,5 +1,6 @@
 (define-module (tuile hash)
   #:use-module ((ice-9 hash-table) #:select (alist->hash-table))
+  #:use-module (tuile pr)
   #:re-export
   (
    make-hash-table
@@ -22,6 +23,9 @@
 
    alist->hash
    hash->alist
+
+   hash-print
+
    ))
 
 ;; Make hash table with define key-type: symbol, string.
@@ -64,3 +68,8 @@
 
 (define (hash->alist hsh)
   (hash-map->list cons hsh))
+
+(define (hash-print hsh)
+  (for-each (lambda (key)
+              (pri "#{key}: #{(hash-ref hsh key)}"))
+            (hash-keys hsh)))

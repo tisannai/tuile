@@ -8,7 +8,7 @@
 
 (ubu-default "install")
 (action install
-        (let ((files (get-files "tuile/*.scm")))
+        (let ((files (append (get-files "tuile/*.scm") (list "tuile/lalr.upstream.scm"))))
           (sh-ser (ubu-for-updates files
                                    (map (lambda (i) (cat (get "user-install-path") "/tuile/" i))
                                         (map file-name files))

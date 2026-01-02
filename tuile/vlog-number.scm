@@ -57,6 +57,8 @@
             vlog-number-to-numstr
             vlog-number-to-quoted-numstr
             vlog-number-to-him
+
+            vlog-number-signify
             ))
 
 
@@ -163,6 +165,8 @@
                                             base))
               (else #f)))))
 
+
+  ;; (ppr numstr)
 
   (let lp ((chars (import-numstr numstr))
            (state 'width)
@@ -405,6 +409,18 @@
         (vlog-number-sign  number)
         (vlog-number-width number)
         (vlog-number-base  number)))
+
+
+(define (vlog-number-signify number)
+  (if (symbol? (vlog-number-sign number))
+      number
+      (make-vlog-number
+       (vlog-number-value number)
+       (if (vlog-number-sign number)
+           'signed
+           'unsigned)
+       (vlog-number-width number)
+       (vlog-number-base number))))
 
 
 ;; (pp (vlog-number-from-numstr "#sb0"))

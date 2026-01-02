@@ -35,6 +35,7 @@
    len-1?
    len-2?
    len-3?
+   lr
    lr0
    lr1
    lr2
@@ -86,9 +87,12 @@
    map-except-last
    map-except-first
    repeat
-   repeat-times
+   repeat!
+   ;; repeat-times
    for-n
    for-n!
+   for-list
+   for-list!
    from-to
    from-to-step
    nop
@@ -382,6 +386,11 @@
 ;; (define -> fn-pipe)
 
 
+;; Repeat fn, cnt times. Fn gets index as argument. Return list of fn
+;; call values.
+;;
+;;     (repeat count (lambda (i) (cons 0 63)))
+;;
 (define (repeat cnt fn)
   (let lp ((i 0)
            (ret '()))
@@ -390,17 +399,30 @@
             (cons (fn i) ret))
         (reverse ret))))
 
-(define-syntax repeat-times
-  (lambda (x)
-    (syntax-case x ()
-      ((_ cnt body ...)
-       (with-syntax ((i (datum->syntax x 'i)))
-         #'(let repeat-loop ((i 0))
-             (when (< i cnt)
-               (begin
-                 body ...
-                 (repeat-loop (1+ i))))))))))
 
+;; Repeat fn, cnt times. Fn gets index as argument. No return value.
+;;
+;;     (repeat! count (lambda (i) (cons 0 63)))
+;;
+(define (repeat! cnt fn)
+  (let lp ((i 0)
+           (ret '()))
+    (when (< i cnt)
+      (fn i)
+      (lp (1+ i)))))
+
+
+;; (define-syntax repeat-times
+;;   (lambda (x)
+;;     (syntax-case x ()
+;;       ((_ cnt body ...)
+;;        (with-syntax ((i (datum->syntax x 'i)))
+;;          #'(let repeat-loop ((i 0))
+;;              (when (< i cnt)
+;;                (begin
+;;                  body ...
+;;                  (repeat-loop (1+ i))))))))))
+;;
 
 ;; Run indeces through specified values and execute the body with the
 ;; swept value. Collect the body return values to a list.
@@ -417,7 +439,7 @@
 
 ;; Helper functions for for-n and for-n!.
 
-(define (for-repeat-n op var ini lim step body)
+(define (for-n-repeat op var ini lim step body)
   #`(let repeat-loop ((#,var #,ini)
                       (ret '()))
       (if (#,op #,var #,lim)
@@ -425,14 +447,14 @@
                        (cons (begin #,@body) ret))
           (reverse ret))))
 
-(define (for-repeat-n! op var ini lim step body)
+(define (for-n-repeat! op var ini lim step body)
   #`(let repeat-loop ((#,var #,ini))
       (when (#,op #,var #,lim)
         (begin
           #,@body
           (repeat-loop (+ #,var #,step))))))
 
-(define for-trans
+(define for-n-trans
   (lambda (x fn)
     (define -> datum->syntax)
     (define => syntax->datum)
@@ -476,11 +498,11 @@
         (else
          (fn (-> x '<) #'var 0 #'lim #'step #'(body ...))))))))
 
-(define-syntax for-n (lambda (x) (for-trans x for-repeat-n)))
+(define-syntax for-n (lambda (x) (for-n-trans x for-n-repeat)))
 
 ;; Run indeces through specified values and execute the body with the
 ;; swept value. Nothing is done to the body result values.
-(define-syntax for-n! (lambda (x) (for-trans x for-repeat-n!)))
+(define-syntax for-n! (lambda (x) (for-n-trans x for-n-repeat!)))
 
 ;; (for-n (i 10) (display i) (newline) i)
 ;; (for-n! (i 10) (display i) (newline))
@@ -586,6 +608,49 @@
         ((< (=> #'step) 0) #'(quote ()))
         (else
          (for-core (-> x '<) #'var 0 #'lim #'step #'(body ...))))))))
+
+
+;; Run indeces through specified values and execute the body with the
+;; swept value. Collect the body return values to a list.
+;;
+;;     (for-list (i '(1 2 3)) i)
+;;
+
+;; Helper functions for for-list and for-list!.
+
+(define (for-list-repeat var list body)
+  #`(let repeat-loop ((lst #,list)
+                      (ret '()))
+      (if (pair? lst)
+          (let ((#,var (car lst)))
+            (repeat-loop (cdr lst)
+                         (cons (begin #,@body) ret)))
+          (reverse ret))))
+
+(define (for-list-repeat! var list body)
+  #`(let repeat-loop ((lst #,list))
+      (when (pair? lst)
+        (let ((#,var (car lst)))
+          #,@body
+          (repeat-loop (cdr lst))))))
+
+(define for-list-trans
+  (lambda (x fn)
+    (define -> datum->syntax)
+    (define => syntax->datum)
+    (syntax-case x ()
+      ;;     (for-list (i '(1 2 3)) i)
+      ((_ (var list) body ...)
+       (fn #'var #'list #'(body ...))))))
+
+(define-syntax for-list (lambda (x) (for-list-trans x for-list-repeat)))
+
+;; Run indeces through specified values and execute the body with the
+;; swept value. Nothing is done to the body result values.
+(define-syntax for-list! (lambda (x) (for-list-trans x for-list-repeat!)))
+
+;; (for-list (i 10) (display i) (newline) i)
+;; (for-list! (i 10) (display i) (newline))
 
 
 ;; Execute body the given number of times with the variable.

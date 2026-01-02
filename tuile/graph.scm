@@ -8,7 +8,8 @@
   #:use-module (tuile pr)
   #:use-module (tuile utils)
   #:use-module (tuile oop)
-  #:use-module (tuile record)
+;;   #:use-module (tuile record)
+  #:use-module (tuile record-r6rs)
 
   #:export
   (
@@ -58,21 +59,36 @@
 ;; Nodes and edges:
 
 ;; Edge definition.
-(define-mu-record edge
-  node       ; Associated node
-  data       ; Edge value
-  )
+;; (define-mu-record edge
+;;   node       ; Associated node
+;;   data       ; Edge value
+;;   )
+
+(define-record-type edge
+  (fields
+   (mutable node)                       ; Associated node
+   (mutable data)                       ; Edge value
+   ))
 
 ;; Node definition.
 ;;
 ;; Data is collection of user data.
-(define-mu-record node
-  name       ; Node name
-  visited    ; Node visited (support for algos)
-  ilink      ; Links left:  ( (<node> value) ... )
-  olink      ; Links right: ( (<node> value) ... )
-  data       ; Generic data storage.
-  )
+;; (define-mu-record node
+;;   name       ; Node name
+;;   visited    ; Node visited (support for algos)
+;;   ilink      ; Links left:  ( (<node> value) ... )
+;;   olink      ; Links right: ( (<node> value) ... )
+;;   data       ; Generic data storage.
+;;   )
+
+(define-record-type node
+  (fields
+   (mutable name)                          ; Node name
+   (mutable visited)                       ; Node visited (support for algos)
+   (mutable ilink)                         ; Links left:  ( (<node> value) ... )
+   (mutable olink)                         ; Links right: ( (<node> value) ... )
+   (mutable data)                          ; Generic data storage.
+   ))
 
 ;; Create new node with name.
 (define (node-new name)
@@ -84,11 +100,11 @@
 
 ;; Visit node.
 (define (node-visit node)
-  (set-node-visited! node #t))
+  (node-visited-set! node #t))
 
 ;; Unvisit node.
 (define (node-unvisit node)
-  (set-node-visited! node #f))
+  (node-visited-set! node #f))
 
 ;; Return visit status.
 (define (node-visited? node)
@@ -141,8 +157,8 @@
     (when (pair? pair)
       (let ((a (graph-ref this (first pair)))
             (b (graph-ref this (second pair))))
-        (set-node-olink! a (append (node-olink a) (list (make-edge b 0))))
-        (set-node-ilink! b (append (node-ilink b) (list (make-edge a 0)))))
+        (node-olink-set! a (append (node-olink a) (list (make-edge b 0))))
+        (node-ilink-set! b (append (node-ilink b) (list (make-edge a 0)))))
       (each (cddr pair)))))
 
 (define-this-method <graph> (graph-connect-nodes-with-data a b data . rest)
@@ -151,8 +167,8 @@
       (let ((a (graph-ref this (car pair)))
             (b (graph-ref this (cadr pair)))
             (data (caddr pair)))
-        (set-node-olink! a (append (node-olink a) (list (make-edge b data))))
-        (set-node-ilink! b (append (node-ilink b) (list (make-edge a data)))))
+        (node-olink-set! a (append (node-olink a) (list (make-edge b data))))
+        (node-ilink-set! b (append (node-ilink b) (list (make-edge a data)))))
       (each (cdddr pair)))))
 
 (define-this-method <graph> (graph-each-node fn)
@@ -376,7 +392,7 @@
 
       ;; Set all nodes to infinity.
       (for ((node sorted-nodes))
-        (set-node-data! node (cons (box inf) (node-data node))))
+        (node-data-set! node (cons (box inf) (node-data node))))
       (set-distance! a 0)
 
       (let each-node ((sorted sorted-nodes))
@@ -395,7 +411,7 @@
                      (cons i (get-distance i)))
                    sorted-nodes)))
         (for ((node sorted-nodes))
-          (set-node-data! node (cdr (node-data node))))
+          (node-data-set! node (cdr (node-data node))))
         dist))))
 
 

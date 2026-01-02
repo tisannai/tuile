@@ -19,6 +19,7 @@
    len-1?
    len-2?
    len-3?
+   lr
    lr0
    lr1
    lr2
@@ -53,6 +54,8 @@
    list-pop!
    map-compact
    clean-list
+   list-copy-deep
+
 
    command-line-arguments
 
@@ -85,14 +88,23 @@
 ;;
 ;;     (awhen (1+ i)
 ;;          it)
+;; (define-syntax awhen
+;;   (lambda (x)
+;;     ;; "lst": Convert syntax to datum and convert back to a list of syntax.
+;;     (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
+;;       ;; Create template variable "it".
+;;       (with-syntax ((it (datum->syntax x 'it)))
+;;         #`(let ((it #,(cadr lst)))
+;;             (when it #,(caddr lst)))))))
+
 (define-syntax awhen
   (lambda (x)
-    ;; "lst": Convert syntax to datum and convert back to a list of syntax.
-    (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
-      ;; Create template variable "it".
-      (with-syntax ((it (datum->syntax x 'it)))
-        #`(let ((it #,(cadr lst)))
-            (when it #,(caddr lst)))))))
+    (syntax-case x ()
+      ((_ test then ...)
+       (with-syntax ((it (datum->syntax x 'it)))
+         #'(let ((it test))
+             (when it then ...)))))))
+
 
 ;; Anaphoric if macro for *unspecified*.
 (define-syntax uif
@@ -106,16 +118,25 @@
 
 ;; Anaphoric when macro for *unspecified*.
 ;;
-;;     (awhen (1+ i)
+;;     (uwhen (1+ i)
 ;;          it)
+
+;; (define-syntax uwhen
+;;   (lambda (x)
+;;     ;; "lst": Convert syntax to datum and convert back to a list of syntax.
+;;     (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
+;;       ;; Create template variable "it".
+;;       (with-syntax ((it (datum->syntax x 'it)))
+;;         #`(let ((it #,(cadr lst)))
+;;             (when (not (unspecified? it)) #,(caddr lst)))))))
+
 (define-syntax uwhen
   (lambda (x)
-    ;; "lst": Convert syntax to datum and convert back to a list of syntax.
-    (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
-      ;; Create template variable "it".
-      (with-syntax ((it (datum->syntax x 'it)))
-        #`(let ((it #,(cadr lst)))
-            (when (not (unspecified? it)) #,(caddr lst)))))))
+    (syntax-case x ()
+      ((_ test then ...)
+       (with-syntax ((it (datum->syntax x 'it)))
+         #'(let ((it test))
+             (when (not (unspecified? it)) then ...)))))))
 
 (define any?   pair?)
 (define empty? null?)
@@ -123,6 +144,14 @@
 (define len-1? (lambda (lst) (and (pair? lst) (null? (cdr lst)))))
 (define len-2? (lambda (lst) (and (pair? lst) (pair? (cdr lst)) (null? (cddr lst)))))
 (define len-3? (lambda (lst) (and (pair? lst) (pair? (cdr lst)) (pair? (cddr lst)) (null? (cdddr lst)))))
+
+(define lr list-ref)
+
+(define lr0 first)
+(define lr1 second)
+(define lr2 third)
+(define lr3 fourth)
+(define lr4 fifth)
 
 ;; Create function definitions (by x amount) using list-ref as:
 ;;
@@ -137,9 +166,9 @@
             (list (string->symbol (string-append "lr" (number->string index))) 'lst)
             (list 'list-ref 'lst index)))
     (let* ((-> datum->syntax))
-      #`(begin #,@(-> x (map get-list-ref-function (iota (cadr (syntax->datum x)))))))))
+      #`(begin #,@(-> x (map get-list-ref-function (iota (cadr (syntax->datum x)) 5)))))))
 
-(expand-short-list-ref-index-functions 10)
+(expand-short-list-ref-index-functions 5)
 
 
 ;; Flatten (and join) argument list as deep as list goes.
@@ -452,6 +481,8 @@
    (else rest)))
 
 
+;; Push to item to front of list. Empty list should be defined as:
+;; (list *unspecified*).
 (define (list-push! lst item)
   (cond
    ((unspecified? (car lst))
@@ -496,6 +527,16 @@
             (filter (cdr rest))
             (cons (car rest) (filter (cdr rest))))
         '())))
+
+
+;; Copy list, recursively.
+(define (list-copy-deep lst)
+  (cond
+    ((pair? lst)
+     (map list-copy-deep lst))
+    ((vector? lst)
+     (list->vector (map list-copy-deep (vector->list lst))))
+    (else lst)))
 
 
 ;; Return command line arguments, excluding the executable.

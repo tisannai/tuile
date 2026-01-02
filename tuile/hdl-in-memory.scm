@@ -96,11 +96,14 @@
             him-locals
             him-clock
             him-reset
+            him-clocks
+            him-resets
             him-iports
             him-oports
             him-zports
             him-vars
             him-procs
+            him-vardef
 
             him-clock-def
             him-reset-def
@@ -126,6 +129,10 @@
             him-port-sign
             him-port-value
             him-port-depth
+
+            him-sync-clock
+            him-sync-reset
+            him-sync-resvars
 
             him-resolve-params
             him-resolve
@@ -232,9 +239,18 @@
 ;; him-number:
 ;;
 ;;     (12 unsigned 4 2)
+;; OR
+;;     (12 #f 4 2)
 ;;
 (define him-number-value first)
 (define him-number-sign  second)
+;; (define (him-number-sign num)
+;;   (let ((sign (second num)))
+;;     (if (symbol? sign)
+;;         sign
+;;         (if sign
+;;             'signed
+;;             'unsigned))))
 (define him-number-width third)
 (define him-number-base  fourth)
 (define (him-number->vlog him-number)
@@ -268,11 +284,17 @@
 (define (him-locals him) (assoc-ref him 'locals))
 (define (him-clock him) (assoc-ref-single him 'clock))
 (define (him-reset him) (assoc-ref-single him 'reset))
+(define (him-clocks him) (assoc-ref him 'clock))
+(define (him-resets him) (assoc-ref him 'reset))
 (define (him-iports him) (assoc-ref him 'iports))
 (define (him-oports him) (assoc-ref him 'oports))
 (define (him-zports him) (assoc-ref him 'zports))
 (define (him-vars him) (assoc-ref him 'vars))
 (define (him-procs him) (assoc-ref him 'procs))
+
+(define (him-vardef him name)
+  (let ((vardef (him-get-vardef name him)))
+    (cons name vardef)))
 
 (define (him-clock-def him)
   (if (valid? (him-clock him))
@@ -388,6 +410,32 @@
 (define (him-port-depth port)
   (assoc-ref port 'depth))
 
+
+(define (him-sync-clock sync him)
+  (let ((sens (lr1 sync)))
+    (cond
+     ((and (symbol? (car sens))
+           (eq? (car sens) 'sens))
+      (lr1 sens))
+     (him (car (assoc-ref him 'clock)))
+     (else #f))))
+
+(define (him-sync-reset sync him)
+  (let ((sens (lr1 sync)))
+    (cond
+     ((and (symbol? (car sens))
+           (eq? (car sens) 'sens))
+      (lr2 sens))
+     (him (car (assoc-ref him 'reset)))
+     (else #f))))
+
+(define (him-sync-resvars sync)
+  (let ((sens (lr1 sync)))
+    (cond
+     ((and (symbol? (car sens))
+           (eq? (car sens) 'sens))
+      (lr3 sens))
+     (else sens))))
 
 
 ;; Resolve parameter values.
@@ -720,6 +768,19 @@
    (render-expr (first item))
    "[" (render-expr-top (second item)) "]"))
 
+(define (render-varsel item)
+  ;; var followed by any number of bit/range selects.
+  (ss
+   (render-expr (first item))
+   (map (lambda (sel)
+          (case sel
+            ((varidx) "[" (render-expr-top (second item)) "]")
+            ((varran) "[" (render-expr-top (second item)) ":" (render-expr-top (third item)) "]")
+            ((varpls) "[" (render-expr-top (second item)) ":+" (render-expr-top (third item)) "]")
+            ((varmns) "[" (render-expr-top (second item)) ":-" (render-expr-top (third item)) "]")
+            ))
+        (cdr item))))
+
 (define (render-op-condition item)
   (let ((condition (render-expr (first item)))
         (option-true (render-expr (second item)))
@@ -731,6 +792,8 @@
 (define (render-op-sub ops) (render-op-many ops "-"))
 (define (render-op-mul ops) (render-op-many ops "*"))
 (define (render-op-div ops) (render-op-many ops "/"))
+(define (render-op-mod ops) (render-op-many ops "%"))
+(define (render-op-pow ops) (render-op-many ops "**"))
 
 (define (render-op-eq ops) (render-op-many ops "=="))
 (define (render-op-ne ops) (render-op-many ops "!="))
@@ -755,16 +818,18 @@
 (define (render-op-redand op) (render-op-unary op "&"))
 (define (render-op-redori op) (render-op-unary op "|"))
 (define (render-op-rednnd op) (render-op-unary op "~&"))
+(define (render-op-rednor op) (render-op-unary op "~|"))
 (define (render-op-redxor op) (render-op-unary op "^"))
 (define (render-op-redxnr op) (render-op-unary op "~^"))
 
 (define (render-op-log-lshift ops) (render-op-many ops "<<"))
 (define (render-op-log-rshift ops) (render-op-many ops ">>"))
 
-(define (render-op-pos op) (render-op-unary op "+"))
-(define (render-op-neg op) (render-op-unary op "-"))
 (define (render-op-ari-lshift ops) (render-op-many ops "<<<"))
 (define (render-op-ari-rshift ops) (render-op-many ops ">>>"))
+
+(define (render-op-pos op) (render-op-unary op "+"))
+(define (render-op-neg op) (render-op-unary op "-"))
 
 (define (render-op-cast-unsigned op) (render-op-system op "$unsigned"))
 (define (render-op-cast-signed op) (render-op-system op "$signed"))
@@ -792,11 +857,14 @@
         ((op-replicate) (render-op-replicate (cdr expr)))
         ((varran)       (render-varran (cdr expr)))
         ((varidx)       (render-varidx (cdr expr)))
+        ((varsel)       (render-varsel (cdr expr)))
 
         ((op-add)       (render-op-add (cdr expr)))
         ((op-sub)       (render-op-sub (cdr expr)))
         ((op-mul)       (render-op-mul (cdr expr)))
         ((op-div)       (render-op-div (cdr expr)))
+        ((op-mod)       (render-op-mod (cdr expr)))
+        ((op-pow)       (render-op-pow (cdr expr)))
 
         ((op-eq)        (render-op-eq (cdr expr)))
         ((op-ne)        (render-op-ne (cdr expr)))
@@ -821,16 +889,18 @@
         ((op-redand)    (render-op-redand (second expr)))
         ((op-redori)    (render-op-redori (second expr)))
         ((op-rednnd)    (render-op-rednnd (second expr)))
+        ((op-rednor)    (render-op-rednor (second expr)))
         ((op-redxor)    (render-op-redxor (second expr)))
         ((op-redxnr)    (render-op-redxnr (second expr)))
 
         ((op-log-lshift)    (render-op-log-lshift (cdr expr)))
         ((op-log-rshift)    (render-op-log-rshift (cdr expr)))
 
-        ((op-pos)    (render-op-pos (second expr)))
-        ((op-neg)    (render-op-neg (second expr)))
         ((op-ari-lshift)    (render-op-ari-lshift (cdr expr)))
         ((op-ari-rshift)    (render-op-ari-rshift (cdr expr)))
+
+        ((op-pos)    (render-op-pos (second expr)))
+        ((op-neg)    (render-op-neg (second expr)))
 
         ((op-cast-unsigned)  (render-op-cast-unsigned (second expr)))
         ((op-cast-signed)    (render-op-cast-signed (second expr)))
@@ -1044,16 +1114,49 @@
                         ret)))))
           (reverse ret))))
 
+  ;; Proc header is in either of these formats:
+  ;;
+  ;;   (sync (sens "clk" "rstn" ("count")) ...)
+  ;;   (sync ("count") ... )
+  ;;
+  (define (sync-clock)
+;;     (let ((sens (lr0 sync)))
+;;       (if (and (symbol? (car sens))
+;;                (eq? (car sens) 'sens))
+;;           (lr1 sens)
+;;           (ref-single 'clock)))
+    (him-sync-clock (cons 'sync sync) item)
+    )
+
+  (define (sync-reset)
+;;     (let ((sens (lr0 sync)))
+;;       (if (and (symbol? (car sens))
+;;                (eq? (car sens) 'sens))
+;;           (lr2 sens)
+;;           (ref-single 'reset)))
+    (him-sync-reset (cons 'sync sync) item)
+    )
+
+  (define (sync-resvars)
+;;     (let ((sens (lr0 sync)))
+;;       (if (and (symbol? (car sens))
+;;                (eq? (car sens) 'sens))
+;;           (lr3 sens)
+;;           sens))
+    (him-sync-resvars (cons 'sync sync))
+    )
+
+
   ;; '(stmt-if ( (expr @) (stmt @) ...)
   ;;           ( (expr @) (stmt @) ...)
   ;;           ( #f       (stmt @) ...)
   ;;           ))
   (define (sync-to-stmt-if sync)
-    (list (cons (list 'op-logneg (list 'varref (ref-single 'reset)))
-                (var-resets-branch (first sync)))
+    (list (cons (list 'op-logneg (list 'varref (sync-reset)))
+                (var-resets-branch (sync-resvars)))
           (cons #f (cdr sync))))
 
-  (make-list-flat (line "always @( posedge " (ref-single 'clock) " or negedge " (ref-single 'reset) " ) begin")
+  (make-list-flat (line "always @( posedge " (sync-clock) " or negedge " (sync-reset) " ) begin")
              (render-stmt-if (sync-to-stmt-if sync) (inc indent) 'sync)
              (line "end")))
 
@@ -1490,7 +1593,7 @@
                 (init (stmt-ass (varref "count")
                                 (op-add (varidx "count" (number ,(him-numint 2)))
                                         (number ,(him-numint 1)))))
-                (sync ("count")
+                (sync (sens "clk2" "rstn2" ("count"))
                       (stmt-nas (varref "count")
                                 (op-add (varidx "count" (number ,(him-numint 2)))
                                         (number ,(him-numint 1))))

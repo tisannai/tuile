@@ -16,6 +16,7 @@
    sp
    si
    pri
+   proi
    ds
    pd
    pde
@@ -187,10 +188,10 @@
 
               ;; Terminate interpolation.
               ((char=? ch #\})
-               (let* ((port (open-input-string
+               (let* ((strport (open-input-string
                              (list->string (reverse word))))
-                      (expr (read port)))
-                 (close-input-port port)
+                      (expr (read strport)))
+                 (close-input-port strport)
                  (loop (+ i 1)
                        (cons expr words)
                        '()
@@ -217,6 +218,12 @@
   (lambda (x)
     (let ((stx (syntax->datum x)))
       #`(pr #,@(datum->syntax x (expand-string-interpolation (cadr stx)))))))
+
+
+(define-syntax proi
+  (lambda (x)
+    (let ((stx (syntax->datum x)))
+      #`(pro #,(datum->syntax x (cadr stx)) #,@(datum->syntax x (expand-string-interpolation (caddr stx)))))))
 
 
 ;; Datum to string.
