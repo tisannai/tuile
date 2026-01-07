@@ -405,8 +405,7 @@
 ;;     (repeat! count (lambda (i) (cons 0 63)))
 ;;
 (define (repeat! cnt fn)
-  (let lp ((i 0)
-           (ret '()))
+  (let lp ((i 0))
     (when (< i cnt)
       (fn i)
       (lp (1+ i)))))

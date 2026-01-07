@@ -5,6 +5,8 @@
   #:use-module ((tuile utils) #:select (opt-arg))
   #:use-module ((tuile re) #:select (re-comp re-match))
   #:use-module ((tuile basic) #:select (dir-list))
+  #:use-module ((ice-9 binary-ports) #:select (get-bytevector-all))
+  #:use-module ((rnrs bytevectors) #:select (bytevector=?))
   #:export
   (
    file-copy
@@ -40,6 +42,9 @@
    file-find-upwards
    file-with-dirs
    file-with-absolute-dirs
+
+   file-equal?
+
    ))
 
 
@@ -321,3 +326,15 @@
 (define (file-with-absolute-dirs proc dir)
   (let ((absdir (fps->abs dir)))
     (map (lambda (file) (add-dir-to-file absdir file)) (proc dir))))
+
+
+;; Return true if the two files have the same content.
+(define (file-equal? f1 f2)
+  (define (content file) (call-with-input-file file get-bytevector-all))
+  (and (and (file-exists? f1) (file-exists? f2))
+       (and (file-size f1) (file-size f2))
+       (and (bytevector=? (content f1) (content f2)))))
+
+
+;; (use-modules (tuile pr))
+;; (ppr (file-equal? "tuile/file-utils.scm" "tuile/file-path.scm"))
