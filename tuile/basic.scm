@@ -561,6 +561,10 @@
 
 ;; Generate strings.
 ;;
+;; Full example:
+;;     (string-gen '(* 3 (: 9 0)))
+;;
+;; Features:
 ;;     (* 3 (: 9 0))           ; Multiply whole
 ;;     (/ 10 (: 2 0))          ; Multiply chars
 ;;     (: a z)                 ; Range
@@ -569,8 +573,13 @@
 ;;     (* 3 (: 0 9))           ; Multiply whole
 ;;     (- "foobar" "ob")       : Subtract
 ;;     (- "foobar" "kk")       ; Subtract
+;;     (< 3 (: a z))           ; Take head
+;;     (> 3 (: a z))           ; Take tail
+;;     (^ 3 5 (: a z))         ; Slice
+;;     (_ 3 5 (: a z))         ; Drop slice
+;;     (! a "ab") (* 3 (= a))  ; Var set/get
 ;;
-(define (string-gen spec)
+(define (string-gen . spec)
 
   (define vtab #f)
 
@@ -633,7 +642,7 @@
     (substring (gen-item (lr3 spec)) (lr1 spec) (lr2 spec)))
 
   (define (gen-drop spec)
-    (let* ((base (lr3 spec))
+    (let* ((base (gen-item (lr3 spec)))
            (left (string-take base (lr1 spec)))
            (right (substring base (lr2 spec))))
       (string-append left right)))
@@ -647,7 +656,8 @@
 
   (define (gen-vget spec)
     (if vtab
-        (hash-ref vtab (lr1 spec))
+        (let ((ret (hash-ref vtab (lr1 spec))))
+          (if ret ret ""))
         ""))
 
   (define (gen-item spec)
@@ -671,7 +681,12 @@
           )
         spec))
 
-  (gen-item spec))
+  (let* ((rev (reverse spec))
+         (main (car rev))
+         (setup (reverse (cdr rev))))
+    (for-each gen-item setup)
+    (gen-item main)))
+
 
 ;; Create list of string from symbols, i.e. non-quoted text.
 ;;
