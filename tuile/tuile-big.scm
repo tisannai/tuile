@@ -23,4 +23,5 @@
                 '(tuile hash)
                 '(tuile file-path)
                 '(tuile file-utils)
+                '(tuile config)
                 )

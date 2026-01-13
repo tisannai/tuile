@@ -19,5 +19,6 @@
                            (resolve-interface module))
               (module-re-export! (current-module)
                                  (module-map (lambda (a b) a)
-                                             (resolve-interface module))))
+                                             (resolve-interface module))
+                                 #:replace? #t))
             modules))

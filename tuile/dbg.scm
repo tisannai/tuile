@@ -50,7 +50,7 @@
 ;;   (stack-ref (make-stack #t) 0))
 
 
-(define my-start-repl #f)
+;; (define my-start-repl #f)
 
 ;; Debug handler starts a REPL.
 ;;

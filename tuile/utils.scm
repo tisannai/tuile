@@ -468,10 +468,10 @@
              #'var
              #'ini
              #'lim
-             (- (=> #'step))
+             (-> x (- (=> #'step)))
              #'(body ...)))
         (else
-         (fn (-> x '<) #'var 0 #'lim #'step #'(body ...)))))
+         (fn (-> x '<) #'var #'ini #'lim #'step #'(body ...)))))
 
       ;;     (for-n (i (0 8)) i)
       ((_ (var (ini lim)) body ...)
@@ -2820,3 +2820,8 @@
 ;;   (pr (string-gen `(_ 2 4 "foobar")))
 ;;   (pr (string-gen `(+ (! a "dii") (= a))))
 ;;   )
+
+
+;; (use-modules (tuile pr))
+;; (for-n! (idx (15 1) 1)
+;;         (pri "      $display( \"operators:valv#{idx}: %b\", valv#{idx} );"))
