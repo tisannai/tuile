@@ -11,11 +11,9 @@
   #:export
   (
    hash-make
-;;    hash-ref
-;;    hash-set!
    hash-update!
    hash-contains?
-;;    hash-remove!
+   hash-ref-or
    hash-keys
    hash-values
    hash-copy
@@ -50,6 +48,12 @@
 
 (define (hash-contains? hsh key)
   (pair? (hash-get-handle hsh key)))
+
+(define (hash-ref-or hsh key default)
+  (let ((kv (hash-get-handle hsh key)))
+    (if (pair? kv)
+        (cdr kv)
+        default)))
 
 (define (hash-keys hsh)
   (hash-map->list (lambda (k v) k) hsh))
