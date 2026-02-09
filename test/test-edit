@@ -23,7 +23,7 @@
 
 (test-equal 1 (line s))
 (test-equal #f (edited? s))
-(test-equal #f (not (contains? s "Line 1")))
+(test-equal #f (not (match? s "Line 1")))
 
 (step s)
 (test-equal 2 (line s))

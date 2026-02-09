@@ -1,6 +1,5 @@
 (define-module (tuile edit)
-  :use-module (tuile pr)
-  :use-module (tuile fmt)
+  :use-module ((tuile pr) #:select (ss))
   :use-module (tuile utils)
   :use-module (tuile record-r6rs)
   :use-module (tuile re)
@@ -55,21 +54,6 @@
    edit-raise
    ))
 
-;; ------------------------------------------------------------
-;; Edit State.
-
-;; Internal Edit State per edited/accessed file.
-(define-record-type state
-  (fields
-   (mutable filename)               ; Edit file name.
-   (mutable lines)                  ; File content as vector of lines.
-   (mutable line)                   ; Current line number.
-   (mutable mark)                   ; Default mark.
-   (mutable marks)                  ; Named marks (hash).
-   (mutable writable)               ; File is writable.
-   (mutable edited)                 ; Edited (dirty) flag.
-   ))
-
 
 ;; If opts is non-null, eval "then" else eval "else".
 ;;
@@ -86,6 +70,23 @@
                  then)
                else))))))
 
+
+;; Internal Edit State per edited/accessed file.
+(define-record-type state
+  (fields
+   (mutable filename)               ; Edit file name.
+   (mutable lines)                  ; File content as vector of lines.
+   (mutable line)                   ; Current line number.
+   (mutable mark)                   ; Default mark.
+   (mutable marks)                  ; Named marks (hash).
+   (mutable writable)               ; File is writable (not effective ATM).
+   (mutable edited)                 ; Edited (dirty) flag.
+   ))
+
+
+
+;; ------------------------------------------------------------
+;; Edit API:
 
 ;; Read file and return "edit" object.
 (define (read filename)
@@ -466,10 +467,8 @@
           (report exn)))
      (else (raise-exception exn #:continuable? #t)))))
 
-
 ;; Ignoring exception handler.
-(define (edit-exception-handler-ignore exn)
-  #f)
+(define (edit-exception-handler-ignore exn) #f)
 
 ;; Handle given exception.
 ;;
@@ -486,13 +485,6 @@
     #:unwind? #t
     ))
 
-;; Apply first from args or default.
-;; (define (apply-arg-or-default args default)
-;;   (if (pair? args)
-;;       (car args)
-;;       default))
-
-
 ;; Return given count of default.
 (define (default-unsigned-count args default)
   (if (pair? args)
@@ -500,7 +492,6 @@
           (car args)
           default)
       default))
-
 
 ;; Read file to a vector.
 (define (read-file-content filename)
@@ -515,12 +506,6 @@
                   line))
             (file->lines filename))))
     #:unwind? #t))
-
-;; ;; Limit line to maximum.
-;; (define (limit-line s line)
-;;   (if (< line (linecount s))
-;;       line
-;;       (1- (linecount s))))
 
 ;; Return indexed line content.
 (define (get-line s line)
@@ -581,7 +566,6 @@
    ((< a 0) (+ (linecount s) a))
    ((>= a (linecount s)) (1- (linecount s)))
    (else a)))
-
 
 ;; Return multiple-values of 2.
 (define (user-normalize-indices s au bu)
