@@ -331,9 +331,10 @@
 ;; Return true if the two files have the same content.
 (define (file-equal? f1 f2)
   (define (content file) (call-with-input-file file get-bytevector-all))
-  (and (and (file-exists? f1) (file-exists? f2))
-       (and (file-size f1) (file-size f2))
-       (and (bytevector=? (content f1) (content f2)))))
+  (and (file-exists? f1)
+       (file-exists? f2)
+       (= (file-size f1) (file-size f2))
+       (bytevector=? (content f1) (content f2))))
 
 
 ;; (use-modules (tuile pr))

@@ -112,6 +112,7 @@
             fpd-type
             fpd-body
             fpd-parts
+            fpd-depth
             fpd-file
             fpd-dir
             fpd->fps-dir
@@ -602,6 +603,9 @@
 
 ;; Return fpd path portion (in order), i.e. drop the absolute/relative info.
 (define (fpd-parts fpd) (reverse (fpd-body fpd)))
+
+;; Return directory depth.
+(define (fpd-depth fpd) (- (length fpd) 2))
 
 ;; Return filename part of fpd.
 (define (fpd-file fpd)

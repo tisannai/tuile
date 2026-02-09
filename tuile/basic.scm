@@ -34,11 +34,13 @@
    flatten-0
    flatten-1
    delete-nth
+   append-item
    listify
    list->cons
    cons->list
    list-join
    list-clean
+   list-as-clean
    list-specified
    list-split
    list-split-tail
@@ -55,6 +57,8 @@
    map-compact
    clean-list
    list-copy-deep
+   list-and
+   list-or
 
 
    command-line-arguments
@@ -284,6 +288,11 @@
                 (if (pair? tail) (cdr tail) '())))))
 
 
+;; Append an item to the end of the list.
+(define (append-item lst item)
+  (append lst (list item)))
+
+
 ;; Return item as list, no change for list.
 (define (listify item)
   (cond
@@ -317,6 +326,11 @@
                   ret
                   (cons (car lst) ret)))
         (reverse ret))))
+
+
+;; Create clean list.
+(define (list-as-clean . rest)
+  (list-clean rest))
 
 
 ;; Return a clean list (no unspecified).
@@ -537,6 +551,24 @@
     ((vector? lst)
      (list->vector (map list-copy-deep (vector->list lst))))
     (else lst)))
+
+
+(define (list-and lst)
+  (let lp ((lst lst))
+    (if (pair? lst)
+        (if (car lst)
+            (lp (cdr lst))
+            #f)
+        #t)))
+
+
+(define (list-or lst)
+  (let lp ((lst lst))
+    (if (pair? lst)
+        (if (car lst)
+            #t
+            (lp (cdr lst)))
+        #f)))
 
 
 ;; Return command line arguments, excluding the executable.

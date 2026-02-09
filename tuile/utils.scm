@@ -55,6 +55,7 @@
    cons->list
    list-join
    list-clean
+   list-as-clean
    list-specified
    list-split
    list-split-tail
@@ -172,6 +173,7 @@
    assoc-has-key?
    assoc-update!
    assoc-repeat!
+   assoc-store!
    assoc-merge
    assoc-ref-deep
    assoc-ref-single
@@ -1693,6 +1695,9 @@
                      (cdr set-list))
       assoc-list))
 
+;; Store value to key in assoc.
+(define-syntax-rule (assoc-store! assoc key value)
+  (set! assoc (assoc-set! assoc key value)))
 
 ;; Combine two mutable assoc lists.
 ;;
