@@ -118,7 +118,9 @@
             him-vardef-width
             him-vardef-sign
             him-vardef-value
+            him-vardef-dims
             him-vardef-depth
+            him-vardef-range
 
             him-port-def
 
@@ -128,7 +130,7 @@
             him-port-width
             him-port-sign
             him-port-value
-            him-port-depth
+            him-port-dims
 
             him-sync-clock
             him-sync-reset
@@ -267,6 +269,18 @@
   (and (pair? value)
        (= (length value) 4)))
 
+(define (him-number-parametrized? value)
+  (and (him-number? value)
+       (pair? (third value))
+       (symbol? (car (third value)))
+       (eq? (car (third value)) 'parnum)))
+
+(define (him-number-generated? value)
+  (and (him-number? value)
+       (pair? (third value))
+       (symbol? (car (third value)))
+       (eq? (car (third value)) 'pargen)))
+
 (define (valid? item) (and (not (unspecified? item))
                            (not (null? item))))
 
@@ -336,17 +350,32 @@
 (define him-vardef-valdef second)
 (define (him-vardef-width vardef) (him-number-width (him-vardef-valdef vardef)))
 (define (him-vardef-sign vardef) (him-number-sign (him-vardef-valdef vardef)))
-(define (him-vardef-value vardef)
-;;   (aif (him-number-value (him-vardef-valdef vardef))
-;;        it
-;;        *unspecified*)
-  (him-number-value (him-vardef-valdef vardef))
-  )
-(define (him-vardef-depth vardef)
-  (if (and (> (length vardef) 2)
-           (number? (third vardef)))
+(define (him-vardef-value vardef) (him-number-value (him-vardef-valdef vardef)))
+(define (him-vardef-dims vardef)
+  (if (> (length vardef) 2)
       (third vardef)
       #f))
+
+(define (him-vardef-depth vardef)
+  (let ((dims (him-vardef-dims vardef)))
+    (if dims
+        (match dims
+          (('depth depth) depth)
+          (else #f))
+        #f)))
+
+;; Return #f or range as (cons <msb> <lsb>).
+(define (him-vardef-range vardef)
+  (let ((dims (him-vardef-dims vardef)))
+    (if dims
+        (match dims
+          (('range msb lsb) (cons msb lsb))
+          (else #f))
+        #f)))
+
+(define him-range-msb car)
+(define him-range-lsb cdr)
+
 
 (define (him-get-vardef varname module)
   (aif (assoc-ref (assoc-ref module 'vars) varname)
@@ -368,8 +397,8 @@
 (define (him-get-vardef-value varname module)
   (him-vardef-value (him-get-vardef varname module)))
 
-(define (him-get-vardef-depth varname module)
-  (him-vardef-depth (him-get-vardef varname module)))
+(define (him-get-vardef-dims varname module)
+  (him-vardef-dims (him-get-vardef varname module)))
 
 
 ;; Return port definition.
@@ -386,7 +415,7 @@
           (cons 'width (him-vardef-width vardef))
           (cons 'sign  (him-vardef-sign vardef))
           (cons 'value (him-vardef-value vardef))
-          (cons 'depth (him-vardef-depth vardef)))))
+          (cons 'dims  (him-vardef-dims vardef)))))
 
 
 (define (him-port-name port)
@@ -407,8 +436,8 @@
 (define (him-port-value port)
   (assoc-ref port 'value))
 
-(define (him-port-depth port)
-  (assoc-ref port 'depth))
+(define (him-port-dims port)
+  (assoc-ref port 'dims))
 
 
 (define (him-sync-clock sync him)
@@ -568,15 +597,16 @@
 ;;     (parref "WIDTH")
 ;;     12
 ;;     (123 unsigned 4 16)
+;;     (parnum "W" (298 unsigned #f 16))
+;;     (pargen "W" (1 unsigned 1 2))
 ;;
 (define (render-number number)
   (if (number? number)
       (vlog-number-to-quoted-numstr (vlog-number-from-int number))
       (case (car number)
         ((parref) (cdr number))
-        ;; TI 251102_1927: Looks like a typo in the string?
-        ;; ((parnum) (si "{#{(second number)}{1#{(render-number (third number))}}}"))
-        ((parnum) (si "{#{(second number)}{#{(render-number (third number))}}}"))
+        ((parnum) (si "#{(render-number (third number))}"))
+        ((pargen) (si "{#{(second number)}{#{(render-number (third number))}}}"))
         (else (vlog-number-to-quoted-numstr (vlog-number-from-him number))))))
 
 
@@ -654,11 +684,16 @@
         ((sync)   "reg   ")
         ((comb)   "reg   ")
         ((wire)   "wire  "))
-      (let ((width (him-vardef-width vardef)))
+      (let ((width (him-vardef-width vardef))
+            (range (him-vardef-range vardef)))
         (cond
          ((and (number? width) (= width 1))  "")
-         (width (ss (if (signed? vardef) " signed" "")
-                    " [" (create-msb-str width) ":0]"))
+         ((and (number? width) range)
+          (ss (if (signed? vardef) " signed" "")
+              " [" (him-range-msb range) ":" (him-range-lsb range) "]"))
+         (width
+          (ss (if (signed? vardef) " signed" "")
+              " [" (create-msb-str width) ":0]"))
          (else (issue-fatal (si "Variable has no width: \"#{name}\"")))))
       " "
       (render-name name)
@@ -1574,8 +1609,9 @@
                 ("rstn2"   port (#f unsigned 1 2))
                 ("init"    port (#f unsigned 1 2))
                 ("enable"  port (#f unsigned 1 2))
-                ("count"   sync (12 signed 5 10))
-                ("fifo"    sync (12 signed 5 10) 10)
+                ;; ("count"   sync (12 signed 5 10))
+                ("count"   sync (12 signed 5 10) (range 0 4))
+                ("fifo"    sync (12 signed 5 10) (depth 10))
                 ;; ("count"   sync (parref "WIDTH") #f (parref "VALUE"))
                 ;; Symbolic reset value:
                 ;; ("count"   sync ((parref "foobar") signed 5 10))
@@ -1622,7 +1658,7 @@
 
     ;; (ppre (him-resolve-params (him-params module)))
     ;; (ppre (him-resolve module))
-;;     (ppre module)
+    ;; (ppre module)
     (pl (him-render module))
     ;; (pl (him-render (him-resolve module)))
     ))
