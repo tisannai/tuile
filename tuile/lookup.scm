@@ -63,8 +63,8 @@
 ;; Set value in lookup.
 (define (lookup-set! lup key val)
   (unless (hash:hash-contains? (lookup-hsh lup) key)
-    (lookup-lst-set! lup (cons key (lookup-lst lup)))
-    (hash:hash-set! (lookup-hsh lup) key val)))
+    (lookup-lst-set! lup (cons key (lookup-lst lup))))
+  (hash:hash-set! (lookup-hsh lup) key val))
 
 
 ;; Delete value from lookup.
