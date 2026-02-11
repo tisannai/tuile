@@ -1,5 +1,6 @@
 (define-module (tuile edit-using)
-  :use-module ((tuile edit) #:prefix #{eu:}#)
+;;   #:use-module ((tuile edit) #:prefix #{eu:}#)
+;;   #:use-module (tuile edit)
   #:export
   (
    edit-using
@@ -83,10 +84,17 @@
 
     (syntax-case x ()
       ((_ filename body ...)
-       (with-syntax ((state (datum->syntax x 'state)))
+       (with-syntax ((state (datum->syntax x 'state))
+                     (eu:edit (datum->syntax x 'eu:edit)))
          #`(let ()
              (use-modules ((tuile edit) #:prefix #{eu:}#))
-
              (let ((state (eu:edit filename)))
                #,@(datum->syntax x (expand-datums (syntax->datum (syntax state))
                                                   (syntax->datum (syntax (body ...))))))))))))
+
+
+;; (use-modules (tuile pr))
+;; (let ()
+;;   (when #t
+;;     (edit-using "README.md"
+;;                 (pr (get)))))
