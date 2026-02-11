@@ -1,6 +1,5 @@
 (define-module (tuile edit)
   #:use-module ((tuile pr) #:select (ss))
-  ;; #:use-module (tuile pr)
   #:use-module (tuile utils)
   #:use-module (tuile record-r6rs)
   #:use-module (tuile re)
@@ -53,7 +52,7 @@
    unmark
    edit-catch
    edit-raise
-   ;;    edit-using
+   edit-using
    ))
 
 
@@ -632,10 +631,14 @@
            #f))))))
 
 
-;; Convenience macro for using (tuile edit). NOTE 260211_1246: Does
-;; not work in real use because the new names are not going to be
-;; visible. :(
-#;
+;; Convenience macro for using (tuile edit).
+;;
+;; Example:
+;;
+;;     (eu:edit-using #{eu:}# "README.md"
+;;                    (let ((line (get)))
+;;                      (pr line)))
+;;
 (define-syntax edit-using
   (lambda (x)
 
@@ -645,53 +648,88 @@
       (define eu-prefix (symbol-prefix-proc pfix))
 
       (define (expand-datum datum)
-        (if (pair? datum)
+
+        (define (is-edit-proc? name)
+          (case name
+            (( ;; read ; no fix
+              from-to
+              ;; edit ; no fix
+              save
+              lines
+              get
+              ref
+              line
+              step
+              firstline
+              lastline
+              linecount
+              set
+              match?
+              match-re?
+              sub
+              sub-re
+              update
+              insert
+              insert-step
+              remove
+              insertfile
+              insertfile-step
+              clear
+              find
+              find-re
+              search
+              search-re
+              filename
+              dirty
+              edited?
+              within?
+              excursion
+              mark
+              markgo
+              unmark
+              ;; edit-catch ; no fix
+              ;; edit-raise ; no fix
+              )
+             #t)
+            (else #f)))
+
+        (define (replace-recursive datum)
+
+          (define (replace-list lst)
+            (let lp ((lst lst)
+                     (index 0)
+                     (ret '()))
+              (if (pair? lst)
+                  (let ((item (car lst)))
+                    (if (list? item)
+                        (lp (cdr lst)
+                            (1+ index)
+                            (cons (lp item 0 '()) ret))
+                        (if (and (is-edit-proc? item)
+                                 (= index 0))
+                            (lp (cdr lst)
+                                (1+ index)
+                                (cons state (cons (eu-prefix item) ret)))
+                            (lp (cdr lst)
+                                (1+ index)
+                                (cons item ret)))))
+                  (reverse ret))))
+
+          (cond
+           ((null? datum) datum)
+           ((pair? datum)
             (case (car datum)
-              (( ;; read ; no fix
-                from-to
-                ;; edit ; no fix
-                save
-                lines
-                get
-                ref
-                line
-                step
-                firstline
-                lastline
-                linecount
-                set
-                match?
-                match-re?
-                sub
-                sub-re
-                update
-                insert
-                insert-step
-                remove
-                insertfile
-                insertfile-step
-                clear
-                find
-                find-re
-                search
-                search-re
-                filename
-                dirty
-                edited?
-                within?
-                excursion
-                mark
-                markgo
-                unmark
-                ;; edit-catch ; no fix
-                ;; edit-raise ; no fix
-                )
-               (ppr (list "mapping: " (car datum)))
-               (cons (eu-prefix (car datum))
-                     (cons state
-                           (map expand-datum (cdr datum)))))
-              (else (cons (car datum) (map expand-datum (cdr datum)))))
-            datum))
+              ((let let*)
+               ;; Don't replace let defined variables, only values and body.
+               (let ((vardefs (map (lambda (vardef)
+                                     `(,(first vardef) ,(replace-recursive (second vardef))))
+                                   (second datum))))
+                 `(,(car datum) ,vardefs
+                   ,@(map replace-recursive (cddr datum)))))
+              (else (replace-list datum))))
+           (else datum)))
+
+        (replace-recursive datum))
 
       (let lp ((datums datums))
         (if (pair? datums)
@@ -702,10 +740,8 @@
     (syntax-case x ()
       ((_ pfix filename body ...)
        (with-syntax ((state (datum->syntax x 'state)))
-         #`(local-eval (quote #,(datum->syntax
-                                 x
-                                 (expand-datums (syntax->datum (syntax pfix))
-                                                (syntax->datum (syntax state))
-                                                (syntax->datum (syntax (body ...))))))
-                       (let ((state (edit filename)))
-                         (the-environment))))))))
+         #`(let ((state (edit filename)))
+             #,@(datum->syntax x (expand-datums
+                                  (syntax->datum (syntax pfix))
+                                  (syntax->datum (syntax state))
+                                  (syntax->datum (syntax (body ...)))))))))))
