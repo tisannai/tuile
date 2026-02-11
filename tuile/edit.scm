@@ -1,12 +1,13 @@
 (define-module (tuile edit)
-  :use-module ((tuile pr) #:select (ss))
-  :use-module (tuile utils)
-  :use-module (tuile record-r6rs)
-  :use-module (tuile re)
-  :use-module (srfi srfi-1)
-  :use-module (srfi srfi-11)
-  :use-module (srfi srfi-43)
-  :use-module (ice-9 string-fun)
+  #:use-module ((tuile pr) #:select (ss))
+  ;; #:use-module (tuile pr)
+  #:use-module (tuile utils)
+  #:use-module (tuile record-r6rs)
+  #:use-module (tuile re)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-11)
+  #:use-module (srfi srfi-43)
+  #:use-module (ice-9 string-fun)
 
   #:replace
   (
@@ -52,6 +53,7 @@
    unmark
    edit-catch
    edit-raise
+   ;;    edit-using
    ))
 
 
@@ -628,3 +630,82 @@
                  (cc line))
                (loop (off line 1))))
            #f))))))
+
+
+;; Convenience macro for using (tuile edit). NOTE 260211_1246: Does
+;; not work in real use because the new names are not going to be
+;; visible. :(
+#;
+(define-syntax edit-using
+  (lambda (x)
+
+    ;; Helper to transform a list of datums.
+    (define (expand-datums pfix state datums)
+
+      (define eu-prefix (symbol-prefix-proc pfix))
+
+      (define (expand-datum datum)
+        (if (pair? datum)
+            (case (car datum)
+              (( ;; read ; no fix
+                from-to
+                ;; edit ; no fix
+                save
+                lines
+                get
+                ref
+                line
+                step
+                firstline
+                lastline
+                linecount
+                set
+                match?
+                match-re?
+                sub
+                sub-re
+                update
+                insert
+                insert-step
+                remove
+                insertfile
+                insertfile-step
+                clear
+                find
+                find-re
+                search
+                search-re
+                filename
+                dirty
+                edited?
+                within?
+                excursion
+                mark
+                markgo
+                unmark
+                ;; edit-catch ; no fix
+                ;; edit-raise ; no fix
+                )
+               (ppr (list "mapping: " (car datum)))
+               (cons (eu-prefix (car datum))
+                     (cons state
+                           (map expand-datum (cdr datum)))))
+              (else (cons (car datum) (map expand-datum (cdr datum)))))
+            datum))
+
+      (let lp ((datums datums))
+        (if (pair? datums)
+            (let ((datum (car datums)))
+              (cons (expand-datum datum) (lp (cdr datums))))
+            '())))
+
+    (syntax-case x ()
+      ((_ pfix filename body ...)
+       (with-syntax ((state (datum->syntax x 'state)))
+         #`(local-eval (quote #,(datum->syntax
+                                 x
+                                 (expand-datums (syntax->datum (syntax pfix))
+                                                (syntax->datum (syntax state))
+                                                (syntax->datum (syntax (body ...))))))
+                       (let ((state (edit filename)))
+                         (the-environment))))))))
