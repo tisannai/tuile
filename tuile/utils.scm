@@ -128,6 +128,10 @@
 ;;    l9
 
    pi
+   math-pi
+   math-e
+   log2
+   ilog2
    div
    factorial
    ->integer-fraction
@@ -1046,6 +1050,20 @@
 
 ;; PI = 3.141592653589793
 (define pi (* 2 (acos 0)))
+
+;; PI = 3.141592653589793
+(define math-pi (acos -1))
+
+;; E = 2.718281828459045
+(define math-e (exp 1))
+
+;; Base 2 logarithm.
+(define (log2 n)
+  (/ (log n) (log 2)))
+
+;; Base 2 logarithm as integer.
+(define (ilog2 n)
+  (inexact->exact (ceiling (log2 n))))
 
 ;; Perform either float or integer divisions, based on the divider
 ;; type.
