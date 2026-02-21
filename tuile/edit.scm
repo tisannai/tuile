@@ -23,6 +23,7 @@
    get
    ref
    line
+   userline
    step
    firstline
    lastline
@@ -49,12 +50,14 @@
    within?
    excursion
    mark
+   markline
    markgo
    unmark
    edit-catch
    edit-raise
    read-using
    edit-using
+   edit-prefix
    ))
 
 
@@ -137,7 +140,7 @@
    (vector->list
     (vector-range (state-lines s)
                   (state-line s)
-                  (1+ (abs-index s (+ (state-line s) (user-pos-to-index s opt))))))
+                  (1+ (abs-index s (+ (state-line s) (pos-to-index s opt))))))
    (current-line s)))
 
 
@@ -158,13 +161,22 @@
    ((and (number? (lr0 args))
          (> (lr0 args) (linecount s)))
     #f)
-   (else (get-line s (user-pos-to-index s (lr0 args))))))
+   (else (get-line s (pos-to-index s (lr0 args))))))
 
 
 ;; Get or set current line.
 ;;     (line s)          ; Return current line.
 ;;     (line s 10)       ; Set current line to 10.
 (define (line s . opts)
+  (if-opt
+   (set-line! s (pos-to-index s opt))
+   (state-line s)))
+
+
+;; Get or set current line, in user.
+;;     (line s)          ; Return current line.
+;;     (line s 10)       ; Set current line to 10.
+(define (userline s . opts)
   (if-opt
    (set-line! s (user-pos-to-index s opt))
    (1+ (state-line s))))
@@ -265,13 +277,18 @@
 ;; Remove current line or number of lines.
 ;;    (remove s)            ; Remove current line and step 1.
 ;;    (remove s 10)         ; Remove 10 lines at current line.
+;;    (remove s 10 20)      ; Remove lines 10-20.
 (define (remove s . args)
+  (define (remove-lines pos count)
+    (state-lines-set! s (vector-delete (state-lines s)
+                                       pos
+                                       count)))
   (mark-dirty s)
-  (state-lines-set! s (vector-delete (state-lines s)
-                                     (state-line s)
-                                     (default-unsigned-count
-                                       args
-                                       1))))
+  (cond
+   ((null? args) (remove-lines (state-line s) 1))
+   ((= (length args) 1) (remove-lines (state-line s) (lr0 args)))
+   (else (let-values (((a b) (user-normalize-indices s (lr0 args) (lr1 args))))
+           (remove-lines a (1+ (- b a)))))))
 
 
 ;; Insert file to current or named position.
@@ -380,8 +397,20 @@
   (if-opt
    (hash-set! (state-marks s)
               opt
-              (+ (state-line s) 1))
-   (state-mark-set! s (+ (state-line s) 1))))
+              (state-line s))
+   (state-mark-set! s (state-line s))))
+
+
+;; Reference Make line value.
+;;     (markline s)           ; Default mark.
+;;     (markline s 'mymark)   ; Named mark.
+(define (markline s . opts)
+  (let ((opt (if-opt opt #f)))
+    (if opt
+        (hash-ref (state-marks s) opt)
+        (aif (state-mark s)
+             it
+             #f))))
 
 
 ;; Goto default or named mark.
@@ -393,7 +422,7 @@
              (hash-ref (state-marks s) opt))
         (set-line! s (hash-ref (state-marks s) opt))
         (when (state-mark s)
-          (set-line! s (- (state-mark s) 1))))))
+          (set-line! s (state-mark s))))))
 
 
 ;; Unmark (remove) default or named mark.
@@ -572,8 +601,8 @@
 
 ;; Return multiple-values of 2.
 (define (user-normalize-indices s au bu)
-  (let ((a (user-pos-to-index s au))
-        (b (user-pos-to-index s bu)))
+  (let ((a (pos-to-index s au))
+        (b (pos-to-index s bu)))
     (if (> a b)
         (values b a)
         (values a b))))
@@ -599,7 +628,7 @@
                 (cond
                  ((>= (length args) 2)
                   (values (args-to-vector (first args))
-                          (user-pos-to-index s (second args))))
+                          (pos-to-index s (second args))))
                  ((>= (length args) 1)
                   (values (args-to-vector (first args))
                           (state-line s)))
@@ -686,6 +715,7 @@
           within?
           excursion
           mark
+          markline
           markgo
           unmark
           ;; edit-catch ; no fix
@@ -726,14 +756,6 @@
                         ;; variable may collide with "edit" module funcs, but
                         ;; otherwise user must make sure there are no collisions.
 
-                        ;; Named-let.
-                        (('let let-name (vardefs ...) body ...)
-                         (let ((mapped-vardefs (map (lambda (vardef)
-                                                      `(,(first vardef)
-                                                        ,(replace-recursive (second vardef))))
-                                                    vardefs)))
-                           `(let ,let-name ,mapped-vardefs
-                                 ,@(map replace-recursive body))))
                         ;; Other lets.
                         (((or 'let 'let*) (vardefs ...) body ...)
                          (let ((mapped-vardefs (map (lambda (vardef)
@@ -742,6 +764,14 @@
                                                     vardefs)))
                            `(,(car datum) ,mapped-vardefs
                              ,@(map replace-recursive body))))
+                        ;; Named-let.
+                        (('let let-name (vardefs ...) body ...)
+                         (let ((mapped-vardefs (map (lambda (vardef)
+                                                      `(,(first vardef)
+                                                        ,(replace-recursive (second vardef))))
+                                                    vardefs)))
+                           `(let ,let-name ,mapped-vardefs
+                                 ,@(map replace-recursive body))))
                         ;; Non-lets.
                         (else (replace-list datum))))
 
@@ -807,3 +837,25 @@
                                   (append
                                    (syntax->datum (syntax (body ...)))
                                    (list '(save))))))))))))
+
+
+;; Convenience macro for using (tuile edit) for edit-state.
+;;
+;; Example:
+;;
+;;     (eu:edit-prefix state
+;;                     (let ((line (get)))
+;;                       (set "hello")
+;;                       (pr line)))
+;;
+(define-syntax edit-prefix
+  (lambda (x)
+    (let ((stx (syntax->datum x)))
+      (syntax-case x ()
+        ((_ state body ...)
+         #`(#,@(datum->syntax
+                x
+                (expand-datums (cons (car stx) 'edit-prefix)
+                               (syntax->datum (syntax state))
+                               (append
+                                (syntax->datum (syntax (body ...))))))))))))

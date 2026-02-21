@@ -21,24 +21,25 @@
 ;; ------------------------------------------------------------
 ;; Test diff jumping commands and their return values:
 
-(test-equal 1 (line s))
+(test-equal 1 (userline s))
 (test-equal #f (edited? s))
 (test-equal #f (not (match? s "Line 1")))
 
 (step s)
-(test-equal 2 (line s))
-(step s -1)
 (test-equal 1 (line s))
+(test-equal 2 (userline s))
+(step s -1)
+(test-equal 1 (userline s))
 (step s)
-(test-equal 2 (line s))
+(test-equal 2 (userline s))
 (step s -1)
-(test-equal 1 (line s))
-(line s 5)
-(test-equal 5 (line s))
+(test-equal 1 (userline s))
+(userline s 5)
+(test-equal 5 (userline s))
 (firstline s)
-(test-equal 1 (line s))
+(test-equal 1 (userline s))
 (lastline s)
-(test-equal 10 (line s))
+(test-equal 10 (userline s))
 
 
 ;; ------------------------------------------------------------
@@ -48,21 +49,21 @@
 (test-equal #t (search s "Line 1"))
 (firstline s)
 (test-equal #t (search s "Line 2"))
-(line s 4)
+(line s 3)
 (test-equal #f (search s "Line 3"))
 (firstline s)
 (search s "Line 1")
-(test-equal 1 (line s))
+(test-equal 0 (line s))
 (search s "Line 2")
-(test-equal 2 (line s))
+(test-equal 1 (line s))
 (search s "ne 8")
 (search s "Line 8")
 
 (let ((l (excursion s (lambda (s)
                       (search s "Line 9")
                       (line s)))))
-  (test-equal 8 (line s))
-  (test-equal 9 l))
+  (test-equal 7 (line s))
+  (test-equal 8 l))
 
 (let ((found-it #f))
   (edit-catch #t
@@ -94,8 +95,8 @@
 (test-equal "Line 1" (get s))
 (test-equal "Line 10" (ref s 10))
 (test-equal #f (ref s 11))
-(test-equal 1 (line s))
-(test-equal '("Line 1" "Line 2") (ref s 1 2))
+(test-equal 0 (line s))
+(test-equal '("Line 1" "Line 2") (ref s 0 1))
 
 
 ;; ------------------------------------------------------------
@@ -121,7 +122,7 @@
 (let ((c '("foo" "bar")))
   (insert s c)
   (test-equal 12 (linecount s))
-  (test-equal c (ref s 1 2))
+  (test-equal c (ref s 0 1))
   (remove s 2)
   (test-equal 10 (linecount s))
 
@@ -130,12 +131,12 @@
   (insert-step s "bar" 'after)
   (test-equal "bar" (get s))
   (test-equal 12 (linecount s))
-  (test-equal c (ref s 11 12))
-  (test-equal (linecount s) (line s))
+  (test-equal c (ref s 10 11))
+  (test-equal (linecount s) (userline s))
   (insert s c 'end)
   (test-equal 14 (linecount s))
-  (test-equal c (ref s 13 14))
-  (line s 11)
+  (test-equal c (ref s 12 13))
+  (line s 10)
   (remove s 4))
 
 (let ((len (linecount s)))
@@ -149,7 +150,7 @@
          'last
          (lambda (s)
            (sub s "Line" "foobar")))
-(test-equal '("foobar 5" "foobar 6") (ref s 5 6))
+(test-equal '("foobar 5" "foobar 6") (ref s 4 5))
 
 
 ;; (do-all s
@@ -185,9 +186,9 @@
 
   (mark s)
   (step s)
-  (test-equal 2 (line s))
+  (test-equal 1 (line s))
   (markgo s)
-  (test-equal 1 (line s)))
+  (test-equal 0 (line s)))
 
 
 ;; ------------------------------------------------------------
