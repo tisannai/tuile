@@ -42,8 +42,10 @@
    clear
    find
    find-re
+   find-proc
    search
    search-re
+   search-proc
    filename
    dirty
    edited?
@@ -319,7 +321,7 @@
 ;;     (find s "foo" #f)        ; Find backward.
 (define (find s str . opts)
   (let* ((fwd (if-opt opt #t))
-         (res (find-or-fail s #f str fwd)))
+         (res (find-or-fail s 'string str fwd)))
     (if res
         (set-line! s res)
         (edit-raise 'edit-find-error (ss "Pattern not found: " str)))))
@@ -331,10 +333,22 @@
 ;;     (find-re s "fo[o|a]" #f)    ; Find backward.
 (define (find-re s restr . opts)
   (let ((fwd (if-opt opt #t)))
-    (let ((res (find-or-fail s #t restr fwd)))
+    (let ((res (find-or-fail s 'regexp restr fwd)))
       (if res
           (set-line! s res)
           (edit-raise 'edit-find-error (ss "Pattern not found: " restr))))))
+
+
+;; Find using proc forwards or backwards. Fail with
+;; expection (edit-find-error) if not found.
+;;     (find-proc s identity)       ; Find forward.
+;;     (find-proc s identity #f)    ; Find backward.
+(define (find-proc s proc . opts)
+  (let ((fwd (if-opt opt #t)))
+    (let ((res (find-or-fail s 'proc proc fwd)))
+      (if res
+          (set-line! s res)
+          (edit-raise 'edit-find-error (ss "Pattern not found with proc"))))))
 
 
 ;; Search literal string forwards or backwards. Return true
@@ -343,7 +357,7 @@
 ;;     (search s "foo" #f)        ; Search backward.
 (define (search s str . opts)
   (let ((fwd (if-opt opt #t)))
-    (let ((res (find-or-fail s #f str fwd)))
+    (let ((res (find-or-fail s 'string str fwd)))
       (if res
           (begin
             (set-line! s res)
@@ -357,7 +371,21 @@
 ;;     (search-re s "fo[o|a]" #f)    ; Search backward.
 (define (search-re s restr . opts)
   (let ((fwd (if-opt opt #t)))
-    (let ((res (find-or-fail s #t restr fwd)))
+    (let ((res (find-or-fail s 'regexp restr fwd)))
+      (if res
+          (begin
+            (set-line! s res)
+            #t)
+          #f))))
+
+
+;; Search using proc forwards or backwards. Return true
+;; on success.
+;;     (search-proc s identity)       ; Search forward.
+;;     (search-proc s identity #f)    ; Search backward.
+(define (search-proc s proc . opts)
+  (let ((fwd (if-opt opt #t)))
+    (let ((res (find-or-fail s 'proc proc fwd)))
       (if res
           (begin
             (set-line! s res)
@@ -641,6 +669,7 @@
     (values index (vector-length text))))
 
 ;; Find re-or-str (or fail) to given direction.
+#;
 (define (find-or-fail s re-find re-or-str forward)
   (let ((line (state-line s))
         (len (linecount s)))
@@ -651,6 +680,27 @@
                         (let ((re (re-comp re-or-str)))
                           (lambda (line) (re-match? re line)))
                         (lambda (line) (string-contains line re-or-str)))))
+        (call/cc
+         (lambda (cc)
+           (let loop ((line line))
+             (when (limcmp line lim)
+               (when (and (get-line s line)
+                          (patcmp (get-line s line)))
+                 (cc line))
+               (loop (off line 1))))
+           #f))))))
+
+(define (find-or-fail s type spec forward)
+  (let ((line (state-line s))
+        (len (linecount s)))
+    (let-values (((off limcmp lim) (if forward
+                                       (values + < len)
+                                       (values - >= 0))))
+      (let ((patcmp (case type
+                      ((string) (lambda (line) (string-contains line spec)))
+                      ((regexp) (let ((re (re-comp spec)))
+                                 (lambda (line) (re-match? re line))))
+                      ((proc) spec))))
         (call/cc
          (lambda (cc)
            (let loop ((line line))
@@ -707,8 +757,10 @@
           clear
           find
           find-re
+          find-proc
           search
           search-re
+          search-proc
           filename
           dirty
           edited?

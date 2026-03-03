@@ -51,6 +51,22 @@
 (test-equal #t (search s "Line 2"))
 (line s 3)
 (test-equal #f (search s "Line 3"))
+
+(firstline s)
+(test-equal #t (search-re s "Line 1"))
+(firstline s)
+(test-equal #t (search-re s "Line 2"))
+(line s 3)
+(test-equal #f (search-re s "Line 3"))
+
+(firstline s)
+(test-equal #t (search-proc s (lambda (line) (string=? line "Line 1"))))
+(firstline s)
+(test-equal #t (search-proc s (lambda (line) (string=? line "Line 2"))))
+(line s 3)
+(test-equal #f (search-proc s (lambda (line) (string=? line "Line 3"))))
+
+
 (firstline s)
 (search s "Line 1")
 (test-equal 0 (line s))

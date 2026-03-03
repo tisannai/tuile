@@ -3,8 +3,6 @@
   #:export
   (
    get-function-prototypes
-   base64-encode
-   base64-decode
    ))
 
 
