@@ -61,6 +61,10 @@
 (define (hash-values hsh)
   (hash-map->list (lambda (k v) v) hsh))
 
+;; Hash table has key?
+(define (hash-has-key? hsh key)
+  (hash-get-handle hsh key))
+
 (define (hash-copy hsh)
   (alist->hash-table (list-copy (hash-map->list cons hsh))))
 

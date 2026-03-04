@@ -79,6 +79,7 @@
 ;;     (aif (1+ i)
 ;;          it
 ;;          #f)
+;;
 (define-syntax aif
   (lambda (x)
     ;; "lst": Convert syntax to datum and convert back to a list of syntax.
@@ -100,7 +101,7 @@
 ;;       (with-syntax ((it (datum->syntax x 'it)))
 ;;         #`(let ((it #,(cadr lst)))
 ;;             (when it #,(caddr lst)))))))
-
+;;
 (define-syntax awhen
   (lambda (x)
     (syntax-case x ()
@@ -124,16 +125,7 @@
 ;;
 ;;     (uwhen (1+ i)
 ;;          it)
-
-;; (define-syntax uwhen
-;;   (lambda (x)
-;;     ;; "lst": Convert syntax to datum and convert back to a list of syntax.
-;;     (let ((lst (map (lambda (i) (datum->syntax x i)) (syntax->datum x))))
-;;       ;; Create template variable "it".
-;;       (with-syntax ((it (datum->syntax x 'it)))
-;;         #`(let ((it #,(cadr lst)))
-;;             (when (not (unspecified? it)) #,(caddr lst)))))))
-
+;;
 (define-syntax uwhen
   (lambda (x)
     (syntax-case x ()
@@ -268,11 +260,6 @@
                 (append res (list (car lst))))))
         res)))
 
-
-;; Return nth element of list.
-#;
-(define (nth i lst)
-  (list-ref lst i))
 
 ;; Delete nth element from list.
 (define (delete-nth lst nth)
@@ -421,18 +408,6 @@
                   (lambda (item) (not (or (unspecified? item)
                                           (not item)))))))
     (filter pred lst)))
-
-
-;; ;; Create a clean list, excluding any unspecified entries.
-;; (define (list-clean . lst)
-;;   (let loop ((lst lst)
-;;            (ret (list)))
-;;     (if (pair? lst)
-;;         (loop (cdr lst)
-;;             (if (unspecified? (car lst))
-;;                 ret
-;;                 (cons (car lst) ret)))
-;;         (reverse ret))))
 
 
 ;; Randomize the list ordering.

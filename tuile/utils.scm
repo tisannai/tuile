@@ -98,13 +98,6 @@
    from-to-step
    nop
 
-;;    any?
-;;    empty?
-;;    len-0?
-;;    len-1?
-;;    len-2?
-;;    len-3?
-
    most
    best
    all
@@ -138,10 +131,6 @@
    prime-numbers
    specified?
 
-;;    dir-list
-;;    dir-glob
-;;    dir-glob-re
-;;    dir-glob-with-path
    extname
    expand-file-name
    is-file?
@@ -154,18 +143,6 @@
 
    datum->string
    string->procedure
-
-;;   record-type
-;;   define-im-record
-;;   define-fp-record
-;;   define-mu-record
-
-;;   re-split-old
-;;   re-match?
-;;   re-match
-;;   re-matches
-;;   re-sub
-;;   re-gsub
 
    vector-range
    vector-reverse
@@ -184,8 +161,8 @@
 
    hash-has-key?
    ;; Now in hash.scm
-;;    hash-keys
-;;    hash-values
+   ;;    hash-keys
+   ;;    hash-values
 
    read-lines-from-port
    with-each-line-from-port
@@ -1752,19 +1729,6 @@
         (car val)
         *unspecified*)))
 
-;; Hash table has key?
-(define (hash-has-key? hsh key)
-  (hash-get-handle hsh key))
-
-;; Return list of hash table keys.
-;; (define (hash-keys hsh)
-;;   (hash-map->list (lambda (k v) k) hsh))
-
-;; Return list of hash table keys.
-;; (define (hash-values hsh)
-;;   (hash-map->list (lambda (k v) v) hsh))
-
-
 ;; Read all lines from port to list (or vector).
 ;;
 ;; Key Args:
@@ -1790,28 +1754,6 @@
                 (if (eof-object? (car line))
                     '()
                     (cons (line-filter line) (loop (read-line port 'split))))))))
-
-;;;; Read all lines without newline from port to vector.
-;;(define (read-lines port)
-;;  (define (read-clean-line port)
-;;    (let ((line (read-line port)))
-;;      (if (eof-object? line)
-;;          line
-;;          (string-trim-right line #\return))))
-;;  (list->vector
-;;   (let loop ((line (read-clean-line port)))
-;;     (if (eof-object? line)
-;;         '()
-;;         (cons line (loop (read-clean-line port)))))))
-;;
-;;
-;;;; Read all lines from port to list.
-;;(define (read-lines-to-list port)
-;;  (let loop ((line (read-line port)))
-;;    (if (eof-object? line)
-;;        '()
-;;        (cons line (loop (read-line port))))))
-
 
 ;; Call "proc" with each line from port.
 (define (with-each-line-from-port port proc)
@@ -1931,48 +1873,11 @@
       (display line)
       (newline))))
 
-;;;; Get all lines from file to list (including newlines).
-;;(define* (file->line-list filename #:key (binary #f))
-;;  (call-with-input-file filename
-;;    (lambda (port)
-;;      (read-lines-to-list port))
-;;    #:binary binary))
-;;
-;;
-;;;; Write lines (including newlines) to file (without adding newlines).
-;;(define* (line-list->file filename lines #:key (binary #f))
-;;  (call-with-output-file filename
-;;    (lambda (port)
-;;      (for-each (lambda (line)
-;;                  (display line port)
-;;                  lines)
-;;                #:binary))))
-
 
 ;; Execute shell command and return responses as values.
 ;;
 ;; Responses: status-code stdout stderr
 ;;
-
-;; This old version hangs if the shell command only outputs stderr, but no stdout.
-#;
-(define (capture-shell-command-values cmd)
-  (let* ((stdout #f)
-         (stderr #f)
-         (status #f))
-    (define (command cmd)
-      (let ((fh (open-input-pipe cmd)))
-        (set! stdout (get-string-all fh))
-        (set! status (close-pipe fh))))
-    (let ((err-pipe (pipe)))
-      (with-error-to-port (cdr err-pipe)
-        (lambda ()
-          (command cmd)))
-      (close-port (cdr err-pipe))
-      (set! stderr (get-string-all (car err-pipe))))
-    (values (status:exit-val status) stdout stderr)))
-
-
 (define (capture-shell-command-values command)
   (let* ((stdout-pipe (pipe))
          (stderr-pipe (pipe))
@@ -2310,134 +2215,6 @@
   (string-split-with str "=" #t))
 
 
-;; in: basic.scm
-
-;; ;; Generate strings.
-;; ;;
-;; ;;     (* 3 (: 9 0))           ; Multiply whole
-;; ;;     (/ 10 (: 2 0))          ; Multiply chars
-;; ;;     (: a z)                 ; Range
-;; ;;     (: z a)                 ; Range
-;; ;;     (+ "a" (* 3 (: 9 0))    ; Concatenate
-;; ;;     (* 3 (: 0 9))           ; Multiply whole
-;; ;;     (- "foobar" "ob")       : Subtract
-;; ;;     (- "foobar" "kk")       ; Subtract
-;; ;;
-;; (define (string-gen spec)
-;;
-;;   (define vtab #f)
-;;
-;;   (define (gen-multi spec)
-;;     (let ((mul (second spec))
-;;           (str (third spec)))
-;;       (string-concatenate (make-list mul str))))
-;;
-;;   (define (gen-repeat spec)
-;;     (let ((mul (second spec))
-;;           (str (third spec)))
-;;       (string-concatenate (map list->string
-;;                                (map (lambda (i) (make-list mul i))
-;;                                     (string->list str))))))
-;;
-;;   (define (gen-concat spec)
-;;     (string-concatenate (map gen-item (cdr spec))))
-;;
-;;   (define (gen-remove spec)
-;;     (let ((str (second spec))
-;;           (rem (third spec)))
-;;       (aif (string-contains str rem)
-;;            (string-append (substring str 0 it)
-;;                           (substring str (+ it (string-length rem))))
-;;            str)))
-;;
-;;   (define (gen-range spec)
-;;
-;;     (define (number->charval n)
-;;       (+ (char->integer #\0) n))
-;;
-;;     (define (symbol->charval n)
-;;       (char->integer (string-ref (symbol->string n) 0)))
-;;
-;;     (define (gen-up ll rl)
-;;       (apply string (map integer->char (iota (1+ (- rl ll)) ll))))
-;;
-;;     (define (gen-down ll rl)
-;;       (apply string (map integer->char (iota (1+ (- ll rl)) ll -1))))
-;;
-;;     (define (gen ll rl)
-;;       (cond
-;;        ((<= ll rl) (gen-up ll rl))
-;;        (else (gen-down ll rl))))
-;;
-;;     (match spec
-;;       ((? (lambda (spec) (symbol? (second spec))) (#{:}# ll rl))
-;;        (gen (symbol->charval ll) (symbol->charval rl)))
-;;       ((#{:}# ll rl)
-;;        (gen (number->charval ll) (number->charval rl)))
-;;       (else "")))
-;;
-;;   (define (gen-head spec)
-;;     (string-take (gen-item (third spec)) (second spec)))
-;;
-;;   (define (gen-tail spec)
-;;     (string-take-right (gen-item (third spec)) (second spec)))
-;;
-;;   (define (gen-clip spec)
-;;     (substring (gen-item (lr3 spec)) (lr1 spec) (lr2 spec)))
-;;
-;;   (define (gen-drop spec)
-;;     (let* ((base (lr3 spec))
-;;            (left (string-take base (lr1 spec)))
-;;            (right (substring base (lr2 spec))))
-;;       (string-append left right)))
-;;
-;;   (define (gen-vset spec)
-;;     (when (not vtab)
-;;       (set! vtab (make-hash-table)))
-;;     (let ((value (gen-item (lr2 spec))))
-;;       (hash-set! vtab (lr1 spec) value)
-;;       value))
-;;
-;;   (define (gen-vget spec)
-;;     (if vtab
-;;         (hash-ref vtab (lr1 spec))
-;;         ""))
-;;
-;;   (define (gen-item spec)
-;;     (if (list? spec)
-;;         (case (car spec)
-;;           ((*) (gen-multi (list (first spec)
-;;                                 (second spec)
-;;                                 (gen-item (third spec)))))
-;;           ((/) (gen-repeat (list (first spec)
-;;                                  (second spec)
-;;                                  (gen-item (third spec)))))
-;;           ((+) (gen-concat spec))
-;;           ((-) (gen-remove spec))
-;;           ((#{:}#) (gen-range spec))
-;;           ((<) (gen-head spec))
-;;           ((>) (gen-tail spec))
-;;           ((^) (gen-clip spec))
-;;           ((_) (gen-drop spec))
-;;           ((!) (gen-vset spec))
-;;           ((=) (gen-vget spec))
-;;           )
-;;         spec))
-;;
-;;   (gen-item spec))
-;;
-;;
-;; ;; Create list of string from symbols, i.e. non-quoted text.
-;; ;;
-;; ;;     (make-string-list foo bar dii)
-;; ;;
-;; (define-syntax make-string-list
-;;   (lambda (x)
-;;     (let* ((stx (syntax->datum x))
-;;            (-> datum->syntax))
-;;       #`(map symbol->string (quote #,(-> x (cdr stx)))))))
-
-
 ;; Create sequence of numbers from start by length.
 (define (number-sequence start len . rest)
   (let ((step (if (pair? rest) (car rest) 1)))
@@ -2473,155 +2250,6 @@
           (if (>= num end)
               (cons num (loop (- num step)))
               '())))))
-
-;; Usage:
-;;
-;;     (define-structure tree left right)
-;;     (define t
-;;       (make-tree
-;;         (make-tree 0 1)
-;;         (make-tree 2 3)))
-#;
-(define-syntax define-structure
-  (lambda (x)
-    (define gen-id
-      (lambda (template-id . args)
-        (datum->syntax template-id
-          (string->symbol
-            (apply string-append
-              (map (lambda (x)
-                     (if (string? x)
-                         x
-                         (symbol->string (syntax->datum x))))
-                   args))))))
-    (syntax-case x ()
-      [(_ name field ...)
-       (with-syntax ([constructor (gen-id #'name "make-" #'name)]
-                     [predicate (gen-id #'name #'name "?")]
-                     [(access ...)
-                      (map (lambda (x) (gen-id x #'name "-" x))
-                           #'(field ...))]
-                     [(assign ...)
-                      (map (lambda (x)
-                             (gen-id x "set-" #'name "-" x "!"))
-                           #'(field ...))]
-                     [structure-length (+ (length #'(field ...)) 1)]
-                     [(index ...)
-                      (let f ([i 1] [ids #'(field ...)])
-                        (if (null? ids)
-                            '()
-                            (cons i (f (+ i 1) (cdr ids)))))])
-         #'(begin
-             (define constructor
-               (lambda (field ...)
-                 (vector 'name field ...)))
-             (define predicate
-               (lambda (x)
-                 (and (vector? x)
-                      (= (vector-length x) structure-length)
-                      (eq? (vector-ref x 0) 'name))))
-             (define access
-               (lambda (x)
-                 (vector-ref x index)))
-             ...
-             (define assign
-               (lambda (x update)
-                 (vector-set! x index update)))
-             ...))])))
-
-#;
-(define-syntax sim
-  (lambda (x)
-    (syntax 12)))
-
-#;
-(define-syntax sim-foo
-  (lambda (x)
-    (syntax 'sim-foo)))
-
-#;
-(define-syntax sim
-  (lambda (x)
-    (let ((tmp (syntax->datum x)))
-      #`(display #,(string-append "make-" (number->string (cadr tmp)) "\n")))))
-
-#;
-(define-syntax case
-  (lambda (x)
-    (syntax-case x ()
-      [(_ e c1 c2 ...)
-       #`(let ([t e])
-           #,(let f ([c1 #'c1] [cmore #'(c2 ...)])
-               (if (null? cmore)
-                   (syntax-case c1 (else)
-                     [(else e1 e2 ...) #'(begin e1 e2 ...)]
-                     [((k ...) e1 e2 ...)
-                      #'(if (memv t '(k ...)) (begin e1 e2 ...))])
-                   (syntax-case c1 ()
-                     [((k ...) e1 e2 ...)
-                      #`(if (memv t '(k ...))
-                            (begin e1 e2 ...)
-                            #,(f (car cmore) (cdr cmore)))]))))])))
-
-
-#;
-(define-syntax loop
-  (lambda (x)
-    (syntax-case x ()
-      [(k e ...)
-       (with-syntax ([break (datum->syntax #'k 'break)])
-         #'(call/cc
-             (lambda (break)
-               (let f () e ... (f)))))])))
-
-#;
-(let ([n 3] [ls '()])
-  (loop
-    (if (= n 0) (break ls))
-    (set! ls (cons 'a ls))
-    (set! n (- n 1))))
-
-#;
-(define-syntax with-syntax
-   (lambda (x)
-      (syntax-case x ()
-         ((_ () e1 e2 ...)
-          #'(let () e1 e2 ...))
-         ((_ ((out in)) e1 e2 ...)
-          #'(syntax-case in ()
-              (out (let () e1 e2 ...))))
-         ((_ ((out in) ...) e1 e2 ...)
-          #'(syntax-case (list in ...) ()
-              ((out ...) (let () e1 e2 ...)))))))
-
-#;
-(define-syntax syntax-rules
-  (lambda (xx)
-    (syntax-case xx ()
-      ((_ (k ...) ((keyword . pattern) template) ...)
-       #'(lambda (x)
-           ;; embed patterns as procedure metadata
-           #((macro-type . syntax-rules)
-             (patterns pattern ...))
-           (syntax-case x (k ...)
-             ((_ . pattern) #'template)
-             ...)))
-      ((_ (k ...) docstring ((keyword . pattern) template) ...)
-       (string? (syntax->datum #'docstring))
-       #'(lambda (x)
-           ;; the same, but allow a docstring
-           docstring
-           #((macro-type . syntax-rules)
-             (patterns pattern ...))
-           (syntax-case x (k ...)
-             ((_ . pattern) #'template)
-             ...))))))
-
-;;(use-modules (tuile pr))
-;;(define done 30)
-;;(define todo 100)
-;;;;(pr (progress-bar done todo #:terminal-width (car (terminal-dimensions)) #:gap-right 6 #:gap-left 6))
-;;(pr (progress-bar done todo #:terminal-width (car (terminal-dimensions))))
 
 (define (with-file-or-fail filename proc)
   (if (file-exists? filename)
@@ -2706,6 +2334,7 @@
       (else (1+ (quotient (1- bit-width) 4))))))
 
 
+;; Convert datum to a version suitable for match expressions.
 (define (datum->match pat)
   (define (->match pat)
     (cond
@@ -2718,6 +2347,11 @@
       (pretty-print (->match pat))
       ;; (pretty-match (->match pat))
       )))
+
+
+
+;; ------------------------------------------------------------
+;; Some examples:
 
 ;; (pretty-print (datum->match '(input-var
 ;;                               (var-range-zoo)
@@ -2743,7 +2377,6 @@
 ;;   (pr (string-gen `(_ 2 4 "foobar")))
 ;;   (pr (string-gen `(+ (! a "dii") (= a))))
 ;;   )
-
 
 ;; (use-modules (tuile pr))
 ;; (for-n! (idx (15 1) 1)
