@@ -16,6 +16,7 @@
    hash-ref-or
    hash-keys
    hash-values
+   hash-has-key?
    hash-copy
    hash-size
 

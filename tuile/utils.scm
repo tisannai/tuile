@@ -159,8 +159,8 @@
    assoc-ref-deep
    assoc-ref-single
 
-   hash-has-key?
    ;; Now in hash.scm
+   ;;    hash-has-key?
    ;;    hash-keys
    ;;    hash-values
 
@@ -226,6 +226,8 @@
    range->hex-width
 
    datum->match
+
+   lp-if
 
    ))
 
@@ -2348,6 +2350,31 @@
       ;; (pretty-match (->match pat))
       )))
 
+
+;; Convenience if-macro for named-let loops.
+;;
+;;     (let lp ((items colletion)
+;;              (ret '()))
+;;       (lp-if item
+;;              (lp (cdr items)
+;;                  (cons item ret))
+;;              (reverse ret)))
+;;
+(define-syntax lp-if
+  (lambda (x)
+    (syntax-case x ()
+      ((_ item true false)
+       (with-syntax ((item-coll (datum->syntax
+                                 x
+                                 (string->symbol
+                                  (string-append
+                                   (symbol->string
+                                    (syntax->datum #'item))
+                                   "s")))))
+         #`(if (pair? item-coll)
+               (let* ((item (car item-coll)))
+                 true)
+               false))))))
 
 
 ;; ------------------------------------------------------------
