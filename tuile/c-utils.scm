@@ -2,7 +2,7 @@
   #:use-module ((tuile edit) #:prefix #{eu:}#)
   #:use-module ((tuile utils))
   #:use-module ((tuile re))
-  ;;   #:use-module ((tuile pr))
+  #:use-module ((tuile pr))
   #:export
   (
    get-function-prototypes
