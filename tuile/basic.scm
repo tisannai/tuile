@@ -394,6 +394,11 @@
 
 ;; Pick item from lst by providing list of indeces in spec. The
 ;; indeces are used to travel through the lst hierarchy.
+;;
+;;     (define lst '(0 1 (2 3) 4)
+;;     (list-pick lst '(2 1))
+;;     => 2
+;;
 (define (list-pick lst spec)
   (if (pair? spec)
       (list-pick (list-ref lst (car spec))

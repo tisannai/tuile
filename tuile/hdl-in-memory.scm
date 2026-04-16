@@ -136,6 +136,20 @@
             him-sync-reset
             him-sync-resvars
 
+            him-prefix
+
+            him-stmt-ass-lvalue
+            him-stmt-ass-rvalue
+
+            him-stmt-if-branches
+            him-stmt-if-branch-cond
+            him-stmt-if-branch-body
+
+            him-stmt-case-var
+            him-stmt-case-branches
+            him-stmt-case-branch-conds
+            him-stmt-case-branch-body
+
             him-resolve-params
             him-resolve
             him-complete
@@ -465,6 +479,50 @@
            (eq? (car sens) 'sens))
       (lr3 sens))
      (else sens))))
+
+
+;; Him datum classification:
+;;
+;;     (stmt-if ...)
+;;      ^
+;;
+(define him-prefix car)
+
+;; Lvalue of any assignment type.
+(define him-stmt-ass-lvalue lr1)
+
+;; Rvalue of any assignment type.
+(define him-stmt-ass-rvalue lr2)
+
+
+;; List of if branches.
+(define (him-stmt-if-branches stmt-if)
+  (cdr stmt-if))
+
+;; Condition (if any) of an if branch.
+(define (him-stmt-if-branch-cond stmt-if-branch)
+  (car stmt-if-branch))
+
+;; Body (list of statements) of an if branch.
+(define (him-stmt-if-branch-body stmt-if-branch)
+  (cdr stmt-if-branch))
+
+
+;; Condition variable of case statement.
+(define (him-stmt-case-var stmt-case)
+  (lr1 stmt-case))
+
+;; List of case branches.
+(define (him-stmt-case-branches stmt-case)
+  (cddr stmt-case))
+
+;; Conditions (if any) of a case branch.
+(define (him-stmt-case-branch-conds stmt-case-branch)
+  (car stmt-case-branch))
+
+;; Body (list of statements) of a case branch.
+(define (him-stmt-case-branch-body stmt-case-branch)
+  (cdr stmt-case-branch))
 
 
 ;; Resolve parameter values.

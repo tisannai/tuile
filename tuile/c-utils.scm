@@ -48,7 +48,7 @@
 
 (define (get-markdown-summary filename)
   (let* ((lines (file->lines filename))
-         (re-markdown-pre-brief "^/\\*\\*$")
+         (re-markdown-pre-brief "^/\\*\\*[ ]*$")
          (re-markdown-brief "^ \\* @brief (.*)$"))
     (let loop-lines ((lines lines)
                      (state 'pre-brief)

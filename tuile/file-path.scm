@@ -99,8 +99,9 @@
             fps-recurse
             fps-recurse-dir-before
             fps-recurse-dir-after
-            fps-find-files
             fps-find
+            fps-find-files
+            fps-find-leaf-dirs
             fps-copy
             fps-copy-r
 
@@ -534,6 +535,14 @@
   (recurse fps dir-fn file-fn))
 
 
+;; Recursively return all files and directories.
+(define (fps-find fps)
+  (let* ((files '())
+         (register-fn (lambda (file) (set! files (cons file files)))))
+    (fps-recurse-dir-before fps register-fn register-fn)
+    (reverse files)))
+
+
 ;; Recursively return all files.
 (define (fps-find-files fps)
   (let ((files '()))
@@ -541,12 +550,26 @@
     (reverse files)))
 
 
-;; Recursively return all files and directories.
-(define (fps-find fps)
-  (let* ((files '())
-         (register-fn (lambda (file) (set! files (cons file files)))))
-    (fps-recurse-dir-before fps register-fn register-fn)
-    (reverse files)))
+;; Recursively return leaf level dirs.
+(define (fps-find-leaf-dirs fps)
+  (define (recurse type path)
+    (let lp ((subs (fps-ls (fpd->fps (cons type path))))
+             (dir-count 0)
+             (ret '()))
+      (if (pair? subs)
+          (if (file-is-directory? (car subs))
+              (lp (cdr subs)
+                  (1+ dir-count)
+                  (append (recurse type (cons (car subs) path))
+                          ret))
+              (lp (cdr subs)
+                  dir-count
+                  ret))
+          (reverse ret))))
+  (if (file-is-directory? fps)
+      (let ((fpd (fps->fpd fps)))
+        (recurse (fpd-type fpd) (fpd-body fpd)))
+      '()))
 
 
 ;; Copy "from" as "to" and create directory for "to", if needed.
