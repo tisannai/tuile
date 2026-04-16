@@ -145,7 +145,7 @@
                                                      (1+ (car ends))))
           '())))
   (if (= (string-length fps) 0)
-      #f
+      '()
       (let ((end (fps-end-index fps)))
         (let lp ((idx (1- end))
                  (ret (list end)))
@@ -247,7 +247,7 @@
 ;;
 (define (fps-type fps)
   (if (string-null? fps)
-      #f
+      'rel
       (cond
        ((char=? (string-ref fps 0) #\/) 'abs)
        ((not (char=? (string-ref fps 0) #\.)) 'rel)
@@ -257,42 +257,9 @@
        ((and (>= (string-length fps) 2)
              (char=? (string-ref fps 0) #\.)
              (char=? (string-ref fps 1) #\/)) 'dot)
+       ((and (= (string-length fps) 1)
+             (char=? (string-ref fps 0) #\.)) 'dot)
        (else 'rel))))
-
-;; (dot)
-;; (dot)
-;; (off "..")
-;; (dot "foo")
-;; (off "foo" "..")
-(define (new-fps-type fps)
-  (if (string-null? fps)
-      #f
-      (cond
-       ((char=? (string-ref fps 0) #\/) 'abs)
-       ((not (char=? (string-ref fps 0) #\.)) 'rel)
-       (else (let (
-                   (len (string-length fps))
-                   (->i (lambda (ch) (case ch
-                                       ((#\.) 0)
-                                       ((#\/) 1)
-                                       (else 2))))
-                   ;;  1   2   3   4  5
-                   ;;  .  ..  ./ ../  rel
-                   (state #(#(1 0 #f abs) ; 0
-                            #(2 3 #f dot) ; 1
-                            #(#f 4 #f off) ; 2
-                            #(#f #f #f dot) ; 3
-                            #(#f #f #f off) ; 4
-                            #f)))
-               ;; (ppre state)
-               (let lp ((i 0)
-                        (s 0))
-                 (if (and (< i len) (vector-ref state s))
-                     (lp (1+ i)
-                         (vector-ref (vector-ref state s) (->i (string-ref fps i))))
-                     (if (vector-ref state s)
-                         (vector-ref (vector-ref state s) 3)
-                         'rel))))))))
 
 
 ;; Return the number of offset directories in "off" type fpd.
@@ -324,9 +291,13 @@
          (abs (fpd->fps-dir (fpd->abs fpd)))
          (file (fpd-file fpd))
          (parts (fps-file-parts fps))
-         (base (car parts))
-         (ext (car (last-pair parts)))
-         (end (string-join (cdr parts) ".")))
+         (base (if (null? parts) #f (car parts)))
+         (ext (if (> (length parts) 1)
+                  (car (last-pair parts))
+                  ""))
+         (end (if (null? parts)
+                  ""
+                  (string-join (cdr parts) "."))))
 
     `((dir-type . ,dir-type)
       (dir      . ,dir)
@@ -366,17 +337,21 @@
 
 ;; Join tail to the fps.
 (define (fps-join fps tail)
-  (let ((tail-type (fps-type tail)))
-    (case tail-type
-      ((abs) (string-append fps tail))
-      ((rel) (string-append fps "/" tail))
-      ((off) (let* ((off-count (fps-off-count tail))
-                    (fps-offsetted (fpd-up (fps->fpd fps) off-count))
-                    (tail-offsetted (drop-right (fps->fpd tail) off-count)))
-               (fpd->fps (cons (fpd-type fps-offsetted)
-                               (append (fpd-body tail-offsetted)
-                                       (fpd-body fps-offsetted))))))
-      ((dot) (string-append fps (substring tail 1))))))
+  (cond
+   ((string-null? fps) tail)
+   ((string-null? tail) fps)
+   (else
+    (let ((tail-type (fps-type tail)))
+      (case tail-type
+        ((abs) (string-append fps tail))
+        ((rel) (string-append fps "/" tail))
+        ((off) (let* ((off-count (fps-off-count tail))
+                      (fps-offsetted (fpd-up (fps->fpd fps) off-count))
+                      (tail-offsetted (drop-right (fps->fpd tail) off-count)))
+                 (fpd->fps (cons (fpd-type fps-offsetted)
+                                 (append (fpd-body tail-offsetted)
+                                         (fpd-body fps-offsetted))))))
+        ((dot) (string-append fps (substring tail 1))))))))
 
 
 ;; Replace "from" with "to" in fps.
@@ -550,6 +525,15 @@
     (reverse files)))
 
 
+;; Recursively return all dirs.
+(define (fps-find-dirs fps)
+  (let ((dirs '()))
+    (fps-recurse-dir-before fps
+                            (lambda (dir) (set! dirs (cons dir dirs)))
+                            identity)
+    (reverse dirs)))
+
+
 ;; Recursively return leaf level dirs.
 (define (fps-find-leaf-dirs fps)
   (define (recurse type path)
@@ -557,15 +541,17 @@
              (dir-count 0)
              (ret '()))
       (if (pair? subs)
-          (if (file-is-directory? (car subs))
-              (lp (cdr subs)
-                  (1+ dir-count)
-                  (append (recurse type (cons (car subs) path))
-                          ret))
-              (lp (cdr subs)
-                  dir-count
-                  ret))
-          (reverse ret))))
+          (let ((sub-path (fpd->fps (append (list type (car subs)) path))))
+            (if (file-is-directory? sub-path)
+                (lp (cdr subs)
+                    (1+ dir-count)
+                    (append ret (recurse type (cons (car subs) path))))
+                (lp (cdr subs)
+                    dir-count
+                    ret)))
+          (if (= dir-count 0)
+              (cons (fpd->fps (cons type path)) ret)
+              ret))))
   (if (file-is-directory? fps)
       (let ((fpd (fps->fpd fps)))
         (recurse (fpd-type fpd) (fpd-body fpd)))
@@ -638,9 +624,11 @@
 
 ;; Return directory part of fpd.
 (define (fpd-dir fpd)
-  (if (pair? (cdr (fpd-body fpd)))
-      (cons (car fpd) (cddr fpd))
-      (cons (car fpd) '())))
+  (cond
+   ((and (pair? (fpd-body fpd))
+         (pair? (cdr (fpd-body fpd))))
+    (cons (car fpd) (cddr fpd)))
+   (else (cons (car fpd) '()))))
 
 ;; Return filepath part of fpd.
 (define (fpd->fps-dir fpd)
@@ -661,26 +649,26 @@
 
 ;; Replace "from" with "to" in fpd.
 (define (fpd-sub fpd from to)
-  (let lp ((parts (cdr fpd))
-             (ret '()))
-      (if (pair? parts)
-          (let ((part (car parts)))
-            (lp (cdr parts)
-                (if (string=? from part)
-                    (cons to ret)
-                    (cons part ret))))
-          (cons (car fpd) (reverse ret)))))
+  (let lp ((parts (fpd-body fpd))
+           (ret '()))
+    (if (pair? parts)
+        (let ((part (car parts)))
+          (lp (cdr parts)
+              (if (string=? from part)
+                  (cons to ret)
+                  (cons part ret))))
+        (cons (fpd-type fpd) (reverse ret)))))
 
 ;; Return fpd resolved, i.e. fpd as with absolute path.
 ;;
 ;; NOTE: Base directory (for relative paths) is taken as "current
 ;; directory" or it is given as optional argument.
 ;;
-(define (fpd->abs fpd . base)
+(define (org-fpd->abs fpd . base)
   (if (fpd-abs? fpd)
       fpd
       (if (null? (fpd-body fpd))
-          fpd
+          (fps->fpd (getcwd))
           (let lp ((tail (reverse (fpd-body fpd)))
                    (base (fpd-body (fps->fpd (if (pair? base)
                                                  (car base)
@@ -689,6 +677,18 @@
              ((and (pair? tail) (string=? (car tail) "..")) (lp (cdr tail) (cdr base)))
              ((and (pair? tail) (string=? (car tail) ".")) (lp (cdr tail) base))
              (else (cons 'abs (append (reverse tail) base))))))))
+
+(define (fpd->abs fpd . base)
+  (if (fpd-abs? fpd)
+      fpd
+      (let lp ((tail (reverse (fpd-body fpd)))
+               (base (fpd-body (fps->fpd (if (pair? base)
+                                             (car base)
+                                             (getcwd))))))
+        (cond
+         ((and (pair? tail) (string=? (car tail) "..")) (lp (cdr tail) (cdr base)))
+         ((and (pair? tail) (string=? (car tail) ".")) (lp (cdr tail) base))
+         (else (cons 'abs (append (reverse tail) base)))))))
 
 ;; Return fpd as rel, if fpd is of dot type.
 ;;
@@ -1170,7 +1170,32 @@
 ;; (ppr (fps-join "./dii/duu" "../foo/bar"))
 ;; (ppr (fps-join "./dii/duu" "/foo/bar"))
 ;; (ppr (fps-join "./dii/duu" "./foo/bar"))
+;;
+;; (ppr (fps-join "" "foo/bar"))
+;; (ppr (fps-join "" "../foo/bar"))
+;; (ppr (fps-join "" "/foo/bar"))
+;; (ppr (fps-join "" "./foo/bar"))
+
+;; (ppr (fps-join "../../dii/duu" "foo/bar"))
+;; (ppr (fps-join "../../dii/duu" "../foo/bar"))
 
 ;; (pd (fpl "duu.daa" "db"))
 ;; (pd (fpl "./duu.daa" "db"))
 ;; (pd (fpl "../duu.daa" "db"))
+
+;; (pd (fps-type ""))
+;; (pd (fps->fpd ""))
+;; (pd (fpd->fps (fps->fpd "")))
+;; (pd (fps-type "."))
+;; (pd (fps->fpd "."))
+;; (pd (fpd->fps (fps->fpd ".")))
+;;
+;; (pd (fps->fpd "tuile"))
+;; (pd (fpd->fps (fps->fpd "tuile")))
+;; (pd (fps->fpd "./tuile"))
+;; (pd (fpd->fps (fps->fpd "./tuile")))
+
+;; (pd (fps-find-leaf-dirs "."))
+;; (pd (fps-find-dirs "."))
+
+;; (pd (fps-dir ""))
