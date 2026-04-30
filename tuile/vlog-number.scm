@@ -254,7 +254,10 @@
                  (not width)
                  (not sign))
             ;; Pure integer (e.g. -123).
-            (make-vlog-number (string->number (list->string (reverse part)) 10) #f #f 10))
+            ;; (make-vlog-number (string->number (list->string (reverse part)) 10) #f #f 10)
+            ;; TI 260417_1404: Bare int should be declared as signed, not unsigned.
+            (make-vlog-number (string->number (list->string (reverse part)) 10) #t #f #f)
+            )
 
            ((null? part)
             ;; Width and optional sign, only (e.g. 12s).
@@ -304,7 +307,10 @@
 ;;     int         Value of 'vlog-number'.
 ;;
 (define (vlog-number-from-int int)
-  (make-vlog-number int #f #f 10))
+  ;; (make-vlog-number int #f #f 10)
+  ;; TI 260417_1404: Bare int should be declared as signed, not
+  ;; unsigned. No base is given.
+  (make-vlog-number int 'signed #f #f))
 
 
 ;; Return Number String (numstr) from vlog-number.
@@ -329,7 +335,9 @@
          (base (vlog-number-base number))
          (value (vlog-number-value number)))
     (if (not sign)
-        (number->string value base)
+        (if base
+            (number->string value base)
+            (number->string value))
         (ss (list-specified (list (if (and quote? value (< value 0) (= base 10))
                                       "-"
                                       *unspecified*)
@@ -362,7 +370,8 @@
                                                                   value)
                                                               base
                                                               width
-                                                              pad?)))))))))
+                                                              pad?))
+                                    (else (number->string value)))))))))
 
 
 ;;;
@@ -411,6 +420,7 @@
         (vlog-number-base  number)))
 
 
+;; Determine sign information for number.
 (define (vlog-number-signify number)
   (if (symbol? (vlog-number-sign number))
       number
@@ -446,3 +456,6 @@
 ;; (ppr (vlog-number-from-numstr "12#"))
 
 ;; (ppr (vlog-number-from-numstr "##"))
+
+;; (ppr (vlog-number-from-numstr "100"))
+;; (ppr (vlog-number-to-numstr (vlog-number-from-numstr "100")))
