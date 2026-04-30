@@ -137,7 +137,8 @@
   (let* ((lexer-def (car (assoc-ref grammar 'lexer)))
          (lexer-value (map (lambda (ld) (cons (second ld)
                                               (or (eq? (third ld) 'value)
-                                                  (eq? (third ld) 'typeval)))) lexer-def))
+                                                  (eq? (third ld) 'typeval))))
+                           lexer-def))
          ;; (tokens (map second lexer-def))
          (parser-def (car (assoc-ref grammar 'parser)))
          (pargen-defs (pargen-import-user-parser parser-def)))
@@ -396,7 +397,8 @@
   (let* ((lexer-def (car (assoc-ref grammar 'lexer)))
          (lexer-value (map (lambda (ld) (cons (second ld)
                                               (or (eq? (third ld) 'value)
-                                                  (eq? (third ld) 'typeval)))) lexer-def))
+                                                  (eq? (third ld) 'typeval))))
+                           lexer-def))
          (parser-def (assoc-ref grammar 'parser))
          (parser-opts (map (lambda (item)
                              (list (string->symbol
@@ -591,6 +593,16 @@
       )))
 
 
+
+;; Token types:
+;;   punct      Parsed separator
+;;   comment    Comment
+;;   keyword    Keyword string
+;;   operator   Operator for operands
+;;   space      Ignored separator
+;;   value      Parsed value: <value>
+;;   typeval    Parsed value: (cons <type> <value>)
+;;   error      Invalid input text
 
 (define grammar `((lexer (("\\("                    LPAR           punct)
                           ("\\)"                    RPAR           punct)
