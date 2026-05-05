@@ -46,6 +46,7 @@
    lr7
    lr8
    lr9
+   lr-if
    flatten
    flatten-0
    flatten-1
@@ -228,6 +229,7 @@
    datum->match
 
    lp-if
+   lp-when
 
    ))
 
@@ -2353,7 +2355,7 @@
 
 ;; Convenience if-macro for named-let loops.
 ;;
-;;     (let lp ((items colletion)
+;;     (let lp ((items collection)
 ;;              (ret '()))
 ;;       (lp-if item
 ;;              (lp (cdr items)
@@ -2372,9 +2374,32 @@
                                     (syntax->datum #'item))
                                    "s")))))
          #`(if (pair? item-coll)
-               (let* ((item (car item-coll)))
+               (let ((item (car item-coll)))
                  true)
                false))))))
+
+
+;; Convenience when-macro for named-let loops.
+;;
+;;     (let lp ((items collection))
+;;       (lp-when item
+;;                (lp (cdr items)
+;;                    (cons item ret))))
+;;
+(define-syntax lp-when
+  (lambda (x)
+    (syntax-case x ()
+      ((_ item true)
+       (with-syntax ((item-coll (datum->syntax
+                                 x
+                                 (string->symbol
+                                  (string-append
+                                   (symbol->string
+                                    (syntax->datum #'item))
+                                   "s")))))
+         #`(when (pair? item-coll)
+               (let ((item (car item-coll)))
+                 true)))))))
 
 
 ;; ------------------------------------------------------------

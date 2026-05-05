@@ -30,6 +30,7 @@
    lr7
    lr8
    lr9
+   lr-if
    flatten
    flatten-0
    flatten-1
@@ -166,6 +167,11 @@
 
 (expand-short-list-ref-index-functions 5)
 
+
+(define (lr-if lst index)
+  (if (> index (1- (length lst)))
+      #f
+      (list-ref lst index)))
 
 ;; Flatten (and join) argument list as deep as list goes.
 ;;
