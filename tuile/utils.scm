@@ -13,7 +13,7 @@
   #:use-module ((ice-9 exceptions) #:select (make-non-continuable-error))
   #:use-module ((ice-9 match) #:select (match))
   #:use-module ((ice-9 pretty-print) #:select (pretty-print))
-  #:use-module ((tuile pretty-match) #:select (pretty-match))
+  ;; #:use-module ((tuile pretty-match) #:select (pretty-match))
   #:use-module (tuile re)
   #:use-module ((tuile pr) #:select (ss si))
 
