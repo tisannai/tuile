@@ -37,6 +37,7 @@
    delete-nth
    append-item
    listify
+   uniquify
    list->cons
    cons->list
    list-join
@@ -48,6 +49,7 @@
    list-slice
    list-range
    list-pick
+   list-member
    list-compact
    list-randomize
    list-update
@@ -169,7 +171,7 @@
 
 
 (define (lr-if lst index)
-  (if (> index (1- (length lst)))
+  (if (>= index (length lst))
       #f
       (list-ref lst index)))
 
@@ -293,6 +295,27 @@
    ((not item) (list))
    (else (list item))))
 
+
+;; Uniquify the list based on predicate.
+(define (uniquify pred lst)
+  (define hmake (@ (tuile hash) make-hash-table))
+  (define hset! (@ (tuile hash) hash-set!))
+  (define hhas? (@ (tuile hash) hash-has-key?))
+  (define hvals (@ (tuile hash) hash-values))
+  (let* ((h (hmake)))
+    (let lp ((lst lst)
+             (ret '()))
+      (if (pair? lst)
+          (let ((item (car lst)))
+              (if (not (hhas? h (pred item)))
+                  (begin
+                    (hset! h (pred item) item)
+                    (lp (cdr lst)
+                        (cons item ret)))
+                  (lp (cdr lst) ret)))
+          (reverse ret)))))
+
+
 ;; Convert list to a cons.
 (define (list->cons arg)
   (if (pair? arg)
@@ -406,10 +429,24 @@
 ;;     => 2
 ;;
 (define (list-pick lst spec)
+  "Pick item from lst by providing list of indeces in spec. The
+indeces are used to travel through the lst hierarchy.
+
+    (define lst '(0 1 (2 3) 4)
+    (list-pick lst '(2 1))
+    => 2
+"
   (if (pair? spec)
       (list-pick (list-ref lst (car spec))
                  (cdr spec))
       lst))
+
+
+;; Return the list element if X matches it, else #f.
+(define (list-member x lst)
+  "Return the list element if X matches it, else #f."
+  (let ((res (member x lst)))
+    (if res (car res) #f)))
 
 
 ;; Compact list by removing (by default) unspecified and false values.

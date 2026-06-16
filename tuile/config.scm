@@ -2,6 +2,7 @@
   #:use-module (tuile basic)
   #:export
   (
+   config-type
    config-name
    config-body
    config-entry
@@ -55,6 +56,10 @@
 
 ;; ------------------------------------------------------------
 ;; External:
+
+;; Return config type.
+(define (config-type config)
+  (car config))
 
 ;; Return config name.
 (define (config-name config)

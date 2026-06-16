@@ -15,6 +15,9 @@
 ;; Gulex is provided with the Gulex Token Table, which defines Regexp
 ;; to Token mappings.
 ;;
+;; User can make all token info visible by calling
+;; `(token-stream-show-token)` before parser is activated.
+;;
 ;; For usage and further documentation: see `gulex`, the Gulex CLI
 ;; tool README.md.
 
@@ -194,6 +197,8 @@
          (ts (make-token-stream cs lexer #f '() '())))
     ;; Prefetch first token.
     (token-stream-get ts)
+    ;; Uncomment for token visibility.
+    ;; (token-stream-show-token #t)
     ts))
 
 ;; Open token stream for filename.

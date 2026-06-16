@@ -52,6 +52,7 @@
    flatten-1
    delete-nth
    listify
+   uniquify
    list->cons
    cons->list
    list-join
@@ -63,6 +64,7 @@
    list-slice
    list-range
    list-pick
+   list-member
    list-compact
    list-randomize
    list-update
@@ -88,6 +90,7 @@
    forever
    map-except-last
    map-except-first
+   map-with-special-last
    repeat
    repeat!
    ;; repeat-times
@@ -328,38 +331,124 @@
            )))))
 
 
-;; Map all list entries except last.
-(define (map-except-last fn lst)
-  (reverse (let process ((tail lst)
-                         (res '()))
-             (cond
-              ((null? tail)
-               res)
-              ((pair? (cdr tail))
-               (process (cdr tail)
-                        (cons (fn (car tail))
-                              res)))
-              (else
-               (process (cdr tail)
-                        (cons (car tail)
-                              res)))))))
+;; Map all list entries except last. If more than one proc is
+;; provided, only the last proc is applied all-but-last.
+;;
+;;     (map-except-last identity '(1 2 3))
+;;     (map-except-last not identity '(1 2 3))
+;;
+(define (map-except-last fn lst-or-fn . rest)
+  "Map all list entries except last. If more than one proc is
+provided, only the last proc is applied all-but-last.
+
+    (map-except-last identity '(1 2 3))
+    (map-except-last not identity '(1 2 3))
+"
+  (let* ((args-in-reverse (reverse (cons fn (cons lst-or-fn rest))))
+         (lst (lr0 args-in-reverse))
+         (all-fn (apply compose (cdr args-in-reverse)))
+         (all-but-fn (if (pair? (cddr args-in-reverse))
+                         (apply compose (cddr args-in-reverse))
+                         identity)))
+    (reverse (let process ((tail lst)
+                           (res '()))
+               (cond
+                ((null? tail)
+                 res)
+                ((pair? (cdr tail))
+                 (process (cdr tail)
+                          (cons (all-fn (car tail))
+                                res)))
+                (else
+                 (process (cdr tail)
+                          (cons (all-but-fn (car tail))
+                                res))))))))
 
 
-;; Map all list entries except last.
-(define (map-except-first fn lst)
-  (reverse (let process ((tail lst)
-                         (res '()))
-             (cond
-              ((null? tail)
-               res)
-              ((null? res)
-               (process (cdr tail)
-                        (cons (car tail)
-                              res)))
-              (else
-               (process (cdr tail)
-                        (cons (fn (car tail))
-                              res)))))))
+;; Map all list entries except first. If more than one proc is
+;; provided, only the first proc is applied all-but-first.
+;;
+;;     (map-except-first identity '(1 2 3))
+;;     (map-except-first not identity '(1 2 3))
+;;
+(define (map-except-first fn lst-or-fn . rest)
+  "Map all list entries except first. If more than one proc is
+provided, only the first proc is applied all-but-first.
+
+    (map-except-first identity '(1 2 3))
+    (map-except-first not identity '(1 2 3))
+"
+  (let* ((args-in-reverse (reverse (cons fn (cons lst-or-fn rest))))
+         (lst (lr0 args-in-reverse))
+         (all-fn (apply compose (cdr args-in-reverse)))
+         (all-but-fn (if (pair? (cddr args-in-reverse))
+                         (apply compose (cddr args-in-reverse))
+                         identity)))
+    (reverse (let process ((tail lst)
+                           (res '()))
+               (cond
+                ((null? tail)
+                 res)
+                ((null? res)
+                 (process (cdr tail)
+                          (cons (all-but-fn (car tail))
+                                res)))
+                (else
+                 (process (cdr tail)
+                          (cons (all-fn (car tail))
+                                res))))))))
+
+
+;; Map all list entries except last with one proc and the last with
+;; the next proc. If more than two procs are provided, the procs
+;; before the last two are applied to all in addition to the separated.
+;;
+;;     (map-with-special-last identity 1+ '(1 2 3))
+;;
+(define (map-with-special-last fn0 fn1 lst-or-fn . rest)
+  "Map all list entries except last with one proc and the last with a
+specific proc. If more than two procs are provided, the procs
+before the last two are applied to all.
+
+    (map-with-special-last identity 1+ '(1 2 3))
+"
+  ;; fnN-1 fnN-2 ... fn2 hfn lfn lst
+  (let* ((args (append (list fn0 fn1 lst-or-fn) rest))
+         (args-in-reverse (reverse args))
+         (lst (lr0 args-in-reverse))
+         (fns (cdddr args-in-reverse))
+         (lfn (apply compose (cons (lr1 args-in-reverse) fns)))
+         (hfn (apply compose (cons (lr2 args-in-reverse) fns))))
+    (reverse (let process ((tail lst)
+                           (res '()))
+               (cond
+                ((null? tail)
+                 res)
+                ((pair? (cdr tail))
+                 (process (cdr tail)
+                          (cons (hfn (car tail))
+                                res)))
+                (else
+                 (process (cdr tail)
+                          (cons (lfn (car tail))
+                                res))))))))
+
+
+;; Map all list entries except first.
+;; (define (map-except-first fn lst)
+;;   (reverse (let process ((tail lst)
+;;                          (res '()))
+;;              (cond
+;;               ((null? tail)
+;;                res)
+;;               ((null? res)
+;;                (process (cdr tail)
+;;                         (cons (car tail)
+;;                               res)))
+;;               (else
+;;                (process (cdr tail)
+;;                         (cons (fn (car tail))
+;;                               res)))))))
 
 
 ;; (define (fn-pipe arg . chain)
@@ -600,6 +689,11 @@
 ;;     (most identity '(1 2 3))
 ;;
 (define (most fn lst)
+  "Find the item in LST that has largest value returned by property
+getter FN.
+
+    (most identity '(1 2 3))
+"
   (if (null? lst)
       #f
       (let loop ((tail (cdr lst))
@@ -622,6 +716,11 @@
 ;;     (best (lambda (i curwin) (> i curwin)) '(1 2 3))
 ;;
 (define (best fn lst)
+  "Find the item in LST that is best by property
+comparator FN.
+
+    (best (lambda (i curwin) (> i curwin)) '(1 2 3))
+"
   (if (null? lst)
       #f
       (let loop ((tail (cdr lst))
@@ -637,6 +736,7 @@
 
 ;; Return #t if all are non-false.
 (define (all lst)
+  "Return #t if all are non-false."
   (let lp ((lst lst))
     (if (pair? lst)
         (if (car lst)
@@ -645,8 +745,9 @@
         #t)))
 
 
-;; Return #t if one is non-false.
+;; Return #t if (at least) one is non-false.
 (define (one lst)
+  "Return #t if (at least) one is non-false."
   (let lp ((lst lst))
     (if (pair? lst)
         (if (car lst)
@@ -848,7 +949,7 @@
 ;; ;;           (reverse ret))))))
 ;;
 ;;
-;; ;; Split list from Nth element and return results as pair.
+;; Split list from Nth element and return results as pair.
 ;; (define (list-split lst n)
 ;;   (cond
 ;;    ((>= n (length lst)) (cons '() lst))
@@ -1732,6 +1833,7 @@
     (if (pair? val)
         (car val)
         *unspecified*)))
+
 
 ;; Read all lines from port to list (or vector).
 ;;
