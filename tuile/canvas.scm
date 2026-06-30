@@ -103,6 +103,15 @@
           ))
 
 
+(define (canvas-debug msg)
+  (let ((port (open-file "canvas.log" "a")))
+    (with-output-to-port port
+        (lambda ()
+          (display msg)
+          (newline)))
+    (close port)))
+
+
 (define make-ch vector)
 (define (ch-x ch) (vector-ref ch 0))    ; Char x.
 (define (ch-y ch) (vector-ref ch 1))    ; Char y.
@@ -313,46 +322,49 @@
 ;; Swap content of layers, given layer indeces.
 (define (swap-layers cv a b)
 
-  (let ((layer-a (get-layer cv a))
-        (layer-b (get-layer cv b)))
+  (if (not (= a b))
+      (let ((layer-a (get-layer cv a))
+            (layer-b (get-layer cv b)))
 
-      (let* ((layers (proxy-layers cv))
-             (lindex (proxy-lindex cv))
-             (update (let lp ((layers layers)
-                              (i 0)
-                              (ret '()))
-                       (if (pair? layers)
-                           (lp (cdr layers)
-                               (1+ i)
-                               (cons (cond
-                                      ((= i a) b)
-                                      ((= i b) a)
-                                      (else (car layers)))
-                                     ret))
-                           (reverse ret)))))
-        (make-proxy update
-                    (list-ref update lindex)
-                    lindex
-                    (proxy-count cv)))))
+        (let* ((layers (proxy-layers cv))
+               (lindex (proxy-lindex cv))
+               (update (let lp ((layers layers)
+                                (i 0)
+                                (ret '()))
+                         (if (pair? layers)
+                             (lp (cdr layers)
+                                 (1+ i)
+                                 (cons (cond
+                                        ((= i a) layer-b)
+                                        ((= i b) layer-a)
+                                        (else (car layers)))
+                                       ret))
+                             (reverse ret)))))
+          (make-proxy update
+                      (list-ref update lindex)
+                      lindex
+                      (proxy-count cv))))
+      cv))
 
 
 ;; Merge to layer "a", the layer "b".
 (define (merge-layers cv a b)
-  (when (not (= a b))
-    (let* ((in-order? (< a b)))
-      (let* ((canvas (proxy-layers cv))
-             (layer-a (get-layer cv a))
-             (layer-b (get-layer cv b)))
-        (if (and layer-a layer-b)
-            (let ((content-b (layer-chars layer-b)))
-              (for-each (lambda (ch)
-                          (put-ch-to-layer layer-a (ch-c ch) (ch-p ch)))
-                        content-b)
-              (let ((cv (del-layer-by-index cv b)))
-                (if in-order?
-                    (create-proxy-for-index cv a)
-                    (create-proxy-for-index cv (1- a)))))
-            cv)))))
+  (if (not (= a b))
+      (let* ((in-order? (< a b)))
+        (let* ((canvas (proxy-layers cv))
+               (layer-a (get-layer cv a))
+               (layer-b (get-layer cv b)))
+          (if (and layer-a layer-b)
+              (let ((content-b (layer-chars layer-b)))
+                (for-each (lambda (ch)
+                            (put-ch-to-layer layer-a (ch-c ch) (ch-p ch)))
+                          content-b)
+                (let ((cv (del-layer-by-index cv b)))
+                  (if in-order?
+                      (create-proxy-for-index cv a)
+                      (create-proxy-for-index cv (1- a)))))
+              cv)))
+      cv))
 
 
 ;; Set layer "hide" status (false=visible, true=hidden).
@@ -665,6 +677,7 @@
 
 ;; Return layer characters, if visible.
 (define (layer-visible-chars layer)
+  ;; (canvas-debug (sp layer))
   (if (layer-hide layer)
       '()
       (reverse (layer-chars layer))))
