@@ -1840,26 +1840,38 @@ comparator FN.
 ;; Key Args:
 ;;     with-newline    Leave newline to line end.
 ;;     as-vector       Return lines as vector (not list).
+;;     filter-fn       Line filtering proc.
 ;;
 (define* (read-lines-from-port port
                                #:key
                                (with-newline #f)
-                               (as-vector #f))
+                               (as-vector #f)
+                               (filter-fn #f))
   (define (->vector lst)
     (if as-vector
         (list->vector lst)
         lst))
 
-  (let ((line-filter (if with-newline
-                         (lambda (line)
-                           (string-append (car line) "\n"))
-                         (lambda (line)
-                           (car line)))))
+  (let ((line-filter (cond
+                      ((and with-newline filter-fn)
+                       (lambda (line)
+                         (filter-fn (string-append (car line) "\n"))))
+                      (filter-fn
+                       (lambda (line)
+                         (filter-fn (car line))))
+                      (with-newline
+                       (lambda (line)
+                         (string-append (car line) "\n")))
+                      (else
+                       (lambda (line)
+                         (car line))))))
 
-    (->vector (let loop ((line (read-line port 'split)))
-                (if (eof-object? (car line))
-                    '()
-                    (cons (line-filter line) (loop (read-line port 'split))))))))
+    (->vector (let loop ((line (read-line port 'split))
+                         (ret '()))
+                (if (eof-object? (cdr line))
+                    (reverse ret)
+                    (loop (read-line port 'split)
+                          (cons (line-filter line) ret)))))))
 
 ;; Call "proc" with each line from port.
 (define (with-each-line-from-port port proc)
