@@ -499,35 +499,78 @@ before the last two are applied to all.
 ;;                  (repeat-loop (1+ i))))))))))
 ;;
 
-;; Run indeces through specified values and execute the body with the
-;; swept value. Collect the body return values to a list.
-;;
-;;     (for-n (i 8) i)
-;;     (for-n (i 8 2) i)
-;;     (for-n (i 8 -2) i)
-;;     (for-n (i (0 8)) i)
-;;     (for-n (i (8 0)) i)
-;;     (for-n (i (0 8) 2) i)
-;;     (for-n (i (8 0) 2) i)
-;;     (for-n (i (8 0) -2) i)
-;;
 
 ;; Helper functions for for-n and for-n!.
 
-(define (for-n-repeat op var ini lim step body)
-  #`(let repeat-loop ((#,var #,ini)
-                      (ret '()))
-      (if (#,op #,var #,lim)
-          (repeat-loop (+ #,var #,step)
-                       (cons (begin #,@body) ret))
-          (reverse ret))))
+(define (for-n-repeat var a1 a2 a3 body)
+  #`(cond
+     ;; (for-n (i 8) i)
+     ((and (not #,a2) (not #,a3))
+      (let repeat-loop ((#,var 0)
+                        (ret '()))
+        (if (< #,var #,a1)
+            (repeat-loop (+ #,var 1) (cons (begin #,@body) ret))
+            (reverse ret))))
 
-(define (for-n-repeat! op var ini lim step body)
-  #`(let repeat-loop ((#,var #,ini))
-      (when (#,op #,var #,lim)
-        (begin
+     ;; (for-n (i 0 7) i)
+     ;; (for-n (i 7 0) i)
+     ((not #,a3)
+      (if (< #,a1 #,a2)
+          (let repeat-loop ((#,var #,a1)
+                            (ret '()))
+            (if (<= #,var #,a2)
+                (repeat-loop (+ #,var 1) (cons (begin #,@body) ret))
+                (reverse ret)))
+          (let repeat-loop ((#,var #,a1)
+                            (ret '()))
+            (if (>= #,var #,a2)
+                (repeat-loop (- #,var 1) (cons (begin #,@body) ret))
+                (reverse ret)))))
+     (else
+      (if (< #,a1 #,a2)
+          (let repeat-loop ((#,var #,a1)
+                            (ret '()))
+            (if (<= #,var #,a2)
+                (repeat-loop (+ #,var #,a3) (cons (begin #,@body) ret))
+                (reverse ret)))
+          (let repeat-loop ((#,var #,a1)
+                            (ret '()))
+            (if (>= #,var #,a2)
+                (repeat-loop (- #,var #,a3) (cons (begin #,@body) ret))
+                (reverse ret)))))))
+
+(define (for-n-repeat! var a1 a2 a3 body)
+  #`(cond
+     ;; (for-n (i 8) i)
+     ((and (not #,a2) (not #,a3))
+      (let repeat-loop ((#,var 0))
+        (when (< #,var #,a1)
           #,@body
-          (repeat-loop (+ #,var #,step))))))
+          (repeat-loop (+ #,var 1)))))
+     ;; (for-n (i 0 7) i)
+     ;; (for-n (i 7 0) i)
+     ((not #,a3)
+      (if (< #,a1 #,a2)
+          (let repeat-loop ((#,var #,a1))
+            (when (<= #,var #,a2)
+              #,@body
+              (repeat-loop (+ #,var 1))))
+          (let repeat-loop ((#,var #,a1))
+            (when (>= #,var #,a2)
+              #,@body
+              (repeat-loop (- #,var 1))))))
+     ;; (for-n (i 0 7 2) i)
+     ;; (for-n (i 7 0 2) i)
+     (else
+      (if (< #,a1 #,a2)
+          (let repeat-loop ((#,var #,a1))
+            (when (<= #,var #,a2)
+              #,@body
+              (repeat-loop (+ #,var #,a3))))
+          (let repeat-loop ((#,var #,a1))
+            (when (>= #,var #,a2)
+              #,@body
+              (repeat-loop (- #,var #,a3))))))))
 
 (define for-n-trans
   (lambda (x fn)
@@ -535,44 +578,32 @@ before the last two are applied to all.
     (define => syntax->datum)
     (syntax-case x ()
 
-      ;;     (for-n (i (0 8) 2) i)
-      ((_ (var (ini lim) step) body ...)
-       (cond
-        ((< (=> #'step) 0) #'(quote ()))
-        ((> (=> #'ini) (=> #'lim))
-         (fn (-> x '>)
-             #'var
-             #'ini
-             #'lim
-             (-> x (- (=> #'step)))
-             #'(body ...)))
-        (else
-         (fn (-> x '<) #'var #'ini #'lim #'step #'(body ...)))))
+      ;;     (for-n (i 0 7 2) i)
+      ;;     (for-n (i 7 0 2) i)
+      ((_ (var a1 a2 a3) body ...)
+       (fn #'var #'a1 #'a2 #'a3 #'(body ...)))
 
-      ;;     (for-n (i (0 8)) i)
-      ((_ (var (ini lim)) body ...)
-       (cond
-        ((> (=> #'ini) (=> #'lim))
-         (fn (-> x '>)
-             #'var
-             #'ini
-             #'lim
-             -1
-             #'(body ...)))
-        (else
-         (fn (-> x '<) #'var #'ini #'lim 1 #'(body ...)))))
+      ;;     (for-n (i 0 7) i)
+      ;;     (for-n (i 7 0) i)
+      ((_ (var a1 a2) body ...)
+       (fn #'var #'a1 #'a2 #f #'(body ...)))
 
       ;;     (for-n (i 8) i)
-      ((_ (var lim) body ...)
-       (fn (-> x '<) #'var 0 #'lim 1 #'(body ...)))
+      ((_ (var a1) body ...)
+       (fn #'var #'a1 #f #f #'(body ...)))
 
-      ;;     (for-n (i 8 2) i)
-      ((_ (var lim step) body ...)
-       (cond
-        ((< (=> #'step) 0) #'(quote ()))
-        (else
-         (fn (-> x '<) #'var 0 #'lim #'step #'(body ...))))))))
+      )))
 
+
+;; Run indeces through specified values and execute the body with the
+;; swept value. Collect the body return values to a list.
+;;
+;;     (for-n (i 8) i)       ; 0 -> 7 by 1
+;;     (for-n (i 3 7) i)     ; 3 -> 7 by 1
+;;     (for-n (i 7 3) i)     ; 7 -> 3 by 1
+;;     (for-n (i 3 7 2) i)   ; 3 -> 7 by 2
+;;     (for-n (i 7 3 2) i)   ; 7 -> 3 by 2
+;;
 (define-syntax for-n (lambda (x) (for-n-trans x for-n-repeat)))
 
 ;; Run indeces through specified values and execute the body with the
@@ -581,7 +612,6 @@ before the last two are applied to all.
 
 ;; (for-n (i 10) (display i) (newline) i)
 ;; (for-n! (i 10) (display i) (newline))
-
 
 
 
