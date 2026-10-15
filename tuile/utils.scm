@@ -127,6 +127,7 @@
    pi
    math-pi
    math-e
+   twoc
    log2
    ilog2
    div
@@ -1168,6 +1169,12 @@ comparator FN.
 
 ;; E = 2.718281828459045
 (define math-e (exp 1))
+
+;; Two's complement conversion
+(define (twoc value bits)
+  (if (< value 0)
+      (+ (expt 2 bits) value)
+      value))
 
 ;; Base 2 logarithm.
 (define (log2 n)
