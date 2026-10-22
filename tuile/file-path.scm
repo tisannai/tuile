@@ -70,6 +70,7 @@
             fps-base
             fps-ext
             fps-end
+            fps-tag
             fps-dir
             fps-host
             fps-type
@@ -136,6 +137,13 @@
         (- len 1)
         len)))
 
+(define (fps-end-return fps a b)
+  (if (and a
+           (not (= a 0))
+           (not (char=? (string-ref fps (1- a)) #\/)))
+      (substring fps (1+ a) b)
+      #f))
+
 (define (fps-file-parts fps)
   (define (return ret)
     (let lp ((ends (cdr ret))
@@ -180,19 +188,13 @@
 
 ;; Return extension of file-string.
 (define (fps-ext fps)
-  (define (return dot end)
-    (if (and dot
-             (not (= dot 0))
-             (not (char=? (string-ref fps (1- dot)) #\/)))
-        (substring fps (1+ dot) end)
-        #f))
   (if (= (string-length fps) 0)
       #f
       (let ((end (fps-end-index fps)))
         (let lp ((idx (1- end)))
           (if (> idx 1)
               (cond
-               ((char=? (string-ref fps idx) #\.) (return idx end))
+               ((char=? (string-ref fps idx) #\.) (fps-end-return fps idx end))
                ((char=? (string-ref fps idx) #\/) #f)
                (else (lp (1- idx))))
               #f)))))
@@ -200,13 +202,6 @@
 
 ;; Return "full" extension of file-string.
 (define (fps-end fps)
-  ;; NOTE: "return" is same as in fps-ext.
-  (define (return dot end)
-    (if (and dot
-             (not (= dot 0))
-             (not (char=? (string-ref fps (1- dot)) #\/)))
-        (substring fps (1+ dot) end)
-        #f))
   (if (= (string-length fps) 0)
       #f
       (let ((end (fps-end-index fps)))
@@ -215,11 +210,30 @@
           (if (> idx 1)
               (cond
                ((char=? (string-ref fps idx) #\.) (lp (1- idx) idx))
-               ((char=? (string-ref fps idx) #\/) (return dot end))
+               ((char=? (string-ref fps idx) #\/) (fps-end-return fps dot end))
                (else (lp (1- idx) dot)))
               (if dot
-                  (return dot end)
+                  (fps-end-return fps dot end)
                   #f))))))
+
+
+;; Return "tag" extension of file-string.
+(define (fps-tag fps)
+  (if (= (string-length fps) 0)
+      #f
+      (let ((end (fps-end-index fps)))
+        (let lp ((idx (1- end))
+                 (fdot #f)
+                 (ldot #f))
+          (if (> idx 1)
+              (cond
+               ((char=? (string-ref fps idx) #\.)
+                (cond
+                 ((not fdot) (lp (1- idx) idx idx))
+                 (else (lp (1- idx) fdot idx))))
+               ((char=? (string-ref fps idx) #\/) (fps-end-return fps ldot fdot))
+               (else (lp (1- idx) fdot ldot)))
+              (fps-end-return fps ldot fdot))))))
 
 
 ;; Return "unresolved" directory name.
@@ -297,7 +311,11 @@
                   ""))
          (end (if (null? parts)
                   ""
-                  (string-join (cdr parts) "."))))
+                  (string-join (cdr parts) ".")))
+         (tag (if (or (null? parts)
+                      (<= (length parts) 2))
+                  ""
+                  (string-join (cdr (drop-right parts 1)) "."))))
 
     `((dir-type . ,dir-type)
       (dir      . ,dir)
@@ -306,6 +324,7 @@
       (base     . ,base)
       (ext      . ,ext)
       (end      . ,end)
+      (tag      . ,tag)
       (parts    . ,parts))))
 
 
@@ -791,6 +810,7 @@
 ;;     b          - basename
 ;;     e          - extname
 ;;     u          - endname (fullext)
+;;     t          - tagname (fullext without ext)
 ;;     d          - dir (relative path)
 ;;     p          - path (full/absolute path)
 ;;     [0-9]      - slice (from end by count)
@@ -912,6 +932,7 @@
                   ((#\b) (lp (cdr chars) args (cons 'basename ret)))
                   ((#\e) (lp (cdr chars) args (cons 'extname ret)))
                   ((#\u) (lp (cdr chars) args (cons 'endname ret)))
+                  ((#\t) (lp (cdr chars) args (cons 'tagname ret)))
                   ((#\d) (lp (cdr chars) args (cons 'dir ret)))
                   ((#\p) (lp (cdr chars) args (cons 'path ret)))
                   ((#\a) (lp (cdr chars)
@@ -1030,6 +1051,9 @@
 
                              ((endname) (lp (cdr commands)
                                             (cons (fps-end (fpd-file fpd)) ret)))
+
+                             ((tagname) (lp (cdr commands)
+                                            (cons (fps-tag (fpd-file fpd)) ret)))
 
                              ((dir) (lp (cdr commands)
                                         (cons (fpd->fps (fpd-dir fpd)) ret)))
