@@ -26,12 +26,13 @@
                   (lp (ep it) (cdr keys))
                   #f))))))
 
+;; (use-modules (tuile pr))
 ;; (define ll
 ;;   `(("copro" ((project-type                 "c-executable")
 ;;               (library-dependencies         ("como" "slider" "plinth"))
 ;;               (compile-options-for-release  ("-Wall" "-fPIC""-O3"))
 ;;               (version                      "0.0.1")))))
 ;;
-;; (use-modules (tuile pr))
 ;; (ppr (llist-ref ll "copro"))
 ;; (ppr (llist-ref-path ll "copro" 'version))
+;; (ppr (llist-ref-path ll (list "copro" 'version)))
