@@ -9,7 +9,7 @@
    ))
 
 
-(define ep cadr)
+(define (ep v) (and v (cadr v)))
 
 (define (llist-ref ll key)
   (ep (assoc key ll)))
